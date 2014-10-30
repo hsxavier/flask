@@ -102,7 +102,7 @@ void free_tensor3(type ***t, long n1i, long n1f, long n2i, long n2f, long n3i, l
 
 // Import table (matrix[1..nr][1..nc]) from file:
 template <typename type>
-type **LoadTable(std::string filename, long *nr=NULL, long *nc=NULL) {
+type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   using std::ifstream;
   using std::string;
   using std::istringstream;
@@ -123,17 +123,16 @@ type **LoadTable(std::string filename, long *nr=NULL, long *nc=NULL) {
   inputline.str(outputline.str());
   while (inputline >> word) ncols++;
   while(!file.eof()) {getline(file,phrase); nrows++;}
-  std::cout<<"LoadTable allocated "<<nrows<<" lines and "<<ncols<<" columns for file "<<filename<<std::endl;
+  std::cout<<"LoadTable will allocate "<<nrows<<" lines and "<<ncols<<" columns for file "<<filename<<std::endl;
 
   // Loading values to table:
   file.clear();
   file.seekg(0);
-  table=matrix<type>(1,nrows,1,ncols);
-  for (i=1; i<=nrows; i++)
-    for (j=1; j<=ncols; j++)
+  table=matrix<type>(offset,nrows+offset-1,offset,ncols+offset-1);
+  for (i=offset; i<nrows+offset; i++)
+    for (j=offset; j<ncols+offset; j++)
       if (!(file >> table[i][j])) error("LoadTable: more data expected in file "+filename);
   if(file >> word) error("LoadTable: data was ignored in "+filename);
-  
   *nr=nrows; *nc=ncols;
 
   file.close();
@@ -142,13 +141,13 @@ type **LoadTable(std::string filename, long *nr=NULL, long *nc=NULL) {
 
 // Print table:
 template <typename type>
-void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &std::cout) {
+void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {
   long i, j;
   
   (*output).setf(std::ios_base::showpoint);
   (*output).precision(6);
-  for (i=1; i<=nrows; i++) {
-    for (j=1; j<=ncols; j++) {
+  for (i=offset; i<nrows+offset; i++) {
+    for (j=offset; j<ncols+offset; j++) {
       (*output).width(10); *output << table[i][j] << " ";
     }
     *output << std::endl;

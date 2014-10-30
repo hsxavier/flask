@@ -23,25 +23,10 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=38;
-  enum          par_index         {CATALOG_IN, CATALOGTYPE, SORTBY, TARGETCOORD, OUTCATALOG, OMEGA_mh2, OMEGA_Lh2, 
-				   W_DE, GRIDSIZE, GRIDWINDOW, OUTGRID, OUTKMODES, OMEGA_bh2, 
-				   HUBBLE, OMEGA_nuh2, N_nu, PK_Z, PK_DELTAH, PK_NS, SRC_PK_OUT, SRC_KMODES_OUT, 
-				   SRC_KMODES_SEED, SRC_KMODES_KMAX, SRC_KMODES_dK, SRC_PK_RANGE, SRC_PK_RES, 
-				   START_AT, END_AT, SRC_DENSITY_OUT, SRC_KMODES_HOLD, SMP_SEED, SMP_BIAS, SMP_N, 
-				   SMP_OUT, CATALOG_CROP, CROP_MIN, CROP_MAX, SKIP_SAMPLING};
-  const string  par_name[npars] = {"CATALOG_IN", "CATALOGTYPE", "SORTBY", "TARGETCOORD", "OUTCATALOG", "OMEGA_mh2", "OMEGA_Lh2", 
-				   "W_DE", "GRIDSIZE", "GRIDWINDOW", "OUTGRID", "OUTKMODES", "OMEGA_bh2", 
-				   "HUBBLE", "OMEGA_nuh2", "N_nu", "PK_Z", "PK_DELTAH", "PK_NS", "SRC_PK_OUT", "SRC_KMODES_OUT", 
-				   "SRC_KMODES_SEED", "SRC_KMODES_KMAX", "SRC_KMODES_dK", "SRC_PK_RANGE", "SRC_PK_RES", 
-				   "START_AT", "END_AT", "SRC_DENSITY_OUT", "SRC_KMODES_HOLD", "SMP_SEED", "SMP_BIAS", "SMP_N", 
-				   "SMP_OUT", "CATALOG_CROP", "CROP_MIN", "CROP_MAX", "SKIP_SAMPLING"};
-  const int     par_type[npars] = {s, i1, i1, i1, s, d1, d1, 
-				   d1, d3, i1, s, s, d1, 
-				   d1, d1, i1, d1, d1, d1, s, s, 
-				   i1, d3, d3, d2, d1, 
-				   i1, i1, s, s, i1, d1, i1,
-				   s, i1, d3, d3, i1};
+  const int     npars=1;
+  enum          par_index         {COV_MATRIX};
+  const string  par_name[npars] = {"COV_MATRIX"};
+  const int     par_type[npars] = {s};
   // END OF PARAMETER SETTINGS.
 }
 
