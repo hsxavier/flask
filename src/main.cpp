@@ -20,9 +20,10 @@ int main (int argc, char *argv[]) {
   gsl_matrix *CovMatrix; long CovSize;
   int status, i, j;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
-  double *means, *shifts; long nmeans, nshifts;
+  double *means, *variances, *shifts; long nmeans, nshifts;
   void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0);
   int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
+  double Gauss2LNvar(double gvar, double mean, double variance, double shift);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
   // Opening debug file for dumping information about the program:
@@ -42,8 +43,11 @@ int main (int argc, char *argv[]) {
   // Read input data:
   CovMatrix = LoadGSLMatrix(config.reads("COV_MATRIX"));
   CovSize   = CovMatrix->size1;
+  variances = vector<double>(0,CovSize-1);
+  for (i=0; i<CovSize; i++) variances[i] = CovMatrix->data[i*CovSize+i];
   means     = LoadList<double>(config.reads("MEANS"), &nmeans);
   shifts    = LoadList<double>(config.reads("SHIFTS"), &nshifts);
+  
 
   // Input sanity checks:
   cout << "Performing sanity checks... "; cout.flush();
@@ -75,11 +79,15 @@ int main (int argc, char *argv[]) {
     
     // Generate correlated gaussian variables according to CovMatrix:
     CorrGauss(gaus1, CovMatrix, gaus0);
-    debugfile << gaus1[0] << " " << gaus1[1] << " " << gaus1[2] << endl;
+    // Compute lognormal variables:
+    for (i=0; i<CovSize; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
+    debugfile << gaus0[0] << " " << gaus0[1] << " " << gaus0[2] << endl;
   }
   
 
   // End of the program
+  free_vector(shifts,0,CovSize-1);
+  free_vector(means,0,CovSize-1);
   free_vector(gaus0,0,CovSize-1);
   free_vector(gaus1,0,CovSize-1);
   gsl_rng_free(rnd);
@@ -125,3 +133,13 @@ int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *
   return status;
 }
 
+
+/*** Compute a log-normal variable from a gaussian one ***/
+double Gauss2LNvar(double gvar, double mean, double variance, double shift) {
+  double expsigma2, expmu;
+  
+  expsigma2 = 2 + (variance-mean-shift)/pow(mean+shift,2);
+  expmu = (mean+shift)/sqrt(expsigma2);
+
+  return expmu*exp(gvar)-shift;
+}
