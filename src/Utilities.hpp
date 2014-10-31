@@ -139,6 +139,37 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   return table;
 }
 
+// Import table (matrix[1..nr][1..nc]) from file:
+template <typename type>
+type *LoadList(std::string filename, long *nitems, int offset=0) {
+  using std::ifstream;
+  using std::string;
+  long n=0, i;
+  ifstream file;
+  string item;
+  type *list;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("LoadList: cannot open file.");
+  
+  // Count entries:
+  while(file >> item) n++;
+  std::cout<<"LoadList will allocate "<<n<<" entries for file "<<filename<<std::endl;
+
+  // Loading values to table:
+  file.clear();
+  file.seekg(0);
+  list=vector<type>(offset,n+offset-1);
+  for (i=offset; i<n+offset; i++)
+    if (!(file >> list[i])) error("LoadList: more data expected in file "+filename);
+  if(file >> item) error("LoadList: data was ignored in "+filename);
+  *nitems = n;
+
+  file.close();
+  return list;
+}
+
 // Print table:
 template <typename type>
 void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {

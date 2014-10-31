@@ -4,6 +4,7 @@
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
+#include <math.h>               // Log function.
 
 std::ofstream debugfile;        // Send debugging messages to this file.
 
@@ -14,18 +15,21 @@ std::ofstream debugfile;        // Send debugging messages to this file.
 /********************/
 int main (int argc, char *argv[]) {
   using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
-  using namespace ParDef; ParameterList config;                             // Easy configuration file use.  
+  using namespace ParDef; ParameterList config;                             // Easy configuration file use.
+  char message[100];
   gsl_matrix *CovMatrix; long CovSize;
   int status, i, j;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
+  double *means, *shifts; long nmeans, nshifts;
   void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0);
+  int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
-  /*** Opening debug file for dumping information about the program ***/
+  // Opening debug file for dumping information about the program:
   debugfile.open("debug.log");
   if (!debugfile.is_open()) error("main: cannot open debug file.");
 
-  /*** Loading config file ***/
+  // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
   cout << endl;
@@ -34,15 +38,31 @@ int main (int argc, char *argv[]) {
   config.lineload(argc, argv);
   config.show();
   cout << endl; 
-
-  // Read Covariance matrix:
+  
+  // Read input data:
   CovMatrix = LoadGSLMatrix(config.reads("COV_MATRIX"));
   CovSize   = CovMatrix->size1;
+  means     = LoadList<double>(config.reads("MEANS"), &nmeans);
+  shifts    = LoadList<double>(config.reads("SHIFTS"), &nshifts);
+
+  // Input sanity checks:
+  cout << "Performing sanity checks... "; cout.flush();
+  if (CovMatrix->size1 != CovMatrix->size2) error("main: Cov. matrix is not square.");
+  if (CovSize != nmeans) error("main: Cov. matrix and means vector size do not match.");
+  if (CovSize != nshifts) error("main: Cov. matrix and shifts vector size do not match.");
+  for (i=0; i<CovSize; i++) if(means[i]+shifts[i]<=0) { 
+      sprintf(message, "main: mean+shift at position %d must be greater than zero.", i); error(message);
+    }
+  cout << "done.\n";
+
+  // Transform to gaussian variables in place:
+  status=GetGaussCov(CovMatrix, CovMatrix, means, shifts);
+  if (status==EDOM) error("main: GetGaussCov found bad log arguments.");
+  //PrintGSLMatrix(CovMatrix);
+
   // Perform a Cholesky decomposition:
   status = gsl_linalg_cholesky_decomp(CovMatrix);
   if (status==GSL_EDOM) error("Cholesky decomposition failed: matrix is not positive-definite.");
-  
-  //PrintGSLMatrix(CovMatrix);
   
   // Generate independent 1sigma random variables:
   gaus0 = vector<double>(0, CovSize-1);
@@ -50,21 +70,21 @@ int main (int argc, char *argv[]) {
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("main: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
-  for (j=0; j<1000000; j++) {
+  for (j=0; j<100000; j++) {
     for (i=0; i<CovSize; i++) gaus0[i] = gsl_ran_gaussian(rnd, 1.0); 
-    //Generate correlated gaussian variables according to CovMatrix:
+    
+    // Generate correlated gaussian variables according to CovMatrix:
     CorrGauss(gaus1, CovMatrix, gaus0);
     debugfile << gaus1[0] << " " << gaus1[1] << " " << gaus1[2] << endl;
   }
   
-  
 
-  /*** End of the program ***/
+  // End of the program
   free_vector(gaus0,0,CovSize-1);
   free_vector(gaus1,0,CovSize-1);
   gsl_rng_free(rnd);
   gsl_matrix_free(CovMatrix);
-  debugfile.close(); // Close debug file.
+  debugfile.close();
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
   return 0;
@@ -80,3 +100,28 @@ void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0) {
     for(j=0; j<=i; j++) gaus1[i] += L->data[i*L->size1+j] * gaus0[j]; 
   }
 }
+
+
+/*** Transform Cov. matrix of lognormal variables into 
+     the Cov. matrix of associated gaussian variables  ***/
+int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts) {
+  double arg;
+  long i, j;
+  char message[100]; int status=0; double bad=-666.0;
+  
+  for(i=0; i<lnCovar->size1; i++)
+    for(j=0; j<lnCovar->size2; j++) {
+      arg = lnCovar->data[i*(lnCovar->size1)+j]/(means[i]+shifts[i])/(means[j]+shifts[j]) + 1.0;
+      // If arg<0, it is an error.
+      if (arg<=0) {
+	sprintf(message,"GetCovOfGauss: lnCovar(%ld, %ld) leads to bad log argument, gCovar(%ld, %ld) set to %g.",i,j,i,j,bad);
+	warning(message);
+	status=EDOM;
+	gCovar->data[i*(gCovar->size1)+j] = bad;
+      }
+      // If arg>0, it is valid.
+      else gCovar->data[i*(gCovar->size1)+j] = log(arg);  
+    }
+  return status;
+}
+

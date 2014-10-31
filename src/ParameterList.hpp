@@ -23,10 +23,10 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=2;
-  enum          par_index         {COV_MATRIX, RNDSEED};
-  const string  par_name[npars] = {"COV_MATRIX", "RNDSEED"};
-  const int     par_type[npars] = {s, i1};
+  const int     npars=4;
+  //enum          par_index         {COV_MATRIX, RNDSEED};
+  const string  par_name[npars] = {"COV_MATRIX", "RNDSEED","MEANS", "SHIFTS"};
+  const int     par_type[npars] = {s, i1, s, s};
   // END OF PARAMETER SETTINGS.
 }
 
