@@ -16,7 +16,8 @@ std::ofstream debugfile;        // Send debugging messages to this file.
 int main (int argc, char *argv[]) {
   using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
-  char message[100];
+  char message[100];                                                        // Handling warnings and errors.
+  std::ofstream outfile;                                                    // File for output.
   gsl_matrix *CovMatrix; long CovSize;
   int status, i, j;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
@@ -28,7 +29,7 @@ int main (int argc, char *argv[]) {
 
   // Opening debug file for dumping information about the program:
   debugfile.open("debug.log");
-  if (!debugfile.is_open()) error("main: cannot open debug file.");
+  if (!debugfile.is_open()) warning("main: cannot open debug file.");
 
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
@@ -62,7 +63,15 @@ int main (int argc, char *argv[]) {
   // Transform to gaussian variables in place:
   status=GetGaussCov(CovMatrix, CovMatrix, means, shifts);
   if (status==EDOM) error("main: GetGaussCov found bad log arguments.");
-  //PrintGSLMatrix(CovMatrix);
+  // Output gaussian covariance matrix if asked:
+  if (config.reads("GCOV_OUT")!="0") {
+    outfile.open(config.reads("GCOV_OUT").c_str());
+    if (!outfile.is_open()) warning("main: cannot open GCOV_OUT file.");
+    else { 
+      PrintGSLMatrix(CovMatrix, &outfile); outfile.close(); 
+      cout << "Gaussian covariance matrix written to "+config.reads("GCOV_OUT")<<endl;
+    }
+  }
 
   // Perform a Cholesky decomposition:
   status = gsl_linalg_cholesky_decomp(CovMatrix);
@@ -138,7 +147,7 @@ int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *
 double Gauss2LNvar(double gvar, double mean, double variance, double shift) {
   double expsigma2, expmu;
   
-  expsigma2 = 2 + (variance-mean-shift)/pow(mean+shift,2);
+  expsigma2 = 1 + variance/pow(mean+shift,2);
   expmu = (mean+shift)/sqrt(expsigma2);
 
   return expmu*exp(gvar)-shift;
