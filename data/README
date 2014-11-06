@@ -1,0 +1,26 @@
+** cl_toy.dat
+   Just a powerlaw for C(l), based on nothing.
+
+** gcov_out.dat
+   Gaussian covariance matrix generated from the COV_MATRIX file (input matrix).
+
+** lncovmatrix.dat
+   3x3 symmetric positive-definite matrix that also leads to a gaussian matrix 
+   with the same properties.
+
+** means.dat 
+   File containing the 3 means of the variables described by the input matrix.
+
+** ps_test_grf.dat
+   C(l) of convergence in log bins, computed using Limber's approximation. 
+   See ps_test_grf.README for more details.
+
+** ps_test_grf.README
+   Information about ps_test_grf.dat sent from Benjamin Joachimi 
+   to Henrique Xavier via email.
+
+** shifts.dat
+   3 shifts (one for each variable) of the lognormal distribution. This is 
+   ignored if distribution is gaussian. -shift is the minimum value reached 
+   by the distribution.
+

@@ -18,6 +18,7 @@ int main (int argc, char *argv[]) {
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
   char message[100];                                                        // Handling warnings and errors.
   std::ofstream outfile;                                                    // File for output.
+  enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix; long CovSize;
   int status, i, j;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
@@ -42,41 +43,54 @@ int main (int argc, char *argv[]) {
   cout << endl; 
   
   // Read input data:
+  if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
+  else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
+  else error("main: unknown DIST: "+config.reads("DIST"));
+  
   CovMatrix = LoadGSLMatrix(config.reads("COV_MATRIX"));
   CovSize   = CovMatrix->size1;
   variances = vector<double>(0,CovSize-1);
   for (i=0; i<CovSize; i++) variances[i] = CovMatrix->data[i*CovSize+i];
   means     = LoadList<double>(config.reads("MEANS"), &nmeans);
-  shifts    = LoadList<double>(config.reads("SHIFTS"), &nshifts);
+  if (dist==lognormal)
+    shifts  = LoadList<double>(config.reads("SHIFTS"), &nshifts);
   
-
+  
   // Input sanity checks:
   cout << "Performing sanity checks... "; cout.flush();
   if (CovMatrix->size1 != CovMatrix->size2) error("main: Cov. matrix is not square.");
   if (CovSize != nmeans) error("main: Cov. matrix and means vector size do not match.");
-  if (CovSize != nshifts) error("main: Cov. matrix and shifts vector size do not match.");
-  for (i=0; i<CovSize; i++) if(means[i]+shifts[i]<=0) { 
-      sprintf(message, "main: mean+shift at position %d must be greater than zero.", i); error(message);
-    }
+  if (dist==lognormal) {
+    if (CovSize != nshifts) error("main: Cov. matrix and shifts vector size do not match.");
+    for (i=0; i<CovSize; i++) if(means[i]+shifts[i]<=0) { 
+	sprintf(message, "main: mean+shift at position %d must be greater than zero.", i); error(message);
+      }
+  }
   cout << "done.\n";
-
-  // Transform to gaussian variables in place:
-  status=GetGaussCov(CovMatrix, CovMatrix, means, shifts);
-  if (status==EDOM) error("main: GetGaussCov found bad log arguments.");
-  // Output gaussian covariance matrix if asked:
-  if (config.reads("GCOV_OUT")!="0") {
-    outfile.open(config.reads("GCOV_OUT").c_str());
-    if (!outfile.is_open()) warning("main: cannot open GCOV_OUT file.");
-    else { 
-      PrintGSLMatrix(CovMatrix, &outfile); outfile.close(); 
-      cout << "Gaussian covariance matrix written to "+config.reads("GCOV_OUT")<<endl;
+  
+  // If DIST=LOGNORMAL, transform to gaussian variables in place:
+  if (dist==lognormal) {
+    cout << "Transforming COV_MATRIX to gaussian... "; cout.flush();
+    status=GetGaussCov(CovMatrix, CovMatrix, means, shifts);
+    if (status==EDOM) error("main: GetGaussCov found bad log arguments.");
+    cout << "done.\n";
+    // Output gaussian covariance matrix if asked:
+    if (config.reads("GCOV_OUT")!="0") {
+      outfile.open(config.reads("GCOV_OUT").c_str());
+      if (!outfile.is_open()) warning("main: cannot open GCOV_OUT file.");
+      else { 
+	PrintGSLMatrix(CovMatrix, &outfile); outfile.close(); 
+	cout << "Gaussian covariance matrix written to "+config.reads("GCOV_OUT")<<endl;
+      }
     }
   }
 
   // Perform a Cholesky decomposition:
+  cout << "Performing a Cholesky decomposition of COV_MATRIX... "; cout.flush();
   status = gsl_linalg_cholesky_decomp(CovMatrix);
   if (status==GSL_EDOM) error("Cholesky decomposition failed: matrix is not positive-definite.");
-  
+  cout << "done.\n";
+
   // Generate independent 1sigma random variables:
   gaus0 = vector<double>(0, CovSize-1);
   gaus1 = vector<double>(0, CovSize-1);
@@ -88,14 +102,20 @@ int main (int argc, char *argv[]) {
     
     // Generate correlated gaussian variables according to CovMatrix:
     CorrGauss(gaus1, CovMatrix, gaus0);
-    // Compute lognormal variables:
-    for (i=0; i<CovSize; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
+    
+    // If DIST=LOGNORMAL, transform variables to lognormal:
+    if (dist==lognormal)
+      for (i=0; i<CovSize; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
+    else if (dist==gaussian) 
+      for (i=0; i<CovSize; i++) gaus0[i] = gaus1[i] + means[i];
+    
+
     debugfile << gaus0[0] << " " << gaus0[1] << " " << gaus0[2] << endl;
   }
   
 
   // End of the program
-  free_vector(shifts,0,CovSize-1);
+  if (dist==lognormal) free_vector(shifts,0,CovSize-1);
   free_vector(means,0,CovSize-1);
   free_vector(gaus0,0,CovSize-1);
   free_vector(gaus1,0,CovSize-1);
