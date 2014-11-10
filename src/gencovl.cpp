@@ -14,7 +14,6 @@
 /********************/
 int main (int argc, char *argv[]) {
   using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
-  using std::cin;
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
   char message[MAXINPUT], aux[MAXINPUT];
   std::string filename;

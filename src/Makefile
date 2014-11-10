@@ -9,7 +9,7 @@ SRC = ../src
 GSLFLAGS = -lgsl -lgslcblas
 
 # General instructions:
-all: $(BIN)/$(PROGRAM_NAME) $(BIN)/gencovl
+all: $(BIN)/$(PROGRAM_NAME) $(BIN)/gencovl $(BIN)/cl2var.sh
 
 clean:
 	rm -f $(BIN)/*
@@ -38,3 +38,7 @@ $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 
 $(BIN)/gencovl: $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o
 	$(COMP) $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o -o $@
+
+$(BIN)/cl2var.sh: $(SRC)/cl2var.sh
+	cp $(SRC)/cl2var.sh $@
+	chmod 744 $@
