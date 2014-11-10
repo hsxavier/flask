@@ -36,5 +36,5 @@ $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 
 # Instructions for auxiliary programs:
 
-$(BIN)/gencovl: $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o
-	$(COMP) $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o -o $@
+$(BIN)/gencovl: $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o
+	$(COMP) $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o -o $@
