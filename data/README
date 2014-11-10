@@ -24,3 +24,9 @@
    ignored if distribution is gaussian. -shift is the minimum value reached 
    by the distribution.
 
+** Cf_z_f_z_.dat
+   These are C(l)s (angular power spectrum) for two fields at two different redshifts.
+   These files are actually just ps_test_grf.dat multiplied by elements of a covariance 
+   matrix between all fields and redshifts. Since this matrix is the same for all l, 
+   the covariance between the fields and redshifts at all ls are the same.
+ 

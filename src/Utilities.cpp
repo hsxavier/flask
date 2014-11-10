@@ -6,6 +6,29 @@
 #include <iostream>
 #include <cstdlib>   // to use exit()
 
+
+/****** Import vertical vectors from file ******/
+void ImportVecs(double **matriz, long length, long nvecs, const char *filename) {
+   
+   /* Declaração das variáveis */
+   FILE *arq;
+   char message[100];
+   long i, j;
+   
+   if ((arq=fopen(filename, "r"))==NULL) {
+     sprintf(message,"importvecs: cannot open '%s' file.", filename);
+     error(message);
+   }
+    
+   /* Leitura da matriz */
+   for (i=0; i<length; i++)
+     for (j=0; j<nvecs; j++)
+       fscanf(arq, "%lf", &matriz[j][i]);
+   
+   fclose(arq);
+}
+
+
 // Error handling functions:
 void error (const std::string message) {
   //using std::cout;

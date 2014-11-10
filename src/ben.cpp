@@ -9,12 +9,46 @@
 #define LN2 0.69314718
 
 int main() {
-  double **cl;
-  long ncl, status;
-
-  cl = LoadTable<double>("cltest.dat", &ncl, &status);
+  void importvecs(double **matriz, long length, long nvecs, char *filename);
+  double interpol_linear_extra_1D(double *ax,int NX,double *z,double x);
+  double* wrapper[2];
+  double *cov, *ll;
+  long ncl, i;
+  char file[]="../data/ps_test_grf.dat";
   
+  ncl=200;
+
+  cov = vector<double>(0,ncl);
+  ll  = vector<double>(0,ncl);
+  wrapper[0]=ll;
+  wrapper[1]=cov;
+  importvecs(wrapper,ncl,2,file);
+  
+  for(i=1; i<=10000; i++)
+    printf("%ld   %g\n", i, interpol_linear_extra_1D(ll, ncl, cov, (double)i));
+
   return 0;
+}
+
+/****** Import vertical vectors from file ******/
+void importvecs(double **matriz, long length, long nvecs, char *filename) {
+   
+   /* Declaração das variáveis */
+   FILE *arq;
+   char message[100];
+   long i, j;
+   
+   if ((arq=fopen(filename, "r"))==NULL) {
+     sprintf(message,"importvecs: cannot open '%s' file.", filename);
+     error(message);
+   }
+    
+   /* Leitura da matriz */
+   for (i=0; i<length; i++)
+     for (j=0; j<nvecs; j++)
+       fscanf(arq, "%lf", &matriz[j][i]);
+   
+   fclose(arq);
 }
 
 void bisect_interpol(double *a,int dim,double x,int *erg)

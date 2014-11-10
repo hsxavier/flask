@@ -17,6 +17,9 @@ int warning (const std::string message);
 // Random real generator:
 double random(long *idum);
 double gasdev(long *idum);
+// Importing data:
+void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
+
 
 
 /*** TEMPLATES ***/
@@ -138,6 +141,7 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   file.close();
   return table;
 }
+
 
 // Import table (matrix[1..nr][1..nc]) from file:
 template <typename type>

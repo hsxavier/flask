@@ -23,9 +23,9 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=6;
-  const string  par_name[npars] = {"COV_MATRIX", "RNDSEED","MEANS", "SHIFTS", "GCOV_OUT", "DIST"};
-  const int     par_type[npars] = {s, i1, s, s, s, s};
+  const int     npars=8;
+  const string  par_name[npars] = {"COV_PREFIX", "RNDSEED", "MEANS", "SHIFTS", "GCOV_OUT", "DIST", "NFIELDS", "NZBINS"};
+  const int     par_type[npars] = {s, i1, s, s, s, s, i1, i1};
   // END OF PARAMETER SETTINGS.
 }
 
