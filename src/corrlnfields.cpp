@@ -7,6 +7,7 @@
 #include <math.h>               // Log function.
 #include <cstdlib>              // For function 'system'.
 #include <string>               // For function 'to_string'.
+#include <iomanip>              // For 'setprecision'.
 
 std::ofstream debugfile;        // Send debugging messages to this file.
 
@@ -19,19 +20,21 @@ int main (int argc, char *argv[]) {
   using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
   char message[100];                                                        // Handling warnings and errors.
-  std::string filename, temp;
-  std::ofstream outfile;                                                    // File for output.
+  std::string filename, tempstr;
+  std::ofstream outfile, samplefile;                                        // File for output.
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix; long CovSize;
-  int status, i, j;
+  int status, i, j, l, m, mMax, NofM;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
   double *means, *variances, *shifts; long nmeans, nshifts;
+  // Functions defined in the end of this file:
   void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0);
   int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
   double Gauss2LNvar(double gvar, double mean, double variance, double shift);
   int getll(const std::string filename);
   std::string getllstr(const std::string filename);
+  std::string SampleHeader(std::string fieldsfile);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
   // Opening debug file for dumping information about the program:
@@ -63,11 +66,18 @@ int main (int argc, char *argv[]) {
     shifts  = LoadList<double>(config.reads("SHIFTS"), &nshifts);
   // - Covariance matrices list
   sprintf(message, "ls %s* > corrlnfields.temp", config.reads("COV_PREFIX").c_str());
-  system(message);
+  status=system(message);
+  if (status!=0) error("Could not obtain cov. matrices list through 'ls' command.");
   infile.open("corrlnfields.temp");
   if (!infile.is_open()) error("corrlnfields: cannot open file corrlnfields.temp");
+  // - Number of alm's for fixed l to generate
+  NofM = config.readi("NM");
   
-  
+  // Open file to receive alm's:
+  samplefile.open(config.reads("SAMPLE_OUT").c_str());
+  if (!samplefile.is_open()) 
+    warning("corrlnfields: cannot open "+config.reads("SAMPLE_OUT")+" file.");
+  samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl;
   // LOOP over l's:
   while (infile >> filename) {
     cout << "** Working with file '"+filename+"':\n   ";
@@ -98,13 +108,13 @@ int main (int argc, char *argv[]) {
       cout << "done.\n";
       // Output gaussian covariance matrix if asked:
       if (config.reads("GCOVOUT_PREFIX")!="0") {
-	temp = config.reads("GCOVOUT_PREFIX") + getllstr(filename) + ".dat";
-	outfile.open(temp.c_str());
+	tempstr = config.reads("GCOVOUT_PREFIX") + getllstr(filename) + ".dat";
+	outfile.open(tempstr.c_str());
 	if (!outfile.is_open()) 
-	  warning("corrlnfields: cannot open "+temp+" file.");
+	  warning("corrlnfields: cannot open "+tempstr+" file.");
 	else { 
 	  PrintGSLMatrix(CovMatrix, &outfile); outfile.close(); 
-	  cout << "   Gaussian covariance matrix written to "+temp << endl;
+	  cout << "   Gaussian covariance matrix written to "+tempstr << endl;
 	}
       }
     }
@@ -115,11 +125,14 @@ int main (int argc, char *argv[]) {
     if (status==GSL_EDOM) error("Cholesky decomposition failed: matrix is not positive-definite.");
     cout << "done.\n";
     
-    // Generate independent 1sigma random variables:
+    // LOOP over realizations of alm's for a fixed l:
     cout << "   Generating random variables... "; cout.flush();
     gaus0 = vector<double>(0, CovSize-1);
     gaus1 = vector<double>(0, CovSize-1);
-    for (j=0; j<1000; j++) {
+    l = getll(filename);
+    if (NofM<0) mMax=l; else mMax=NofM-l-1; 
+    for (m=-l; m<=mMax; m++) {
+      // Generate independent 1sigma random variables:
       for (i=0; i<CovSize; i++) gaus0[i] = gsl_ran_gaussian(rnd, 1.0); 
       
       // Generate correlated gaussian variables according to CovMatrix:
@@ -131,17 +144,24 @@ int main (int argc, char *argv[]) {
       else if (dist==gaussian) 
 	for (i=0; i<CovSize; i++) gaus0[i] = gaus1[i] + means[i];
       
-      sprintf(message,"%d %.8g %.8g %.8g %.8g\n",getll(filename),gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
-      debugfile << message;
+      //sprintf(message,"%d %d %.8g %.8g %.8g %.8g",l,m,gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
+      //samplefile << message << endl;
+      samplefile << l <<" "<< m;
+      for (i=0; i<CovSize; i++) samplefile <<" "<<std::setprecision(10)<< gaus0[i];
+      samplefile<<endl;
+
     }
     cout << "done.\n";
-    
+    // End of LOOP over realizations of alm's for fixed l.
+
     // Free memory allocated inside the loop: avoid memory leakage!
     gsl_matrix_free(CovMatrix);
     free_vector(gaus0,0,CovSize-1);
     free_vector(gaus1,0,CovSize-1);
     if (dist==lognormal) free_vector(variances, 0, CovSize-1);
-  } // End of LOOP over l's.
+  } 
+  samplefile.close();
+  // End of LOOP over l's.
 
   // End of the program
   infile.close();
@@ -180,7 +200,7 @@ int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *
       arg = lnCovar->data[i*(lnCovar->size1)+j]/(means[i]+shifts[i])/(means[j]+shifts[j]) + 1.0;
       // If arg<0, it is an error.
       if (arg<=0) {
-	sprintf(message,"GetCovOfGauss: lnCovar(%ld, %ld) leads to bad log argument, gCovar(%ld, %ld) set to %g.",i,j,i,j,bad);
+	sprintf(message,"GetGaussCov: lnCovar[%ld][%ld] leads to bad log argument, gCovar[%ld][%ld] set to %g.",i,j,i,j,bad);
 	warning(message);
 	status=EDOM;
 	gCovar->data[i*(gCovar->size1)+j] = bad;
@@ -228,4 +248,20 @@ std::string getllstr(const std::string filename) {
   std::stringstream ss;
   ss << getll(filename);
   return ss.str();
+}
+
+
+
+std::string SampleHeader(std::string fieldsfile) {
+  std::stringstream ss;
+  int **fz; 
+  long nr, nc, i, j;
+
+  fz = LoadTable<int>(fieldsfile, &nr, &nc, 1);
+  if (nc!=2) error("SampleHeader: expect 2 columns in file "+fieldsfile);
+ 
+  ss << "# l, m";
+  for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2];
+  
+  return ss.str(); 
 }

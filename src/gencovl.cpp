@@ -26,6 +26,7 @@ int main (int argc, char *argv[]) {
   void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2);
   void CountEntries(std::string filename, long *nr, long *nc);
 
+  
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
@@ -94,10 +95,11 @@ int main (int argc, char *argv[]) {
   for (i=1; i<=N1*N2; i++) if (fnzSet[i]==0) error("Some position in CovMatrix is unclaimed.");
   free_vector(fnzSet, 1, N1*N2);
   // If positions are OK, print them out:
-  outfile.open(config.reads("FIELD_LIST").c_str());
-  if (!outfile.is_open()) error("Cannot open FIELD_LIST file.");
+  outfile.open(config.reads("FLIST_OUT").c_str());
+  if (!outfile.is_open()) error("Cannot open FLIST_OUT file.");
   PrintTable(fnz, N1*N2, 2, &outfile, 1);
   outfile.close();
+  cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
   free_matrix(fnz, 1, N1*N2, 1, 2);
 
   // Set the rest of CovMatrix as a symmetric matrix:
@@ -118,7 +120,7 @@ int main (int argc, char *argv[]) {
   strcpy(aux, config.reads("COVOUT_PREFIX").c_str());
   CovMatrix = matrix<double>(1, N1*N2, 1, N1*N2);
   for (n=1; n<=llout; n++) {
-    sprintf(message, "%s%d.dat", aux, n);
+    sprintf(message, "%s%s.dat", aux, ZeroPad(n,llout).c_str());
     outfile.open(message);
     for (i=1; i<=N1*N2; i++)
       for (j=1; j<=N1*N2; j++)

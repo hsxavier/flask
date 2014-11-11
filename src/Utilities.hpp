@@ -19,7 +19,8 @@ double random(long *idum);
 double gasdev(long *idum);
 // Importing data:
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
-
+// Formatting:
+std::string ZeroPad(int num, int max);
 
 
 /*** TEMPLATES ***/

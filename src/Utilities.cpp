@@ -5,7 +5,7 @@
 #include "Utilities.hpp"
 #include <iostream>
 #include <cstdlib>   // to use exit()
-
+#include <iomanip>   // for setw()
 
 /****** Import vertical vectors from file ******/
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename) {
@@ -137,3 +137,15 @@ double gasdev(long *idum) {
   }
 }
 /* (C) Copr. 1986-92 Numerical Recipes Software #?w,(1. */
+
+/*** Returns getll as string ***/
+std::string ZeroPad(int num, int max) {
+  std::stringstream ss;
+  int ndigits=1;
+  
+  while (max >= 10) {max=max/10; ndigits++;}
+  
+  
+  ss << std::setfill('0') << std::setw(ndigits) << num;
+  return ss.str();
+}
