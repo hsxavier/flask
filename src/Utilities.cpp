@@ -16,7 +16,7 @@ void ImportVecs(double **matriz, long length, long nvecs, const char *filename) 
    long i, j;
    
    if ((arq=fopen(filename, "r"))==NULL) {
-     sprintf(message,"importvecs: cannot open '%s' file.", filename);
+     sprintf(message,"ImportVecs: cannot open '%s' file.", filename);
      error(message);
    }
     
@@ -27,6 +27,22 @@ void ImportVecs(double **matriz, long length, long nvecs, const char *filename) 
    
    fclose(arq);
 }
+
+
+// Print table:
+void PrintVecs(double **table, long nrows, long ncols, std::ostream *output/* = &std::cout*/, int offset/*=0*/) {
+  long i, j;
+  
+  (*output).setf(std::ios_base::showpoint);
+  (*output).precision(6);
+  for (i=offset; i<nrows+offset; i++) {
+    for (j=offset; j<ncols+offset; j++) {
+      (*output).width(10); *output << table[j][i] << " ";
+    }
+    *output << std::endl;
+  }      
+}
+
 
 
 // Error handling functions:

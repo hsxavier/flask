@@ -18,8 +18,10 @@ clean:
 
 # Instructions for compiling main program:
 
-$(BIN)/$(PROGRAM_NAME): $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o $(OBJ)/gsl_aux.o 
-	$(COMP) $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o $(OBJ)/gsl_aux.o -o $@ $(GSLFLAGS)
+$(BIN)/$(PROGRAM_NAME): $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o
+	$(COMP) $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+		$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o -o $@ $(GSLFLAGS)
 
 $(OBJ)/ParameterList.o: $(SRC)/ParameterList.cpp $(SRC)/ParameterList.hpp $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/ParameterList.cpp -o $@
@@ -32,6 +34,9 @@ $(OBJ)/Utilities.o: $(SRC)/Utilities.cpp $(SRC)/Utilities.hpp
 
 $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 	$(COMP) -c $(SRC)/interpol.c -o $@
+
+$(OBJ)/s2kit10_naive.o: $(SRC)/s2kit10_naive.cpp $(SRC)/s2kit10_naive.hpp $(SRC)/interpol.h $(SRC)/Utilities.hpp
+	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@
 
 
 # Instructions for auxiliary programs:

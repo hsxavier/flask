@@ -2,6 +2,7 @@
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
+#include "s2kit10_naive.hpp"    // For Discrete Legendre Transforms.
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
 #include <math.h>               // Log function.
@@ -35,12 +36,21 @@ int main (int argc, char *argv[]) {
   int getll(const std::string filename);
   std::string getllstr(const std::string filename);
   std::string SampleHeader(std::string fieldsfile);
+  void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2);
+  void fzfz2ij (int a1, int a2, int b1, int b2, int *i, int *j, int N1, int N2);
+  void test_fzij (int N1, int N2);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
   // Opening debug file for dumping information about the program:
   debugfile.open("debug.log");
   if (!debugfile.is_open()) warning("corrlnfields: cannot open debug file.");
 
+  // Testing the code:
+  cout << "Testing the code... "; cout.flush();
+  test_fzij(3,11); test_fzij(13,4);
+  cout << "done.\n";
+
+  
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
@@ -50,12 +60,157 @@ int main (int argc, char *argv[]) {
   config.lineload(argc, argv);
   config.show();
   cout << endl; 
-  
-  // Read input data:
-  // - Type of simulation
+  // - Lognormal or Gausian realizations:
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
+  
+  // Listing files to use based on CL_PREFIX:
+  sprintf(message, "ls %s* > gencovl.temp", config.reads("CL_PREFIX").c_str());
+  system(message);
+  
+  /********************************************/
+  /*** PART 1: Load C(l)s and organize them ***/
+  /********************************************/
+  void CountEntries(std::string filename, long *nr, long *nc);
+  void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2);
+  const int NCLMAX=500;
+  int a1, a2, b1, b2, N1, N2, maxNl, **fnz, **NentMat;
+  long Nentries[NCLMAX], ncols;
+  double ***ll, ***Cov, *wrapper[2];
+  bool *fnzSet, **IsSet;
+  
+  // Get file list and find out how many C(l)s there are:  
+  i=0; N1=0; N2=0, maxNl=0;
+  infile.open("gencovl.temp");
+  if (!infile.is_open()) error("Cannot open file gencovl.temp");
+  while (infile >> filename) {
+    getcovid(filename, &a1, &a2, &b1, &b2);
+    if (a1>N1) N1=a1; if (b1>N1) N1=b1;                // Get number of fields.
+    if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
+    CountEntries(filename, &(Nentries[i]), &ncols);    // Get number of Nls.
+    if (ncols!=2) error("Wrong number of columns in file "+filename);
+    if (Nentries[i]>maxNl) maxNl=Nentries[i];          // Record maximum number of ls.
+    i++;
+    if (i>NCLMAX) error("Reached maximum number of C(l)s. Increase NCLMAX.");
+  }
+  infile.clear();
+  infile.seekg(0);
+  cout << "Nfields: " << N1 << " Nzs: " << N2 << endl;
+  
+  // Allocate memory to store C(l)s:
+  // First two indexes are CovMatrix indexes and last is for ll.
+  // fnz stores the order that the fields are stored in CovMatrix.
+  fnz     =     matrix<int>(1, N1*N2, 1, 2);               // Records what field is stored in each element of CovMatrix.
+  fnzSet  =    vector<bool>(1, N1*N2);                     // For bookkeeping.
+  ll      = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the ll for each C(l) file.
+  Cov     = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the C(l) for each C(l) file.
+  IsSet   =    matrix<bool>(1, N1*N2, 1, N1*N2);           // For bookkeeping.
+  NentMat =     matrix<int>(1, N1*N2, 1, N1*N2);           // Number of C(l) entries in file.
+  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) IsSet[i][j]=0;
+  for(i=1; i<=N1*N2; i++) fnzSet[i]=0;
+  
+  // Read C(l)s and store in data-cube:
+  m=0;
+  while (infile >> filename) {
+    // Find CovMatrix indexes of C(l):
+    getcovid(filename, &a1, &a2, &b1, &b2);
+    fzfz2ij(a1, a2, b1, b2, &i, &j, N1, N2); //i=(a1-1)*N2+a2; j=(b1-1)*N2+b2;
+    cout << filename << " goes to ["<<i<<", "<<j<<"]" << endl;
+    // Record the order of the fields in CovMatrix:
+    if (fnzSet[i]==0) { fnz[i][1] = a1; fnz[i][2] = a2; fnzSet[i] = 1; }
+    else if (fnz[i][1] != a1 || fnz[i][2] != a2) error("Field order in CovMatrix is messed up!"); 
+    if (fnzSet[j]==0) { fnz[j][1] = b1; fnz[j][2] = b2; fnzSet[j] = 1; }
+    else if (fnz[j][1] != b1 || fnz[j][2] != b2) error("Field order in CovMatrix is messed up!");
+    // Import data:
+    wrapper[0] = &(ll[i][j][0]);
+    wrapper[1] = &(Cov[i][j][0]);
+    ImportVecs(wrapper, Nentries[m], 2, filename.c_str());
+    NentMat[i][j] = Nentries[m];
+    IsSet[i][j]=1; 
+    m++;
+  };
+  infile.close();
+
+  // Check if every field was assigned a position in the CovMatrix:
+  for (i=1; i<=N1*N2; i++) if (fnzSet[i]==0) error("Some position in CovMatrix is unclaimed.");
+  free_vector(fnzSet, 1, N1*N2);
+  // If positions are OK and output required, print them out:
+  if (config.reads("FLIST_OUT")!="0") {
+    outfile.open(config.reads("FLIST_OUT").c_str());
+    if (!outfile.is_open()) error("Cannot open FLIST_OUT file.");
+    PrintTable(fnz, N1*N2, 2, &outfile, 1);
+    outfile.close();
+    cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
+  }
+  
+  /*******************************************************************/
+  /*** PART 2: If data is lognormal, get associated gaussian C(l)s ***/
+  /*******************************************************************/
+  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta;
+  const int HWMAXL = 10000000; int maxl = HWMAXL;
+  
+  // Load Means:
+  cout << "Loading means... "; cout.flush();
+  means     = LoadList<double>(config.reads("MEANS"), &nmeans);         // This is also needed for GAUSSIAN realizations!
+  cout << "done.\n";
+
+  if (dist==lognormal) {
+    // Loads data:
+    cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
+    cout << "Loading shifts... "; cout.flush();
+    shifts  = LoadList<double>(config.reads("SHIFTS"), &nshifts);
+    cout << "done.\n";
+    lsup     = config.readd("SUPPRESS_L");
+    supindex = config.readd("SUP_INDEX"); 
+    // Look for the maximum l value described by all C(l)s:
+    for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]==1) {
+	  printf("%d %d: pos=%d\n", i,j,NentMat[i][j]-1);
+	  if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
+	  if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = ll[i][j][NentMat[i][j]-1];
+	}
+    // Load Legendre Polynomials:
+    cout << "Generating table of Legendre polynomials and sampling angles... "; cout.flush();
+    workspace = vector<double>(0, 16*maxl-1);
+    LegendreP = vector<double>(0, 2*maxl*maxl-1);
+    xi        = vector<double>(0, 2*maxl-1);
+    theta     = vector<double>(0, 2*maxl-1);
+    ArcCosEvalPts(2*maxl, theta);
+    for (i=0; i<2*maxl; i++) theta[i] = theta[i]*180.0/M_PI; 
+    PmlTableGen(maxl, 0, LegendreP, workspace);
+    cout << "done.\n";
+
+    // LOOP over all C(l)s.
+    for(i=1; i<=N1*N2; i++)
+      for(j=1; j<=N1*N2; j++)
+	if (IsSet[i][j]==1) {
+	  cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+	  // Prepare Cls for DLT:
+	  maxl   = ll[i][j][NentMat[i][j]-1];
+	  tempCl = GetCl4DLT(Cov[i][j], ll[i][j], NentMat[i][j], lsup, supindex, maxl);
+	  // Compute correlation function:
+	  cout << "   Computing correlation function... "; cout.flush(); 
+	  Naive_SynthesizeX(tempCl, maxl, 0, xi, LegendreP);
+	  cout << "done.\n";
+	  // Write it out if requested:
+	  if (config.reads("XIOUT_PREFIX")!="0") {
+	    ij2fzfz(i, j, &a1, &a2, &b1, &b2, N1, N2);
+	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("XIOUT_PREFIX").c_str(),a1,a2,b1,b2);
+	    filename.assign(message);
+	    wrapper[0] =  theta;
+	    wrapper[1] =  xi;
+	    outfile.open(message);
+	    if (!outfile.is_open()) error("Cannot open file "+filename);
+	    PrintVecs(wrapper, 2*maxl, 2, &outfile);
+	    outfile.close();
+	    cout << "   Correlation function written to "+filename<<endl;
+	  }  
+	}
+  }
+
+  
+  return 0;
+
   // - Set random number generator
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
@@ -251,7 +406,7 @@ std::string getllstr(const std::string filename) {
 }
 
 
-
+/*** Function for writing the header of alm's file ***/
 std::string SampleHeader(std::string fieldsfile) {
   std::stringstream ss;
   int **fz; 
@@ -264,4 +419,105 @@ std::string SampleHeader(std::string fieldsfile) {
   for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2];
   
   return ss.str(); 
+}
+
+
+
+/*** Get four numbers separated by characters that specify the fields and redshifts
+     of the correlation function. ***/
+void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2) {
+  int i=0, num, index, fileL;
+  
+  fileL=filename.length();
+  // LOOP over the four indexes that indentifies the C(l):
+  for(index=1; index<=4; index++) {
+    num=0;
+    // Find a number:
+    while (isdigit(filename.c_str()[i])==0) {i++; if(i>=fileL && index!=4) error("getcovid: cannot find four numbers.");}
+    // Read the number:
+    while (isdigit(filename.c_str()[i])!=0) {num = num*10 + (filename.c_str()[i]-'0'); i++;}
+    // Save it as an index:
+    switch (index) {
+    case 1: *a1 = num; break;
+    case 2: *a2 = num; break;
+    case 3: *b1 = num; break;
+    case 4: *b2 = num; break;
+    }
+  }
+  // Check if there are more numbers in filename:
+  while (i<=fileL) {
+    if (isdigit(filename.c_str()[i])!=0) error("getcovid: found more numbers than expected.");
+    i++;
+  }
+}
+
+
+/*** Find out number of columns and rows in file ***/
+void CountEntries(std::string filename, long *nr, long *nc) {
+  using std::ifstream;
+  using std::string;
+  using std::istringstream;
+  using std::ostringstream;
+  long nrows=0, ncols=0;
+  ifstream file;
+  istringstream inputline; ostringstream outputline;
+  string word, phrase;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("CountEntries: cannot open file.");
+  
+  // Count lines and columns:
+  getline(file,phrase);
+  outputline << phrase;
+  inputline.str(outputline.str());
+  while (inputline >> word) ncols++;
+  while(!file.eof()) {getline(file,phrase); nrows++;}
+
+  file.close();
+  *nr=nrows+1;
+  *nc=ncols;
+}
+
+
+
+/*** Assign a matrix row i to a variable 'a' identified by a1 and a2 ***/
+/*** Assign a matrix column j to a variable 'b' identified by b1 and b2  ***/
+void fzfz2ij (int a1, int a2, int b1, int b2, int *i, int *j, int N1, int N2) {
+  if (a2>N2 || b2>N2 || a1>N1 || b1>N1 || a1<1 || a2<1 || b1<1 || b2<1) warning("fzfz2ij: unexpected input values.");
+  *i = (a1-1)*N2+a2; 
+  *j = (b1-1)*N2+b2;
+}
+
+/*** The inverse of ij2fzfz above ***/
+void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2) {
+  if (i<1 || j<1 || i>N1*N2 || j>N1*N2) warning("ij2fzfz: unexpected input values.");
+  *a2 = (i-1)%N2+1;
+  *b2 = (j-1)%N2+1;
+  *a1 = (i-1)/N2+1;
+  *b1 = (j-1)/N2+1;
+}
+
+
+/*** Function for testing the assignments above ***/
+void test_fzij (int N1, int N2) {
+  int a1, a2, b1, b2, i, j, newa1, newa2, newb1, newb2;
+  bool **IsSet;
+
+  IsSet = matrix<bool>(1,N1*N2,1,N1*N2);
+  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) IsSet[i][j]=0;
+  
+  for (a1=1; a1<=N1; a1++)
+    for (a2=1; a2<=N2; a2++)
+      for (b1=1; b1<=N1; b1++)
+	for (b2=1; b2<=N2; b2++) {
+	  fzfz2ij(a1, a2, b1, b2, &i, &j, N1, N2); 
+	  if (IsSet[i][j]==1) error("test_fzij: tried to set [i,j] already set.");
+	  IsSet[i][j]=1;
+	  ij2fzfz(i, j, &newa1, &newa2, &newb1, &newb2, N1, N2);
+	  if(newa1!=a1 || newa2!=a2 || newb1!=b1 || newb2!=b2) error("test_fzij: function ij2fzfz not the inverse of fzfz2ij."); 
+	}
+  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]!=1) error("Matrix [i,j] not fully populated.");
+
+  free_matrix(IsSet,1,N1*N2,1,N1*N2);
 }

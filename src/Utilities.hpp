@@ -17,8 +17,9 @@ int warning (const std::string message);
 // Random real generator:
 double random(long *idum);
 double gasdev(long *idum);
-// Importing data:
+// Importing & Exporting data:
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
+void PrintVecs(double **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0);
 // Formatting:
 std::string ZeroPad(int num, int max);
 
