@@ -145,7 +145,7 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
 }
 
 
-// Import table (matrix[1..nr][1..nc]) from file:
+// Import list (vector[1..nitems]) from file:
 template <typename type>
 type *LoadList(std::string filename, long *nitems, int offset=0) {
   using std::ifstream;

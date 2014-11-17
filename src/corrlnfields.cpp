@@ -26,18 +26,20 @@ int main (int argc, char *argv[]) {
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix; long CovSize;
-  int status, i, j, l, m, mMax, NofM;
+  int status, i, j, l, m, mMax, NofM, Nfields;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
-  double *means, *variances, *shifts; long nmeans, nshifts;
+  double *means, *variances, *shifts, **aux; 
+  long long1, long2;
   // Functions defined in the end of this file:
   void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0);
+  int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2);
   int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
   double Gauss2LNvar(double gvar, double mean, double variance, double shift);
   int getll(const std::string filename);
   std::string getllstr(const std::string filename);
   std::string SampleHeader(std::string fieldsfile);
-  void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2);
-  void fzfz2ij (int a1, int a2, int b1, int b2, int *i, int *j, int N1, int N2);
+  void fz2n (int a1, int a2, int *n, int N1, int N2);
+  void n2fz (int n, int *a1, int *a2, int N1, int N2);
   void test_fzij (int N1, int N2);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
@@ -50,7 +52,7 @@ int main (int argc, char *argv[]) {
   test_fzij(3,11); test_fzij(13,4);
   cout << "done.\n";
 
-  
+
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
@@ -115,7 +117,8 @@ int main (int argc, char *argv[]) {
   while (infile >> filename) {
     // Find CovMatrix indexes of C(l):
     getcovid(filename, &a1, &a2, &b1, &b2);
-    fzfz2ij(a1, a2, b1, b2, &i, &j, N1, N2); //i=(a1-1)*N2+a2; j=(b1-1)*N2+b2;
+    //fzfz2ij(a1, a2, b1, b2, &i, &j, N1, N2); //i=(a1-1)*N2+a2; j=(b1-1)*N2+b2;
+    fz2n(a1, a2, &i, N1, N2); fz2n(b1, b2, &j, N1, N2); 
     cout << filename << " goes to ["<<i<<", "<<j<<"]" << endl;
     // Record the order of the fields in CovMatrix:
     if (fnzSet[i]==0) { fnz[i][1] = a1; fnz[i][2] = a2; fnzSet[i] = 1; }
@@ -147,37 +150,63 @@ int main (int argc, char *argv[]) {
   /*******************************************************************/
   /*** PART 2: If data is lognormal, get associated gaussian C(l)s ***/
   /*******************************************************************/
-  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta;
-  const int HWMAXL = 10000000; int maxl = HWMAXL;
+  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
+  const int HWMAXL = 10000000; int maxl = HWMAXL, Nls;
   
-  // Load Means:
-  cout << "Loading means... "; cout.flush();
-  means     = LoadList<double>(config.reads("MEANS"), &nmeans);         // This is also needed for GAUSSIAN realizations!
-  cout << "done.\n";
-
+  // Load means and shifts data file:
+  cout << "Loading means and shifts from file "+config.reads("MEANS_SHIFTS")+":\n";
+  aux   = LoadTable<double>(config.reads("MEANS_SHIFTS"), &long1, &long2); // This is also needed for GAUSSIAN realizations!
+  Nfields = (int)long1; 
+  if (Nfields != N1*N2) error("Number of means and shifts do not match number of C(l)s.");
+  fnzSet = vector<bool>(1, Nfields); for (i=1; i<=Nfields; i++) fnzSet[i]=0;
+  means  = vector<double>(1, Nfields); 
+  if (dist==lognormal) shifts = vector<double>(1, Nfields);
+  for (j=0; j<Nfields; j++) {
+    fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
+    if (fnzSet[i]==1) error ("Found more than one mean & shift entry for the same f-z.");
+    fnzSet[i] = 1; 
+    means[i]  = aux[j][2];  
+    if (dist==lognormal) shifts[i] = aux[j][3];
+  }
+  for (i=1; i<=Nfields; i++) if (fnzSet[i]!=1) error("Some mean & shift were not set.");
+  free_vector(fnzSet, 1, Nfields);
+  free_matrix(aux, 0, Nfields-1, 0, long2-1);
+  cout << "Done.\n";
+  
   if (dist==lognormal) {
-    // Loads data:
+    // Loads C(l) exponential suppression:
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
-    cout << "Loading shifts... "; cout.flush();
-    shifts  = LoadList<double>(config.reads("SHIFTS"), &nshifts);
-    cout << "done.\n";
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
     // Look for the maximum l value described by all C(l)s:
     for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]==1) {
-	  printf("%d %d: pos=%d\n", i,j,NentMat[i][j]-1);
 	  if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
-	  if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = ll[i][j][NentMat[i][j]-1];
+	  if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
 	}
-    // Load Legendre Polynomials:
+    // Set maximum l that is used:
+    if (config.readi("LMAX")>maxl) {
+      sprintf(message,"LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
+      warning(message);
+    }
+    else maxl=config.readi("LMAX");
+    Nls=maxl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
+    
+    // Load s2kit 1.0 Legendre Polynomials:
     cout << "Generating table of Legendre polynomials and sampling angles... "; cout.flush();
-    workspace = vector<double>(0, 16*maxl-1);
-    LegendreP = vector<double>(0, 2*maxl*maxl-1);
-    xi        = vector<double>(0, 2*maxl-1);
-    theta     = vector<double>(0, 2*maxl-1);
-    ArcCosEvalPts(2*maxl, theta);
-    for (i=0; i<2*maxl; i++) theta[i] = theta[i]*180.0/M_PI; 
-    PmlTableGen(maxl, 0, LegendreP, workspace);
+    workspace = vector<double>(0, 16*Nls-1);
+    LegendreP = vector<double>(0, 2*Nls*Nls-1);
+    xi        = vector<double>(0, 2*Nls-1);
+    theta     = vector<double>(0, 2*Nls-1);
+    lls       = vector<double>(0, maxl); 
+    for(i=0; i<=maxl; i++) lls[i]=(double)i;
+    ArcCosEvalPts(2*Nls, theta);
+    for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
+    PmlTableGen(Nls, 0, LegendreP, workspace);
+    cout << "done.\n";
+    // Compute s2kit 1.0 Discrete Legendre Transform weights:
+    cout << "Calculating forward DLT weights... "; cout.flush();
+    DLTweights = vector<double>(0, 4*Nls-1);
+    makeweights(Nls, DLTweights);
     cout << "done.\n";
 
     // LOOP over all C(l)s.
@@ -185,28 +214,59 @@ int main (int argc, char *argv[]) {
       for(j=1; j<=N1*N2; j++)
 	if (IsSet[i][j]==1) {
 	  cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
-	  // Prepare Cls for DLT:
-	  maxl   = ll[i][j][NentMat[i][j]-1];
-	  tempCl = GetCl4DLT(Cov[i][j], ll[i][j], NentMat[i][j], lsup, supindex, maxl);
 	  // Compute correlation function:
-	  cout << "   Computing correlation function... "; cout.flush(); 
-	  Naive_SynthesizeX(tempCl, maxl, 0, xi, LegendreP);
+	  tempCl = GetCl4DLT(Cov[i][j], ll[i][j], NentMat[i][j], lsup, supindex, maxl);
+	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush(); 
+	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	  cout << "done.\n";
-	  // Write it out if requested:
-	  if (config.reads("XIOUT_PREFIX")!="0") {
-	    ij2fzfz(i, j, &a1, &a2, &b1, &b2, N1, N2);
+	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
+	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
 	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("XIOUT_PREFIX").c_str(),a1,a2,b1,b2);
 	    filename.assign(message);
 	    wrapper[0] =  theta;
 	    wrapper[1] =  xi;
 	    outfile.open(message);
 	    if (!outfile.is_open()) error("Cannot open file "+filename);
-	    PrintVecs(wrapper, 2*maxl, 2, &outfile);
+	    PrintVecs(wrapper, 2*Nls, 2, &outfile);
 	    outfile.close();
 	    cout << "   Correlation function written to "+filename<<endl;
-	  }  
-	}
-  }
+	  }
+	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
+	  cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
+	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	  cout << "done.\n";
+	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
+	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
+	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
+	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("GXIOUT_PREFIX").c_str(),a1,a2,b1,b2);
+	    filename.assign(message);
+	    wrapper[0] =  theta;
+	    wrapper[1] =  xi;
+	    outfile.open(message);
+	    if (!outfile.is_open()) error("Cannot open file "+filename);
+	    PrintVecs(wrapper, 2*Nls, 2, &outfile);
+	    outfile.close();
+	    cout << "   Associated Gaussian correlation function written to "+filename<<endl;
+	  }
+	  // Transform Xi(theta) back to C(l):
+	  cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
+	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	  ApplyClFactors(tempCl, Nls);
+	  cout << "done.\n";
+	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
+	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
+	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("GCLOUT_PREFIX").c_str(),a1,a2,b1,b2);
+	    filename.assign(message);
+	    wrapper[0] =  lls;
+	    wrapper[1] =  tempCl;
+	    outfile.open(message);
+	    if (!outfile.is_open()) error("Cannot open file "+filename);
+	    PrintVecs(wrapper, Nls, 2, &outfile);
+	    outfile.close();
+	    cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
+	  }
+	} // End of LOOP over C(l)[i,j] that were set.
+  } 
 
   
   return 0;
@@ -216,9 +276,9 @@ int main (int argc, char *argv[]) {
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
   // - Means and shifts
-  means     = LoadList<double>(config.reads("MEANS"), &nmeans);
+  means     = LoadList<double>(config.reads("MEANS"), &long1);
   if (dist==lognormal)
-    shifts  = LoadList<double>(config.reads("SHIFTS"), &nshifts);
+    shifts  = LoadList<double>(config.reads("SHIFTS"), &long1);
   // - Covariance matrices list
   sprintf(message, "ls %s* > corrlnfields.temp", config.reads("COV_PREFIX").c_str());
   status=system(message);
@@ -246,9 +306,9 @@ int main (int argc, char *argv[]) {
     // Input sanity checks:
     cout << "   Performing sanity checks... "; cout.flush();
     if (CovMatrix->size1 != CovMatrix->size2) error("corrlnfields: Cov. matrix is not square.");
-    if (CovSize != nmeans) error("corrlnfields: Cov. matrix and means vector size do not match.");
+    if (CovSize != long1) error("corrlnfields: Cov. matrix and means vector size do not match.");
     if (dist==lognormal) {
-    if (CovSize != nshifts) error("corrlnfields: Cov. matrix and shifts vector size do not match.");
+    if (CovSize != long1) error("corrlnfields: Cov. matrix and shifts vector size do not match.");
     for (i=0; i<CovSize; i++) if(means[i]+shifts[i]<=0) { 
 	sprintf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
       }
@@ -340,6 +400,26 @@ void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0) {
     gaus1[i]=0;     // L matrix stored as vector in row-major order.
     for(j=0; j<=i; j++) gaus1[i] += L->data[i*L->size1+j] * gaus0[j]; 
   }
+}
+
+
+/*** Transforms a correlation function of lognormal variables lnXi into a corr. function of associated gaussian variables gXi ***/
+int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2) {
+  int i, status=0;
+  double arg, bad=-666.0;
+  char message[100];
+  
+  for (i=0; i<XiLength; i++) {
+    arg = 1.0 + lnXi[i]/(mean1+shift1)/(mean2+shift2);
+    if (arg <= 0) {
+      sprintf(message, "GetGaussCorr: lnXi[%d] leads to bad log argument, gXi[%d] set to %g.", i, i, bad);
+      warning(message);
+      status=EDOM;
+      gXi[i] = bad;
+    }
+    else gXi[i] = log(arg);
+  }
+  return status;
 }
 
 
@@ -480,22 +560,40 @@ void CountEntries(std::string filename, long *nr, long *nc) {
 }
 
 
+/*** Assign a matrix column n to a variable 'a' identified by a1 and a2  ***/
+void fz2n (int a1, int a2, int *n, int N1, int N2) {
+  if (a2>N2 || a1>N1 || a1<1 || a2<1) warning("fz2n: unexpected input values.");
+  *n = (a1-1)*N2+a2; 
+}
+
+
+/*** The inverse of ij2fzfz above ***/
+void n2fz (int n, int *a1, int *a2, int N1, int N2) {
+  if (n<1 || n>N1*N2) warning("n2fz: unexpected input values.");
+  *a2 = (n-1)%N2+1;
+  *a1 = (n-1)/N2+1;
+}
+
 
 /*** Assign a matrix row i to a variable 'a' identified by a1 and a2 ***/
 /*** Assign a matrix column j to a variable 'b' identified by b1 and b2  ***/
 void fzfz2ij (int a1, int a2, int b1, int b2, int *i, int *j, int N1, int N2) {
   if (a2>N2 || b2>N2 || a1>N1 || b1>N1 || a1<1 || a2<1 || b1<1 || b2<1) warning("fzfz2ij: unexpected input values.");
-  *i = (a1-1)*N2+a2; 
-  *j = (b1-1)*N2+b2;
+  //*i = (a1-1)*N2+a2; 
+  //*j = (b1-1)*N2+b2;
+  fz2n(a1, a2, i, N1, N2);
+  fz2n(b1, b2, j, N1, N2);
 }
 
 /*** The inverse of ij2fzfz above ***/
 void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2) {
   if (i<1 || j<1 || i>N1*N2 || j>N1*N2) warning("ij2fzfz: unexpected input values.");
-  *a2 = (i-1)%N2+1;
-  *b2 = (j-1)%N2+1;
-  *a1 = (i-1)/N2+1;
-  *b1 = (j-1)/N2+1;
+  //*a2 = (i-1)%N2+1;
+  //*b2 = (j-1)%N2+1;
+  //*a1 = (i-1)/N2+1;
+  //*b1 = (j-1)/N2+1;
+  n2fz(i, a1, a2, N1, N2);
+  n2fz(j, b1, b2, N1, N2);
 }
 
 

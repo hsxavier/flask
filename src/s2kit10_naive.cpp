@@ -532,7 +532,7 @@ double unsuppress(double l, double lsup, double supindex) {
 
 /*** Apply factors to Cl obtained from s2kit10 routines ***/
 /*** May unsuppress suppression, but only if Cls are for the same distribution as before ***/
-void ApplyClFactors(double *Cl, int ClLength, double lsup=-1, double supindex=0) {
+void ApplyClFactors(double *Cl, int ClLength, double lsup/*=-1*/, double supindex/*=0*/) {
   const double twopisqr2 = 8.885765876316732; // 2*PI*sqrt(2).
   int l;
   
