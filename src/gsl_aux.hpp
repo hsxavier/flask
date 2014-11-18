@@ -4,6 +4,11 @@
 #include <iostream>
 #include <gsl/gsl_matrix.h>
 
+// Allocate an array [0...Nmatrices] of Nrows by Ncols gsl_matrices.
+gsl_matrix **GSLMatrixArray(int Nmatrices, int Nrows, int Ncols);
+
+// Free memory allocated with function above.
+void free_GSLMatrixArray(gsl_matrix **array, int Nmatrices);
 
 // Import a table from file to gsl_matrix format:
 gsl_matrix *LoadGSLMatrix(std::string filename);

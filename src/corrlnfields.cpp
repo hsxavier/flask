@@ -25,7 +25,8 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile, samplefile;                                        // File for output.
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
-  gsl_matrix *CovMatrix; long CovSize;
+  gsl_matrix *CovMatrix, **CovByl; 
+  long CovSize;
   int status, i, j, l, m, mMax, NofM, Nfields;
   gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
   double *means, *variances, *shifts, **aux; 
@@ -105,7 +106,7 @@ int main (int argc, char *argv[]) {
   // fnz stores the order that the fields are stored in CovMatrix.
   fnz     =     matrix<int>(1, N1*N2, 1, 2);               // Records what field is stored in each element of CovMatrix.
   fnzSet  =    vector<bool>(1, N1*N2);                     // For bookkeeping.
-  ll      = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the ll for each C(l) file.
+  ll      = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the ll for each C(l) file. 
   Cov     = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the C(l) for each C(l) file.
   IsSet   =    matrix<bool>(1, N1*N2, 1, N1*N2);           // For bookkeeping.
   NentMat =     matrix<int>(1, N1*N2, 1, N1*N2);           // Number of C(l) entries in file.
@@ -197,7 +198,8 @@ int main (int argc, char *argv[]) {
     LegendreP = vector<double>(0, 2*Nls*Nls-1);
     xi        = vector<double>(0, 2*Nls-1);
     theta     = vector<double>(0, 2*Nls-1);
-    lls       = vector<double>(0, maxl); 
+    lls       = vector<double>(0, maxl);
+    CovByl    = GSLMatrixArray(Nls, N1*N2, N1*N2);
     for(i=0; i<=maxl; i++) lls[i]=(double)i;
     ArcCosEvalPts(2*Nls, theta);
     for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
@@ -265,7 +267,16 @@ int main (int argc, char *argv[]) {
 	    outfile.close();
 	    cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
 	  }
+	  // Save gaussian C(l):
+	  for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];
+	  
 	} // End of LOOP over C(l)[i,j] that were set.
+    free_vector(workspace, 0, 16*Nls-1);
+    free_vector(LegendreP, 0, 2*Nls*Nls-1);
+    free_vector(xi, 0, 2*Nls-1);
+    free_vector(theta, 0, 2*Nls-1);
+    free_vector(lls, 0, maxl);
+    free_vector(DLTweights, 0, 4*Nls-1);
   } 
 
   

@@ -5,6 +5,36 @@
 #include "gsl_aux.hpp"
 
 
+
+/*** Allocate an array of gsl_matrices ***/
+gsl_matrix **GSLMatrixArray(int Nmatrices, int Nrows, int Ncols) {
+  gsl_matrix **array;
+  int i;
+  char message[100];
+  
+  array = (gsl_matrix**) malloc(sizeof(gsl_matrix*)*Nmatrices);
+  if (array==NULL) error("GSLMatrixArray: failed to allocate array of gsl_matrix pointers.");
+  for(i=0; i<Nmatrices; i++) {
+    array[i] = gsl_matrix_alloc(Nrows, Ncols);
+    if (array[i]==NULL) {
+      sprintf(message,"GSLMatrixArray: failed to allocate i=%d gsl_matrix.", i);
+      error(message);
+    }
+  }
+  return array;
+}
+
+
+/*** Free memory allocated for an array of gsl_matrices ***/
+void free_GSLMatrixArray(gsl_matrix **array, int Nmatrices) {
+  int i;
+  
+  for(i=0; i<Nmatrices; i++) gsl_matrix_free(array[i]);
+  free(array);
+}
+
+
+
 /*** Import a table from file to gsl_matrix format ***/
 gsl_matrix *LoadGSLMatrix(std::string filename) {
   const long MAXENTRYCHARS = 10, MAXCOLS = 1000;
