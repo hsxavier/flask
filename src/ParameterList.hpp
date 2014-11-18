@@ -61,6 +61,7 @@ private:
 public:
   ParameterList ();
   ParameterList (const char *filename);
+  //ParameterList (const ParameterList & plist);
   void load (const char *filename);
   void lineload (int argc, char *argv[]);
   void show (std::ostream * output = &std::cout) const;

@@ -42,6 +42,7 @@ int main (int argc, char *argv[]) {
   void fz2n (int a1, int a2, int *n, int N1, int N2);
   void n2fz (int n, int *a1, int *a2, int N1, int N2);
   void test_fzij (int N1, int N2);
+  std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
   // Opening debug file for dumping information about the program:
@@ -148,9 +149,9 @@ int main (int argc, char *argv[]) {
     cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
   
-  /*******************************************************************/
-  /*** PART 2: If data is lognormal, get associated gaussian C(l)s ***/
-  /*******************************************************************/
+  /**************************************************/
+  /*** PART 2: Prepare for Cholesky decomposition ***/
+  /**************************************************/
   double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
   const int HWMAXL = 10000000; int maxl = HWMAXL, Nls;
   
@@ -174,63 +175,80 @@ int main (int argc, char *argv[]) {
   free_matrix(aux, 0, Nfields-1, 0, long2-1);
   cout << "Done.\n";
   
+  // Look for the maximum l value described by all C(l)s:
+  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]==1) {
+	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
+	if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
+      }
+  // Set maximum l that is used based on either input data or config file:
+  if (config.readi("LMAX")>maxl) {
+    sprintf(message,"LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
+    warning(message);
+  }
+  else maxl=config.readi("LMAX");
+  Nls=maxl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
+
+  // Allocate gsl_matrices that will receive covariance matrices for each l.
+  cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
+  tempCl = vector<double>(0, maxl);
+  CovByl = GSLMatrixArray(Nls, N1*N2, N1*N2);
+  cout << "done.\n";
+
+
+  /*****************************************************************/
+  /*** Initialization necessary in case of lognormal simulations ***/
+  /*****************************************************************/
   if (dist==lognormal) {
-    // Loads C(l) exponential suppression:
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
+    // Loads necessary memory:
+    cout << "Allocating extra memory... "; cout.flush();
+    workspace  = vector<double>(0, 16*Nls-1);
+    LegendreP  = vector<double>(0, 2*Nls*Nls-1);
+    xi         = vector<double>(0, 2*Nls-1);
+    theta      = vector<double>(0, 2*Nls-1);
+    lls        = vector<double>(0, maxl);
+    DLTweights = vector<double>(0, 4*Nls-1);
+    
+
+    // Initialize vectors:
+    for (i=0; i<=maxl; i++) lls[i]=(double)i;
+    ArcCosEvalPts(2*Nls, theta);
+    for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
+    cout << "done.\n";
+
+    // Loads C(l) exponential suppression:
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
-    // Look for the maximum l value described by all C(l)s:
-    for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]==1) {
-	  if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
-	  if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
-	}
-    // Set maximum l that is used:
-    if (config.readi("LMAX")>maxl) {
-      sprintf(message,"LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
-      warning(message);
-    }
-    else maxl=config.readi("LMAX");
-    Nls=maxl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
     
     // Load s2kit 1.0 Legendre Polynomials:
     cout << "Generating table of Legendre polynomials and sampling angles... "; cout.flush();
-    workspace = vector<double>(0, 16*Nls-1);
-    LegendreP = vector<double>(0, 2*Nls*Nls-1);
-    xi        = vector<double>(0, 2*Nls-1);
-    theta     = vector<double>(0, 2*Nls-1);
-    lls       = vector<double>(0, maxl);
-    CovByl    = GSLMatrixArray(Nls, N1*N2, N1*N2);
-    for(i=0; i<=maxl; i++) lls[i]=(double)i;
-    ArcCosEvalPts(2*Nls, theta);
-    for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
     PmlTableGen(Nls, 0, LegendreP, workspace);
     cout << "done.\n";
+
     // Compute s2kit 1.0 Discrete Legendre Transform weights:
     cout << "Calculating forward DLT weights... "; cout.flush();
-    DLTweights = vector<double>(0, 4*Nls-1);
     makeweights(Nls, DLTweights);
     cout << "done.\n";
+  }
 
-    // LOOP over all C(l)s.
-    for(i=1; i<=N1*N2; i++)
-      for(j=1; j<=N1*N2; j++)
-	if (IsSet[i][j]==1) {
-	  cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+  // LOOP over all C(l)s already set.
+  for(i=1; i<=N1*N2; i++)
+    for(j=1; j<=N1*N2; j++) 
+      if (IsSet[i][j]==1) {
+	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+	// Interpolate C(l) for every l; input C(l) might not be like that:
+	cout << "   Interpolating input C(l) for all l's... "; cout.flush();
+	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, maxl);
+	cout << "done.\n";
+
+	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	  // Compute correlation function:
-	  tempCl = GetCl4DLT(Cov[i][j], ll[i][j], NentMat[i][j], lsup, supindex, maxl);
-	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush(); 
+	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
+	  ModCl4DLT(tempCl, maxl, lsup, supindex);
 	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	  cout << "done.\n";
 	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
-	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
-	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("XIOUT_PREFIX").c_str(),a1,a2,b1,b2);
-	    filename.assign(message);
-	    wrapper[0] =  theta;
-	    wrapper[1] =  xi;
-	    outfile.open(message);
-	    if (!outfile.is_open()) error("Cannot open file "+filename);
-	    PrintVecs(wrapper, 2*Nls, 2, &outfile);
-	    outfile.close();
+	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << "   Correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
@@ -239,15 +257,7 @@ int main (int argc, char *argv[]) {
 	  cout << "done.\n";
 	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
 	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
-	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
-	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("GXIOUT_PREFIX").c_str(),a1,a2,b1,b2);
-	    filename.assign(message);
-	    wrapper[0] =  theta;
-	    wrapper[1] =  xi;
-	    outfile.open(message);
-	    if (!outfile.is_open()) error("Cannot open file "+filename);
-	    PrintVecs(wrapper, 2*Nls, 2, &outfile);
-	    outfile.close();
+	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << "   Associated Gaussian correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) back to C(l):
@@ -256,32 +266,59 @@ int main (int argc, char *argv[]) {
 	  ApplyClFactors(tempCl, Nls);
 	  cout << "done.\n";
 	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
-	    n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
-	    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("GCLOUT_PREFIX").c_str(),a1,a2,b1,b2);
-	    filename.assign(message);
-	    wrapper[0] =  lls;
-	    wrapper[1] =  tempCl;
-	    outfile.open(message);
-	    if (!outfile.is_open()) error("Cannot open file "+filename);
-	    PrintVecs(wrapper, Nls, 2, &outfile);
-	    outfile.close();
+	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
 	    cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
-	  }
-	  // Save gaussian C(l):
-	  for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];
-	  
-	} // End of LOOP over C(l)[i,j] that were set.
+	  }	  
+	}                                 /** END OF LOGNORMAL ONLY **/ 
+	
+	// Save gaussian C(l):
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];	
+      
+	if (i>3) {
+	  cout <<"Free vectors:\n";
+	  free_vector(lls, 0, maxl);
+	  cout <<"Freed lls!\n";
+	  return 0;
+	}
+	
+      } // End of LOOP over C(l)[i,j] that were set.
+  
+  cout <<"Free vectors:\n";
+  free_vector(lls, 0, maxl);
+  cout <<"Freed lls!\n";
+  free_vector(tempCl, 0, maxl);
+  cout <<"Freed tempCl!\n";
+  if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
+    cout <<"Freed workspace!\n";
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
+    cout <<"Freed LegendreP!\n";
     free_vector(xi, 0, 2*Nls-1);
+    cout <<"Freed xi!\n";
     free_vector(theta, 0, 2*Nls-1);
-    free_vector(lls, 0, maxl);
+    cout <<"Freed theta!\n";
+   
     free_vector(DLTweights, 0, 4*Nls-1);
-  } 
-
+    cout <<"Freed weights!\n";
+  }
+  
+  // Set Cov(l)[i,j] = Cov(l)[j,i]
+  cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
+  for(i=1; i<=N1*N2; i++)
+    for(j=1; j<=N1*N2; j++) 
+      if (IsSet[i][j]==0) {
+	if (IsSet[j][i]==0) {
+	  sprintf(message,"[%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
+	  error(message);
+	}
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j] = CovByl[l]->data[j*N1*N2+i];
+	IsSet[i][j] = 1;
+      }
+  cout << "done.\n";
+  
   
   return 0;
-
+  
   // - Set random number generator
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
@@ -400,7 +437,6 @@ int main (int argc, char *argv[]) {
   cout<<endl;
   return 0;
 }
-
 
 
 /*** Multiply Lower-triangular matrix L to vector gaus0 and return gaus1 ***/
@@ -629,4 +665,29 @@ void test_fzij (int N1, int N2) {
   for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]!=1) error("Matrix [i,j] not fully populated.");
 
   free_matrix(IsSet,1,N1*N2,1,N1*N2);
+}
+
+
+
+/*** Export function y(x) for the field combination [i,j] to file ***/
+std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length) {
+  int a1, a2, b1, b2;
+  char message[100];
+  std::string filename;
+  double *wrapper[2];
+  std::ofstream outfile;
+
+  wrapper[0] =  x;
+  wrapper[1] =  y;
+
+  n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
+  sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(),a1,a2,b1,b2);
+  filename.assign(message);
+
+  outfile.open(message);
+  if (!outfile.is_open()) error("PrintOut: cannot open file "+filename);
+  PrintVecs(wrapper, length, 2, &outfile);
+  outfile.close();
+
+  return filename;
 }
