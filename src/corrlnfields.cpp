@@ -239,14 +239,14 @@ int main (int argc, char *argv[]) {
 	// Interpolate C(l) for every l; input C(l) might not be like that:
 	cout << "   Interpolating input C(l) for all l's... "; cout.flush();
 	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, maxl);
-	cout << "done.\n";
-
+	cout << "              done.\n";
+	
 	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	  // Compute correlation function:
 	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
 	  ModCl4DLT(tempCl, maxl, lsup, supindex);
 	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	  cout << "done.\n";
+	  cout << "  done.\n";
 	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
 	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << "   Correlation function written to "+filename<<endl;
@@ -272,35 +272,25 @@ int main (int argc, char *argv[]) {
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
 	// Save gaussian C(l):
-	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];	
-      
-	if (i>3) {
-	  cout <<"Free vectors:\n";
-	  free_vector(lls, 0, maxl);
-	  cout <<"Freed lls!\n";
-	  return 0;
-	}
-	
+	for (l=0; l<Nls; l++) CovByl[l]->data[(i-1)*N1*N2+(j-1)]=tempCl[l];		
       } // End of LOOP over C(l)[i,j] that were set.
   
-  cout <<"Free vectors:\n";
-  free_vector(lls, 0, maxl);
-  cout <<"Freed lls!\n";
+  // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
+  cout << "Massive memory deallocation... "; cout.flush();
   free_vector(tempCl, 0, maxl);
-  cout <<"Freed tempCl!\n";
+  free_tensor3(Cov, 1, N1*N2, 1, N1*N2, 0, maxNl); 
+  free_tensor3(ll, 1, N1*N2, 1, N1*N2, 0, maxNl); 
+  free_matrix(NentMat, 1, N1*N2, 1, N1*N2);
   if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
-    cout <<"Freed workspace!\n";
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
-    cout <<"Freed LegendreP!\n";
     free_vector(xi, 0, 2*Nls-1);
-    cout <<"Freed xi!\n";
     free_vector(theta, 0, 2*Nls-1);
-    cout <<"Freed theta!\n";
-   
-    free_vector(DLTweights, 0, 4*Nls-1);
-    cout <<"Freed weights!\n";
+    free_vector(lls, 0, maxl);
+    free_vector(DLTweights, 0, 4*Nls-1); 
   }
+  cout << "done.\n";
+
   
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
@@ -311,11 +301,11 @@ int main (int argc, char *argv[]) {
 	  sprintf(message,"[%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
 	  error(message);
 	}
-	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j] = CovByl[l]->data[j*N1*N2+i];
+	for (l=0; l<Nls; l++) CovByl[l]->data[(i-1)*N1*N2+(j-1)] = CovByl[l]->data[(j-1)*N1*N2+(i-1)];
 	IsSet[i][j] = 1;
       }
   cout << "done.\n";
-  
+  free_matrix(IsSet, 1, N1*N2, 1, N1*N2);
   
   return 0;
   
