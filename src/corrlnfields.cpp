@@ -46,8 +46,8 @@ int main (int argc, char *argv[]) {
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
   // Opening debug file for dumping information about the program:
-  debugfile.open("debug.log");
-  if (!debugfile.is_open()) warning("corrlnfields: cannot open debug file.");
+  //debugfile.open("debug.log");
+  //if (!debugfile.is_open()) warning("corrlnfields: cannot open debug file.");
 
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
@@ -105,14 +105,14 @@ int main (int argc, char *argv[]) {
   // Allocate memory to store C(l)s:
   // First two indexes are CovMatrix indexes and last is for ll.
   // fnz stores the order that the fields are stored in CovMatrix.
-  fnz     =     matrix<int>(1, N1*N2, 1, 2);               // Records what field is stored in each element of CovMatrix.
-  fnzSet  =    vector<bool>(1, N1*N2);                     // For bookkeeping.
-  ll      = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the ll for each C(l) file. 
-  Cov     = tensor3<double>(1, N1*N2, 1, N1*N2, 0, maxNl); // Records the C(l) for each C(l) file.
-  IsSet   =    matrix<bool>(1, N1*N2, 1, N1*N2);           // For bookkeeping.
-  NentMat =     matrix<int>(1, N1*N2, 1, N1*N2);           // Number of C(l) entries in file.
-  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) IsSet[i][j]=0;
-  for(i=1; i<=N1*N2; i++) fnzSet[i]=0;
+  fnz     =     matrix<int>(0, N1*N2-1, 0, 1);                 // Records what field is stored in each element of CovMatrix.
+  fnzSet  =    vector<bool>(0, N1*N2-1);                       // For bookkeeping.
+  ll      = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, maxNl); // Records the ll for each C(l) file. 
+  Cov     = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, maxNl); // Records the C(l) for each C(l) file.
+  IsSet   =    matrix<bool>(0, N1*N2-1, 0, N1*N2-1);           // For bookkeeping.
+  NentMat =     matrix<int>(0, N1*N2-1, 0, N1*N2-1);           // Number of C(l) entries in file.
+  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) IsSet[i][j]=0;
+  for(i=0; i<N1*N2; i++) fnzSet[i]=0;
   
   // Read C(l)s and store in data-cube:
   m=0;
@@ -123,10 +123,10 @@ int main (int argc, char *argv[]) {
     fz2n(a1, a2, &i, N1, N2); fz2n(b1, b2, &j, N1, N2); 
     cout << filename << " goes to ["<<i<<", "<<j<<"]" << endl;
     // Record the order of the fields in CovMatrix:
-    if (fnzSet[i]==0) { fnz[i][1] = a1; fnz[i][2] = a2; fnzSet[i] = 1; }
-    else if (fnz[i][1] != a1 || fnz[i][2] != a2) error("Field order in CovMatrix is messed up!"); 
-    if (fnzSet[j]==0) { fnz[j][1] = b1; fnz[j][2] = b2; fnzSet[j] = 1; }
-    else if (fnz[j][1] != b1 || fnz[j][2] != b2) error("Field order in CovMatrix is messed up!");
+    if (fnzSet[i]==0) { fnz[i][0] = a1; fnz[i][1] = a2; fnzSet[i] = 1; }
+    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("Field order in CovMatrix is messed up!"); 
+    if (fnzSet[j]==0) { fnz[j][0] = b1; fnz[j][1] = b2; fnzSet[j] = 1; }
+    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("Field order in CovMatrix is messed up!");
     // Import data:
     wrapper[0] = &(ll[i][j][0]);
     wrapper[1] = &(Cov[i][j][0]);
@@ -138,13 +138,13 @@ int main (int argc, char *argv[]) {
   infile.close();
 
   // Check if every field was assigned a position in the CovMatrix:
-  for (i=1; i<=N1*N2; i++) if (fnzSet[i]==0) error("Some position in CovMatrix is unclaimed.");
-  free_vector(fnzSet, 1, N1*N2);
+  for (i=0; i<N1*N2; i++) if (fnzSet[i]==0) error("Some position in CovMatrix is unclaimed.");
+  free_vector(fnzSet, 0, N1*N2-1);
   // If positions are OK and output required, print them out:
   if (config.reads("FLIST_OUT")!="0") {
     outfile.open(config.reads("FLIST_OUT").c_str());
     if (!outfile.is_open()) error("Cannot open FLIST_OUT file.");
-    PrintTable(fnz, N1*N2, 2, &outfile, 1);
+    PrintTable(fnz, N1*N2, 2, &outfile);
     outfile.close();
     cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
@@ -160,9 +160,9 @@ int main (int argc, char *argv[]) {
   aux   = LoadTable<double>(config.reads("MEANS_SHIFTS"), &long1, &long2); // This is also needed for GAUSSIAN realizations!
   Nfields = (int)long1; 
   if (Nfields != N1*N2) error("Number of means and shifts do not match number of C(l)s.");
-  fnzSet = vector<bool>(1, Nfields); for (i=1; i<=Nfields; i++) fnzSet[i]=0;
-  means  = vector<double>(1, Nfields); 
-  if (dist==lognormal) shifts = vector<double>(1, Nfields);
+  fnzSet = vector<bool>(0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
+  means  = vector<double>(0, Nfields-1); 
+  if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
   for (j=0; j<Nfields; j++) {
     fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
     if (fnzSet[i]==1) error ("Found more than one mean & shift entry for the same f-z.");
@@ -170,13 +170,13 @@ int main (int argc, char *argv[]) {
     means[i]  = aux[j][2];  
     if (dist==lognormal) shifts[i] = aux[j][3];
   }
-  for (i=1; i<=Nfields; i++) if (fnzSet[i]!=1) error("Some mean & shift were not set.");
-  free_vector(fnzSet, 1, Nfields);
+  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("Some mean & shift were not set.");
+  free_vector(fnzSet, 0, Nfields-1);
   free_matrix(aux, 0, Nfields-1, 0, long2-1);
   cout << "Done.\n";
   
   // Look for the maximum l value described by all C(l)s:
-  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]==1) {
+  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) if (IsSet[i][j]==1) {
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
       }
@@ -208,8 +208,6 @@ int main (int argc, char *argv[]) {
     theta      = vector<double>(0, 2*Nls-1);
     lls        = vector<double>(0, maxl);
     DLTweights = vector<double>(0, 4*Nls-1);
-    
-
     // Initialize vectors:
     for (i=0; i<=maxl; i++) lls[i]=(double)i;
     ArcCosEvalPts(2*Nls, theta);
@@ -232,8 +230,8 @@ int main (int argc, char *argv[]) {
   }
 
   // LOOP over all C(l)s already set.
-  for(i=1; i<=N1*N2; i++)
-    for(j=1; j<=N1*N2; j++) 
+  for(i=0; i<N1*N2; i++)
+    for(j=0; j<N1*N2; j++) 
       if (IsSet[i][j]==1) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Interpolate C(l) for every l; input C(l) might not be like that:
@@ -272,15 +270,15 @@ int main (int argc, char *argv[]) {
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
 	// Save gaussian C(l):
-	for (l=0; l<Nls; l++) CovByl[l]->data[(i-1)*N1*N2+(j-1)]=tempCl[l];		
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];		
       } // End of LOOP over C(l)[i,j] that were set.
   
   // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
   cout << "Massive memory deallocation... "; cout.flush();
   free_vector(tempCl, 0, maxl);
-  free_tensor3(Cov, 1, N1*N2, 1, N1*N2, 0, maxNl); 
-  free_tensor3(ll, 1, N1*N2, 1, N1*N2, 0, maxNl); 
-  free_matrix(NentMat, 1, N1*N2, 1, N1*N2);
+  free_tensor3(Cov,    0, N1*N2-1, 0, N1*N2-1, 0, maxNl); 
+  free_tensor3(ll,     0, N1*N2-1, 0, N1*N2-1, 0, maxNl); 
+  free_matrix(NentMat, 0, N1*N2-1, 0, N1*N2-1);
   if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
@@ -294,18 +292,18 @@ int main (int argc, char *argv[]) {
   
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
-  for(i=1; i<=N1*N2; i++)
-    for(j=1; j<=N1*N2; j++) 
+  for(i=0; i<N1*N2; i++)
+    for(j=0; j<N1*N2; j++) 
       if (IsSet[i][j]==0) {
 	if (IsSet[j][i]==0) {
 	  sprintf(message,"[%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
 	  error(message);
 	}
-	for (l=0; l<Nls; l++) CovByl[l]->data[(i-1)*N1*N2+(j-1)] = CovByl[l]->data[(j-1)*N1*N2+(i-1)];
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j] = CovByl[l]->data[j*N1*N2+i];
 	IsSet[i][j] = 1;
       }
   cout << "done.\n";
-  free_matrix(IsSet, 1, N1*N2, 1, N1*N2);
+  free_matrix(IsSet, 0, N1*N2-1, 0, N1*N2-1);
   
   return 0;
   
@@ -422,7 +420,7 @@ int main (int argc, char *argv[]) {
   free_vector(means,0,CovSize-1);
   system("rm -f corrlnfields.temp");
   gsl_rng_free(rnd);
-  debugfile.close();
+  //debugfile.close();
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
   return 0;
@@ -600,15 +598,15 @@ void CountEntries(std::string filename, long *nr, long *nc) {
 /*** Assign a matrix column n to a variable 'a' identified by a1 and a2  ***/
 void fz2n (int a1, int a2, int *n, int N1, int N2) {
   if (a2>N2 || a1>N1 || a1<1 || a2<1) warning("fz2n: unexpected input values.");
-  *n = (a1-1)*N2+a2; 
+  *n = (a1-1)*N2+a2-1; 
 }
 
 
 /*** The inverse of ij2fzfz above ***/
 void n2fz (int n, int *a1, int *a2, int N1, int N2) {
-  if (n<1 || n>N1*N2) warning("n2fz: unexpected input values.");
-  *a2 = (n-1)%N2+1;
-  *a1 = (n-1)/N2+1;
+  if (n<0 || n>=N1*N2) warning("n2fz: unexpected input values.");
+  *a2 = n%N2+1;
+  *a1 = n/N2+1;
 }
 
 
@@ -616,19 +614,13 @@ void n2fz (int n, int *a1, int *a2, int N1, int N2) {
 /*** Assign a matrix column j to a variable 'b' identified by b1 and b2  ***/
 void fzfz2ij (int a1, int a2, int b1, int b2, int *i, int *j, int N1, int N2) {
   if (a2>N2 || b2>N2 || a1>N1 || b1>N1 || a1<1 || a2<1 || b1<1 || b2<1) warning("fzfz2ij: unexpected input values.");
-  //*i = (a1-1)*N2+a2; 
-  //*j = (b1-1)*N2+b2;
   fz2n(a1, a2, i, N1, N2);
   fz2n(b1, b2, j, N1, N2);
 }
 
 /*** The inverse of ij2fzfz above ***/
 void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2) {
-  if (i<1 || j<1 || i>N1*N2 || j>N1*N2) warning("ij2fzfz: unexpected input values.");
-  //*a2 = (i-1)%N2+1;
-  //*b2 = (j-1)%N2+1;
-  //*a1 = (i-1)/N2+1;
-  //*b1 = (j-1)/N2+1;
+  if (i<0 || j<0 || i>=N1*N2 || j>=N1*N2) warning("ij2fzfz: unexpected input values.");
   n2fz(i, a1, a2, N1, N2);
   n2fz(j, b1, b2, N1, N2);
 }
@@ -639,8 +631,8 @@ void test_fzij (int N1, int N2) {
   int a1, a2, b1, b2, i, j, newa1, newa2, newb1, newb2;
   bool **IsSet;
 
-  IsSet = matrix<bool>(1,N1*N2,1,N1*N2);
-  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) IsSet[i][j]=0;
+  IsSet = matrix<bool>(0,N1*N2-1,0,N1*N2-1);
+  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) IsSet[i][j]=0;
   
   for (a1=1; a1<=N1; a1++)
     for (a2=1; a2<=N2; a2++)
@@ -652,9 +644,9 @@ void test_fzij (int N1, int N2) {
 	  ij2fzfz(i, j, &newa1, &newa2, &newb1, &newb2, N1, N2);
 	  if(newa1!=a1 || newa2!=a2 || newb1!=b1 || newb2!=b2) error("test_fzij: function ij2fzfz not the inverse of fzfz2ij."); 
 	}
-  for(i=1; i<=N1*N2; i++) for(j=1; j<=N1*N2; j++) if (IsSet[i][j]!=1) error("Matrix [i,j] not fully populated.");
+  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) if (IsSet[i][j]!=1) error("Matrix [i,j] not fully populated.");
 
-  free_matrix(IsSet,1,N1*N2,1,N1*N2);
+  free_matrix(IsSet,0,N1*N2-1,0,N1*N2-1);
 }
 
 
