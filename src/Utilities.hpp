@@ -120,7 +120,7 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   
   // Open file
   file.open(filename.c_str());
-  if (!file.is_open()) error("LoadTable: cannot open file.");
+  if (!file.is_open()) error("LoadTable: cannot open file "+filename);
   
   // Count lines and columns:
   getline(file,phrase);

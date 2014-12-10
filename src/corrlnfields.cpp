@@ -1,3 +1,7 @@
+/* corrlnfields: Written by Henrique S. Xavier on Nov-2014
+   e-mail: hsxavier@if.usp.br
+ */
+
 #include <iostream>
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
@@ -28,11 +32,10 @@ int main (int argc, char *argv[]) {
   gsl_matrix *CovMatrix, **CovByl; 
   long CovSize;
   int status, i, j, l, m, mMax, NofM, Nfields;
-  gsl_rng *rnd; double *gaus0, *gaus1;                                      // Random number stuff.
   double *means, *variances, *shifts, **aux; 
   long long1, long2;
   // Functions defined in the end of this file:
-  void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0);
+  void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0);
   int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2);
   int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
   double Gauss2LNvar(double gvar, double mean, double variance, double shift);
@@ -70,7 +73,7 @@ int main (int argc, char *argv[]) {
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
   // Listing files to use based on CL_PREFIX:
-  sprintf(message, "ls %s* > gencovl.temp", config.reads("CL_PREFIX").c_str());
+  sprintf(message, "ls %s* > corrlnfields.temp", config.reads("CL_PREFIX").c_str());
   system(message);
   
   /********************************************/
@@ -86,17 +89,17 @@ int main (int argc, char *argv[]) {
   
   // Get file list and find out how many C(l)s there are:  
   i=0; N1=0; N2=0, maxNl=0;
-  infile.open("gencovl.temp");
-  if (!infile.is_open()) error("Cannot open file gencovl.temp");
+  infile.open("corrlnfields.temp");
+  if (!infile.is_open()) error("corrlnfields: cannot open file corrlnfields.temp");
   while (infile >> filename) {
     getcovid(filename, &a1, &a2, &b1, &b2);
     if (a1>N1) N1=a1; if (b1>N1) N1=b1;                // Get number of fields.
     if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
     CountEntries(filename, &(Nentries[i]), &ncols);    // Get number of Nls.
-    if (ncols!=2) error("Wrong number of columns in file "+filename);
+    if (ncols!=2) error("corrlnfields: wrong number of columns in file "+filename);
     if (Nentries[i]>maxNl) maxNl=Nentries[i];          // Record maximum number of ls.
     i++;
-    if (i>NCLMAX) error("Reached maximum number of C(l)s. Increase NCLMAX.");
+    if (i>NCLMAX) error("corrlnfields: reached maximum number of C(l)s. Increase NCLMAX.");
   }
   infile.clear();
   infile.seekg(0);
@@ -124,9 +127,9 @@ int main (int argc, char *argv[]) {
     cout << filename << " goes to ["<<i<<", "<<j<<"]" << endl;
     // Record the order of the fields in CovMatrix:
     if (fnzSet[i]==0) { fnz[i][0] = a1; fnz[i][1] = a2; fnzSet[i] = 1; }
-    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("Field order in CovMatrix is messed up!"); 
+    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("corrlnfields: field order in CovMatrix is messed up!"); 
     if (fnzSet[j]==0) { fnz[j][0] = b1; fnz[j][1] = b2; fnzSet[j] = 1; }
-    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("Field order in CovMatrix is messed up!");
+    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("corrlnfields: field order in CovMatrix is messed up!");
     // Import data:
     wrapper[0] = &(ll[i][j][0]);
     wrapper[1] = &(Cov[i][j][0]);
@@ -138,12 +141,12 @@ int main (int argc, char *argv[]) {
   infile.close();
 
   // Check if every field was assigned a position in the CovMatrix:
-  for (i=0; i<N1*N2; i++) if (fnzSet[i]==0) error("Some position in CovMatrix is unclaimed.");
+  for (i=0; i<N1*N2; i++) if (fnzSet[i]==0) error("corrlnfields: some position in CovMatrix is unclaimed.");
   free_vector(fnzSet, 0, N1*N2-1);
   // If positions are OK and output required, print them out:
   if (config.reads("FLIST_OUT")!="0") {
     outfile.open(config.reads("FLIST_OUT").c_str());
-    if (!outfile.is_open()) error("Cannot open FLIST_OUT file.");
+    if (!outfile.is_open()) error("corrlnfields: cannot open FLIST_OUT file.");
     PrintTable(fnz, N1*N2, 2, &outfile);
     outfile.close();
     cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
@@ -157,32 +160,35 @@ int main (int argc, char *argv[]) {
   
   // Load means and shifts data file:
   cout << "Loading means and shifts from file "+config.reads("MEANS_SHIFTS")+":\n";
-  aux   = LoadTable<double>(config.reads("MEANS_SHIFTS"), &long1, &long2); // This is also needed for GAUSSIAN realizations!
-  Nfields = (int)long1; 
-  if (Nfields != N1*N2) error("Number of means and shifts do not match number of C(l)s.");
+  aux   = LoadTable<double>(config.reads("MEANS_SHIFTS"), &long1, &long2); 
+  Nfields = (int)long1; // From now on will use Nfields instead of N1*N2, so the check below is important!
+  if (Nfields != N1*N2) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
   fnzSet = vector<bool>(0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
   means  = vector<double>(0, Nfields-1); 
   if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
   for (j=0; j<Nfields; j++) {
     fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
-    if (fnzSet[i]==1) error ("Found more than one mean & shift entry for the same f-z.");
+    if (fnzSet[i]==1) error ("corrlnfields: found more than one mean & shift entry for the same f-z.");
     fnzSet[i] = 1; 
     means[i]  = aux[j][2];  
     if (dist==lognormal) shifts[i] = aux[j][3];
   }
-  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("Some mean & shift were not set.");
+  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: some mean & shift were not set.");
+  if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) { // Sanity check.
+	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
+      }
   free_vector(fnzSet, 0, Nfields-1);
   free_matrix(aux, 0, Nfields-1, 0, long2-1);
   cout << "Done.\n";
   
   // Look for the maximum l value described by all C(l)s:
-  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) if (IsSet[i][j]==1) {
-	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("Too high l in C(l)s: increase HWMAXL.");
+  for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
+	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("corrlnfields: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
       }
   // Set maximum l that is used based on either input data or config file:
   if (config.readi("LMAX")>maxl) {
-    sprintf(message,"LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
+    sprintf(message,"corrlnfields: LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
     warning(message);
   }
   else maxl=config.readi("LMAX");
@@ -191,7 +197,7 @@ int main (int argc, char *argv[]) {
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
   tempCl = vector<double>(0, maxl);
-  CovByl = GSLMatrixArray(Nls, N1*N2, N1*N2);
+  CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
   cout << "done.\n";
 
 
@@ -230,8 +236,8 @@ int main (int argc, char *argv[]) {
   }
 
   // LOOP over all C(l)s already set.
-  for(i=0; i<N1*N2; i++)
-    for(j=0; j<N1*N2; j++) 
+  for(i=0; i<Nfields; i++)
+    for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==1) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Interpolate C(l) for every l; input C(l) might not be like that:
@@ -270,15 +276,15 @@ int main (int argc, char *argv[]) {
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
 	// Save gaussian C(l):
-	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j]=tempCl[l];		
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];		
       } // End of LOOP over C(l)[i,j] that were set.
   
   // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
   cout << "Massive memory deallocation... "; cout.flush();
   free_vector(tempCl, 0, maxl);
-  free_tensor3(Cov,    0, N1*N2-1, 0, N1*N2-1, 0, maxNl); 
-  free_tensor3(ll,     0, N1*N2-1, 0, N1*N2-1, 0, maxNl); 
-  free_matrix(NentMat, 0, N1*N2-1, 0, N1*N2-1);
+  free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, maxNl); 
+  free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, maxNl); 
+  free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
   if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
@@ -292,132 +298,118 @@ int main (int argc, char *argv[]) {
   
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
-  for(i=0; i<N1*N2; i++)
-    for(j=0; j<N1*N2; j++) 
+  for(i=0; i<Nfields; i++)
+    for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==0) {
 	if (IsSet[j][i]==0) {
-	  sprintf(message,"[%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
+	  sprintf(message,"corrlnfields: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
 	  error(message);
 	}
-	for (l=0; l<Nls; l++) CovByl[l]->data[i*N1*N2+j] = CovByl[l]->data[j*N1*N2+i];
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
       }
   cout << "done.\n";
-  free_matrix(IsSet, 0, N1*N2-1, 0, N1*N2-1);
+  free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
-  return 0;
   
+  /******************************************/
+  /*** PART 3: The Cholesky decomposition ***/
+  /******************************************/
+  const double OneOverSqr2=0.7071067811865475;
+  double **gaus0, **gaus1, ***almRe, ***almIm;
+  gsl_rng *rnd;
+  int lcholesky;
+ 
+  NofM      = config.readi("NM");
+  lcholesky = config.readi("LMAX2");
+  // Allocate memory:
+  gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
+  gaus1 = matrix<double>(0,Nfields-1, 0,1); 
+  almRe = tensor3<double>(0, maxl, 0, NofM-1,0,Nfields-1); // Temporary, must think of something clever.
+  almIm = tensor3<double>(0, maxl, 0, NofM-1,0,Nfields-1); 
+
+  if (dist==lognormal) variances = vector<double>(0,Nfields-1);
   // - Set random number generator
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
-  // - Means and shifts
-  means     = LoadList<double>(config.reads("MEANS"), &long1);
-  if (dist==lognormal)
-    shifts  = LoadList<double>(config.reads("SHIFTS"), &long1);
-  // - Covariance matrices list
-  sprintf(message, "ls %s* > corrlnfields.temp", config.reads("COV_PREFIX").c_str());
-  status=system(message);
-  if (status!=0) error("Could not obtain cov. matrices list through 'ls' command.");
-  infile.open("corrlnfields.temp");
-  if (!infile.is_open()) error("corrlnfields: cannot open file corrlnfields.temp");
-  // - Number of alm's for fixed l to generate
-  NofM = config.readi("NM");
-  
   // Open file to receive alm's:
   samplefile.open(config.reads("SAMPLE_OUT").c_str());
   if (!samplefile.is_open()) 
     warning("corrlnfields: cannot open "+config.reads("SAMPLE_OUT")+" file.");
   samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl;
+  
+
   // LOOP over l's:
-  while (infile >> filename) {
-    cout << "** Working with file '"+filename+"':\n   ";
-    CovMatrix = LoadGSLMatrix(filename);
-    CovSize   = CovMatrix->size1;
+  for (l=2; l<lcholesky; l++) { // skip l=0.
+    cout << "** Working with cov. matrix for l="<<l<<":\n";
+    // Get variances from Cov. matrix:
     if (dist==lognormal) {
-      variances = vector<double>(0,CovSize-1);
-      for (i=0; i<CovSize; i++) variances[i] = CovMatrix->data[i*CovSize+i];  
-    }
-    
-    // Input sanity checks:
-    cout << "   Performing sanity checks... "; cout.flush();
-    if (CovMatrix->size1 != CovMatrix->size2) error("corrlnfields: Cov. matrix is not square.");
-    if (CovSize != long1) error("corrlnfields: Cov. matrix and means vector size do not match.");
-    if (dist==lognormal) {
-    if (CovSize != long1) error("corrlnfields: Cov. matrix and shifts vector size do not match.");
-    for (i=0; i<CovSize; i++) if(means[i]+shifts[i]<=0) { 
-	sprintf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
-      }
-    }
-    cout << "done.\n";
-    
-    // If DIST=LOGNORMAL, transform to gaussian variables in place:
-    if (dist==lognormal) {
-      cout << "   Transforming COV_MATRIX to gaussian... "; cout.flush();
-      status=GetGaussCov(CovMatrix, CovMatrix, means, shifts);
-      if (status==EDOM) error("corrlnfields: GetGaussCov found bad log arguments.");
-      cout << "done.\n";
-      // Output gaussian covariance matrix if asked:
-      if (config.reads("GCOVOUT_PREFIX")!="0") {
-	tempstr = config.reads("GCOVOUT_PREFIX") + getllstr(filename) + ".dat";
-	outfile.open(tempstr.c_str());
-	if (!outfile.is_open()) 
-	  warning("corrlnfields: cannot open "+tempstr+" file.");
-	else { 
-	  PrintGSLMatrix(CovMatrix, &outfile); outfile.close(); 
-	  cout << "   Gaussian covariance matrix written to "+tempstr << endl;
-	}
-      }
+      for (i=0; i<Nfields; i++) variances[i] = CovByl[l]->data[i*Nfields+i];  
     }
     
     // Perform a Cholesky decomposition:
-    cout << "   Performing a Cholesky decomposition of COV_MATRIX... "; cout.flush();
-    status = gsl_linalg_cholesky_decomp(CovMatrix);
+    cout << "   Performing a Cholesky decomposition... "; cout.flush();
+    status = gsl_linalg_cholesky_decomp(CovByl[l]);
     if (status==GSL_EDOM) error("Cholesky decomposition failed: matrix is not positive-definite.");
     cout << "done.\n";
-    
+    // Output file if requested:
+    if (config.reads("CHOLESKY_PREFIX")!="0") {
+      filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,maxl)+".dat";
+      outfile.open(filename.c_str());
+      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+      else { 
+	PrintGSLMatrix(CovByl[l], &outfile); outfile.close();
+	cout << "   Cholesky decomposition output matrix written to " << filename << endl;
+      }  
+    }
+
     // LOOP over realizations of alm's for a fixed l:
-    cout << "   Generating random variables... "; cout.flush();
-    gaus0 = vector<double>(0, CovSize-1);
-    gaus1 = vector<double>(0, CovSize-1);
-    l = getll(filename);
+    cout << "   Generating random alm's... "; cout.flush();
     if (NofM<0) mMax=l; else mMax=NofM-l-1; 
     for (m=-l; m<=mMax; m++) {
-      // Generate independent 1sigma random variables:
-      for (i=0; i<CovSize; i++) gaus0[i] = gsl_ran_gaussian(rnd, 1.0); 
-      
-      // Generate correlated gaussian variables according to CovMatrix:
-      CorrGauss(gaus1, CovMatrix, gaus0);
-      
+      // Generate independent 1sigma complex random variables:
+      for (i=0; i<Nfields; i++) {
+	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
+      }
+      // Generate correlated complex gaussian variables according to CovMatrix:
+      CorrGauss(gaus1, CovByl[l], gaus0);
+      for (i=0; i<Nfields; i++) {
+	almRe[l][m+l][i] = gaus1[i][0];
+	almIm[l][m+l][i] = gaus1[i][1];
+      }
+      samplefile << l <<" "<< m;
+      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m+l][i]<<" "<<std::setprecision(10)<< almIm[l][m+l][i];
+      samplefile<<endl;
+      /*
       // If DIST=LOGNORMAL, transform variables to lognormal:
       if (dist==lognormal)
-	for (i=0; i<CovSize; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
-      else if (dist==gaussian) 
-	for (i=0; i<CovSize; i++) gaus0[i] = gaus1[i] + means[i];
+	for (i=0; i<Nfields; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
+      else
+	for (i=0; i<Nfields; i++) gaus0[i] = gaus1[i] + means[i];
       
       //sprintf(message,"%d %d %.8g %.8g %.8g %.8g",l,m,gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
       //samplefile << message << endl;
       samplefile << l <<" "<< m;
       for (i=0; i<CovSize; i++) samplefile <<" "<<std::setprecision(10)<< gaus0[i];
       samplefile<<endl;
-
-    }
+      */
+    } // End of LOOP over realizations of alm's for fixed l.
     cout << "done.\n";
-    // End of LOOP over realizations of alm's for fixed l.
-
-    // Free memory allocated inside the loop: avoid memory leakage!
-    gsl_matrix_free(CovMatrix);
-    free_vector(gaus0,0,CovSize-1);
-    free_vector(gaus1,0,CovSize-1);
-    if (dist==lognormal) free_vector(variances, 0, CovSize-1);
-  } 
+    
+  } // End of LOOP over l's.
   samplefile.close();
-  // End of LOOP over l's.
-
+  free_matrix(gaus0,0,CovSize-1,0,1);
+  free_matrix(gaus1,0,CovSize-1,0,1);
+  if (dist==lognormal) free_vector(variances, 0, CovSize-1);
+  free_tensor3(almRe, 0, maxl, 0, NofM-1, 0, Nfields-1);
+  free_tensor3(almIm, 0, maxl, 0, NofM-1, 0, Nfields-1);
+  free_GSLMatrixArray(CovByl, Nls);
+  
   // End of the program
-  infile.close();
-  if (dist==lognormal) free_vector(shifts,0,CovSize-1);
-  free_vector(means,0,CovSize-1);
+  if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
+  free_vector(means, 0, Nfields-1);
   system("rm -f corrlnfields.temp");
   gsl_rng_free(rnd);
   //debugfile.close();
@@ -427,13 +419,17 @@ int main (int argc, char *argv[]) {
 }
 
 
-/*** Multiply Lower-triangular matrix L to vector gaus0 and return gaus1 ***/
-void CorrGauss(double *gaus1, gsl_matrix *L, double *gaus0) {
+/*** Multiply Lower-triangular matrix L to complex vector gaus0 and return gaus1 ***/
+void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0) {
   long i, j;
 
   for(i=0; i<L->size1; i++) {
-    gaus1[i]=0;     // L matrix stored as vector in row-major order.
-    for(j=0; j<=i; j++) gaus1[i] += L->data[i*L->size1+j] * gaus0[j]; 
+    gaus1[i][0]=0; // Re    
+    gaus1[i][1]=0; // Im
+    for(j=0; j<=i; j++) { // L matrix stored as vector in row-major order.
+      gaus1[i][0] += L->data[i*L->size1+j] * gaus0[j][0];
+      gaus1[i][1] += L->data[i*L->size1+j] * gaus0[j][1];
+    }
   }
 }
 

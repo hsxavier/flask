@@ -23,12 +23,12 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=17;
+  const int     npars=19;
   const string  par_name[npars] = {"COV_PREFIX", "RNDSEED", "GCOVOUT_PREFIX", 
 				   "DIST", "LMAX", "CL_PREFIX", "COVOUT_PREFIX", "FLIST_OUT", 
 				   "SAMPLE_OUT", "NM", "FLIST_IN", "SUPPRESS_L", "SUP_INDEX", 
-				   "XIOUT_PREFIX","MEANS_SHIFTS", "GXIOUT_PREFIX", "GCLOUT_PREFIX"};
-  const int     par_type[npars] = {s, i1, s, s, i1, s, s, s, s, i1, s, d1, d1, s, s, s, s};
+				   "XIOUT_PREFIX","MEANS_SHIFTS", "GXIOUT_PREFIX", "GCLOUT_PREFIX", "CHOLESKY_PREFIX","LMAX2"};
+  const int     par_type[npars] = {s, i1, s, s, i1, s, s, s, s, i1, s, d1, d1, s, s, s, s, s, i1};
   // END OF PARAMETER SETTINGS.
 }
 
