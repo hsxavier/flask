@@ -312,7 +312,7 @@ int main (int argc, char *argv[]) {
   const double OneOverSqr2=0.7071067811865475;
   double **gaus0, **gaus1, ***almRe, ***almIm;
   gsl_rng *rnd;
-  int lmax, lmin, mMin, mMax, NofM;
+  int lmax, lmin, mMin, mMax, NofM, msign;
  
   lmax = config.readi("LMAX");
   lmin = config.readi("LMIN");
@@ -322,8 +322,8 @@ int main (int argc, char *argv[]) {
     mMax =  lmax;
   }
   else { 
-    mMin = -1*NofM/2 + (NofM+1)%2; 
-    mMax =    NofM/2;
+    mMin = -1*NofM/2; 
+    mMax =    NofM/2 - (NofM+1)%2;
   }
 
   // Allocate memory:
@@ -374,7 +374,8 @@ int main (int argc, char *argv[]) {
     // LOOP over realizations of alm's for a fixed l:
     cout << "   Generating random alm's... "; cout.flush();
     if (NofM<0) { mMin=-l; mMax=l; }
-    for (m=mMin; m<=mMax; m++) {
+    // Generate m<0 modes:
+    for (m=mMin; m<0; m++) {
       // Generate independent 1sigma complex random variables:
       for (i=0; i<Nfields; i++) {
 	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
@@ -382,27 +383,50 @@ int main (int argc, char *argv[]) {
       }
       // Generate correlated complex gaussian variables according to CovMatrix:
       CorrGauss(gaus1, CovByl[l], gaus0);
+      // Save alm to tensor:
       for (i=0; i<Nfields; i++) {
 	almRe[l][m][i] = gaus1[i][0];
 	almIm[l][m][i] = gaus1[i][1];
       }
+      // Save alm to file:
       samplefile << l <<" "<< m;
       for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
       samplefile<<endl;
-      /*
-      // If DIST=LOGNORMAL, transform variables to lognormal:
-      if (dist==lognormal)
-	for (i=0; i<Nfields; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
-      else
-	for (i=0; i<Nfields; i++) gaus0[i] = gaus1[i] + means[i];
       
-      //sprintf(message,"%d %d %.8g %.8g %.8g %.8g",l,m,gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
-      //samplefile << message << endl;
+    } // End of LOOP over m<0.
+    // Generate m=0 mode:
+    m=0;
+    // Generate independent 1sigma complex random variables:
+    for (i=0; i<Nfields; i++) {
+	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	gaus0[i][1] = 0.0;
+    }
+    // Generate correlated complex gaussian variables according to CovMatrix:
+    CorrGauss(gaus1, CovByl[l], gaus0);
+    // Save alm to tensor:
+    for (i=0; i<Nfields; i++) {
+      almRe[l][m][i] = gaus1[i][0];
+      almIm[l][m][i] = gaus1[i][1];
+    }
+    // Save alm to file:
+    samplefile << l <<" "<< m;
+    for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
+    samplefile<<endl;
+    // End of m=0.
+    // Generate m>0 modes:
+    for (m=1; m<=mMax; m++) {
+      if (m%2==0) msign=1; else msign=-1;
+      for (i=0; i<Nfields; i++) {
+	almRe[l][m][i] = msign*almRe[l][-1*m][i];
+	almIm[l][m][i] = -1*msign*almIm[l][-1*m][i];
+      }
+      // Save alm to file:
       samplefile << l <<" "<< m;
-      for (i=0; i<CovSize; i++) samplefile <<" "<<std::setprecision(10)<< gaus0[i];
+      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
       samplefile<<endl;
-      */
-    } // End of LOOP over realizations of alm's for fixed l.
+      
+    } // End of LOOP over m>0.
+
     cout << "done.\n";
     
   } // End of LOOP over l's.
@@ -425,6 +449,21 @@ int main (int argc, char *argv[]) {
   cout<<endl;
   return 0;
 }
+
+
+/*
+      // If DIST=LOGNORMAL, transform variables to lognormal:
+      if (dist==lognormal)
+	for (i=0; i<Nfields; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
+      else
+	for (i=0; i<Nfields; i++) gaus0[i] = gaus1[i] + means[i];
+      
+      //sprintf(message,"%d %d %.8g %.8g %.8g %.8g",l,m,gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
+      //samplefile << message << endl;
+      samplefile << l <<" "<< m;
+      for (i=0; i<CovSize; i++) samplefile <<" "<<std::setprecision(10)<< gaus0[i];
+      samplefile<<endl;
+      */
 
 
 /*** Multiply Lower-triangular matrix L to complex vector gaus0 and return gaus1 ***/
