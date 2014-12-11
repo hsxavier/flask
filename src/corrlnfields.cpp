@@ -31,7 +31,7 @@ int main (int argc, char *argv[]) {
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix, **CovByl; 
   long CovSize;
-  int status, i, j, l, m, mMax, NofM, Nfields;
+  int status, i, j, l, m, Nfields;
   double *means, *variances, *shifts, **aux; 
   long long1, long2;
   // Functions defined in the end of this file:
@@ -82,13 +82,13 @@ int main (int argc, char *argv[]) {
   void CountEntries(std::string filename, long *nr, long *nc);
   void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2);
   const int NCLMAX=500;
-  int a1, a2, b1, b2, N1, N2, maxNl, **fnz, **NentMat;
+  int a1, a2, b1, b2, N1, N2, Nlinput, **fnz, **NentMat;
   long Nentries[NCLMAX], ncols;
   double ***ll, ***Cov, *wrapper[2];
   bool *fnzSet, **IsSet;
   
   // Get file list and find out how many C(l)s there are:  
-  i=0; N1=0; N2=0, maxNl=0;
+  i=0; N1=0; N2=0, Nlinput=0;
   infile.open("corrlnfields.temp");
   if (!infile.is_open()) error("corrlnfields: cannot open file corrlnfields.temp");
   while (infile >> filename) {
@@ -97,7 +97,7 @@ int main (int argc, char *argv[]) {
     if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
     CountEntries(filename, &(Nentries[i]), &ncols);    // Get number of Nls.
     if (ncols!=2) error("corrlnfields: wrong number of columns in file "+filename);
-    if (Nentries[i]>maxNl) maxNl=Nentries[i];          // Record maximum number of ls.
+    if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
     i++;
     if (i>NCLMAX) error("corrlnfields: reached maximum number of C(l)s. Increase NCLMAX.");
   }
@@ -110,8 +110,8 @@ int main (int argc, char *argv[]) {
   // fnz stores the order that the fields are stored in CovMatrix.
   fnz     =     matrix<int>(0, N1*N2-1, 0, 1);                 // Records what field is stored in each element of CovMatrix.
   fnzSet  =    vector<bool>(0, N1*N2-1);                       // For bookkeeping.
-  ll      = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, maxNl); // Records the ll for each C(l) file. 
-  Cov     = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, maxNl); // Records the C(l) for each C(l) file.
+  ll      = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, Nlinput); // Records the ll for each C(l) file. 
+  Cov     = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, Nlinput); // Records the C(l) for each C(l) file.
   IsSet   =    matrix<bool>(0, N1*N2-1, 0, N1*N2-1);           // For bookkeeping.
   NentMat =     matrix<int>(0, N1*N2-1, 0, N1*N2-1);           // Number of C(l) entries in file.
   for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) IsSet[i][j]=0;
@@ -156,7 +156,7 @@ int main (int argc, char *argv[]) {
   /*** PART 2: Prepare for Cholesky decomposition ***/
   /**************************************************/
   double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
-  const int HWMAXL = 10000000; int maxl = HWMAXL, Nls;
+  const int HWMAXL = 10000000; int lastl = HWMAXL, Nls;
   
   // Load means and shifts data file:
   cout << "Loading means and shifts from file "+config.reads("MEANS_SHIFTS")+":\n";
@@ -184,19 +184,13 @@ int main (int argc, char *argv[]) {
   // Look for the maximum l value described by all C(l)s:
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("corrlnfields: too high l in C(l)s: increase HWMAXL.");
-	if (ll[i][j][NentMat[i][j]-1]<maxl) maxl = (int)ll[i][j][NentMat[i][j]-1];
+	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
-  // Set maximum l that is used based on either input data or config file:
-  if (config.readi("LMAX")>maxl) {
-    sprintf(message,"corrlnfields: LMAX larger than described by C(l) files. Using LMAX=%d instead.", maxl);
-    warning(message);
-  }
-  else maxl=config.readi("LMAX");
-  Nls=maxl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
+  Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
 
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
-  tempCl = vector<double>(0, maxl);
+  tempCl = vector<double>(0, lastl);
   CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
   cout << "done.\n";
 
@@ -212,10 +206,10 @@ int main (int argc, char *argv[]) {
     LegendreP  = vector<double>(0, 2*Nls*Nls-1);
     xi         = vector<double>(0, 2*Nls-1);
     theta      = vector<double>(0, 2*Nls-1);
-    lls        = vector<double>(0, maxl);
+    lls        = vector<double>(0, lastl);
     DLTweights = vector<double>(0, 4*Nls-1);
     // Initialize vectors:
-    for (i=0; i<=maxl; i++) lls[i]=(double)i;
+    for (i=0; i<=lastl; i++) lls[i]=(double)i;
     ArcCosEvalPts(2*Nls, theta);
     for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
     cout << "done.\n";
@@ -242,13 +236,13 @@ int main (int argc, char *argv[]) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Interpolate C(l) for every l; input C(l) might not be like that:
 	cout << "   Interpolating input C(l) for all l's... "; cout.flush();
-	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, maxl);
+	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl);
 	cout << "              done.\n";
 	
 	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	  // Compute correlation function:
 	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
-	  ModCl4DLT(tempCl, maxl, lsup, supindex);
+	  ModCl4DLT(tempCl, lastl, lsup, supindex);
 	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	  cout << "  done.\n";
 	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
@@ -281,16 +275,16 @@ int main (int argc, char *argv[]) {
   
   // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
   cout << "Massive memory deallocation... "; cout.flush();
-  free_vector(tempCl, 0, maxl);
-  free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, maxNl); 
-  free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, maxNl); 
+  free_vector(tempCl, 0, lastl);
+  free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
+  free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
   if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(xi, 0, 2*Nls-1);
     free_vector(theta, 0, 2*Nls-1);
-    free_vector(lls, 0, maxl);
+    free_vector(lls, 0, lastl);
     free_vector(DLTweights, 0, 4*Nls-1); 
   }
   cout << "done.\n";
@@ -318,15 +312,28 @@ int main (int argc, char *argv[]) {
   const double OneOverSqr2=0.7071067811865475;
   double **gaus0, **gaus1, ***almRe, ***almIm;
   gsl_rng *rnd;
-  int lcholesky;
+  int lmax, lmin, mMin, mMax, NofM;
  
-  NofM      = config.readi("NM");
-  lcholesky = config.readi("LMAX2");
+  lmax = config.readi("LMAX");
+  lmin = config.readi("LMIN");
+  NofM = config.readi("NM");
+  if (NofM<0) {
+    mMin = -lmax;
+    mMax =  lmax;
+  }
+  else { 
+    mMin = -1*NofM/2 + (NofM+1)%2; 
+    mMax =    NofM/2;
+  }
+
   // Allocate memory:
   gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = matrix<double>(0,Nfields-1, 0,1); 
-  almRe = tensor3<double>(0, maxl, 0, NofM-1,0,Nfields-1); // Temporary, must think of something clever.
-  almIm = tensor3<double>(0, maxl, 0, NofM-1,0,Nfields-1); 
+  //almRe = tensor3<double>(0, lmax, 0, NofM-1,0,Nfields-1); // Temporary, must think of something clever.
+  //almIm = tensor3<double>(0, lmax, 0, NofM-1,0,Nfields-1); // This fails of NofM<0!!!
+  almRe = tensor3<double>(lmin, lmax, mMin, mMax,0,Nfields-1); // Temporary, must think of something clever.
+  almIm = tensor3<double>(lmin, lmax, mMin, mMax,0,Nfields-1); // This fails of NofM<0!!!
+
 
   if (dist==lognormal) variances = vector<double>(0,Nfields-1);
   // - Set random number generator
@@ -337,11 +344,11 @@ int main (int argc, char *argv[]) {
   samplefile.open(config.reads("SAMPLE_OUT").c_str());
   if (!samplefile.is_open()) 
     warning("corrlnfields: cannot open "+config.reads("SAMPLE_OUT")+" file.");
-  samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl;
+  samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
   
 
   // LOOP over l's:
-  for (l=2; l<lcholesky; l++) { // skip l=0.
+  for (l=lmin; l<=lmax; l++) { // skip l=0.
     cout << "** Working with cov. matrix for l="<<l<<":\n";
     // Get variances from Cov. matrix:
     if (dist==lognormal) {
@@ -355,7 +362,7 @@ int main (int argc, char *argv[]) {
     cout << "done.\n";
     // Output file if requested:
     if (config.reads("CHOLESKY_PREFIX")!="0") {
-      filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,maxl)+".dat";
+      filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
       outfile.open(filename.c_str());
       if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
       else { 
@@ -366,8 +373,8 @@ int main (int argc, char *argv[]) {
 
     // LOOP over realizations of alm's for a fixed l:
     cout << "   Generating random alm's... "; cout.flush();
-    if (NofM<0) mMax=l; else mMax=NofM-l-1; 
-    for (m=-l; m<=mMax; m++) {
+    if (NofM<0) { mMin=-l; mMax=l; }
+    for (m=mMin; m<=mMax; m++) {
       // Generate independent 1sigma complex random variables:
       for (i=0; i<Nfields; i++) {
 	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
@@ -376,11 +383,11 @@ int main (int argc, char *argv[]) {
       // Generate correlated complex gaussian variables according to CovMatrix:
       CorrGauss(gaus1, CovByl[l], gaus0);
       for (i=0; i<Nfields; i++) {
-	almRe[l][m+l][i] = gaus1[i][0];
-	almIm[l][m+l][i] = gaus1[i][1];
+	almRe[l][m][i] = gaus1[i][0];
+	almIm[l][m][i] = gaus1[i][1];
       }
       samplefile << l <<" "<< m;
-      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m+l][i]<<" "<<std::setprecision(10)<< almIm[l][m+l][i];
+      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
       samplefile<<endl;
       /*
       // If DIST=LOGNORMAL, transform variables to lognormal:
@@ -403,8 +410,9 @@ int main (int argc, char *argv[]) {
   free_matrix(gaus0,0,CovSize-1,0,1);
   free_matrix(gaus1,0,CovSize-1,0,1);
   if (dist==lognormal) free_vector(variances, 0, CovSize-1);
-  free_tensor3(almRe, 0, maxl, 0, NofM-1, 0, Nfields-1);
-  free_tensor3(almIm, 0, maxl, 0, NofM-1, 0, Nfields-1);
+  if (NofM<0) {mMin = -lmax; mMax = lmax;}
+  free_tensor3(almRe, lmin, lmax, mMin, mMax, 0, Nfields-1);
+  free_tensor3(almIm, lmin, lmax, mMin, mMax, 0, Nfields-1);
   free_GSLMatrixArray(CovByl, Nls);
   
   // End of the program
@@ -527,7 +535,7 @@ std::string SampleHeader(std::string fieldsfile) {
   if (nc!=2) error("SampleHeader: expect 2 columns in file "+fieldsfile);
  
   ss << "# l, m";
-  for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2];
+  for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2] << "Re, f" << fz[i][1] << "z" << fz[i][2] << "Im";
   
   return ss.str(); 
 }
