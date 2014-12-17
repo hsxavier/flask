@@ -5,8 +5,9 @@ BIN = ../bin
 OBJ = ../obj
 SRC = ../src
 
-#FFTWFLAGS = -lfftw3
-GSLFLAGS = -lgsl -lgslcblas
+CXXFLAGS = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
+LDFLAGS = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
+LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # General instructions:
 all: $(BIN)/$(PROGRAM_NAME) $(BIN)/gencovl $(BIN)/cl2var.sh
@@ -15,13 +16,13 @@ clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 
-
-# Instructions for compiling main program:
-
-$(BIN)/$(PROGRAM_NAME): $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+$(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o
-	$(COMP) $(SRC)/corrlnfields.cpp $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
-		$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o -o $@ $(GSLFLAGS)
+	$(COMP) $(LDFLAGS) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o -o $@ $(LIBS)
+
+$(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp 
+	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields.cpp -o $@
 
 $(OBJ)/ParameterList.o: $(SRC)/ParameterList.cpp $(SRC)/ParameterList.hpp $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/ParameterList.cpp -o $@

@@ -13,9 +13,14 @@
 #include <cstdlib>              // For function 'system'.
 #include <string>               // For function 'to_string'.
 #include <iomanip>              // For 'setprecision'.
+#include "alm.h"
+#include "xcomplex.h"
+#include "healpix_map.h"
+#include "alm_healpix_tools.h"
+#include "healpix_map_fitsio.h"
+#include <vector>
 
 std::ofstream debugfile;        // Send debugging messages to this file.
-
 
 
 /********************/
@@ -47,6 +52,34 @@ int main (int argc, char *argv[]) {
   void test_fzij (int N1, int N2);
   std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
+
+  /*cout << "Test alm array...\n";
+  Healpix_Map<double> map(16,RING,SET_NSIDE);
+  Alm<xcomplex <double> > *aflm;
+  aflm = vector<Alm<xcomplex <double> > >(0,3);
+  //std::vector<Alm<xcomplex <double> > > aflm(4);
+  Alm<xcomplex <double> > almT;
+  almT.Set(100,100);
+  for (i=0; i<=3; i++) {
+    aflm[i].Set(100,100);
+    for(l=0; l<=100; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+    for(l=0; l<=100; l++) for (m=0; m<=l; m++) almT(l,m).Set(0,0);
+    aflm[i](i,0).Set(1,1);
+    almT(i,i).Set(1,1);
+    //cout << almT(2,2).re << endl;
+    //cout << almT(2,2).im << endl;
+    alm2map(aflm[i],map);
+    //alm2map(almT,map);
+    sprintf(message,"test-%d.fits",i);
+    filename.assign(message);
+    write_Healpix_map_to_fits(filename,map,planckType<double>());
+    sprintf(message,"/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/bin/map2tga test-%d.fits test-%d.tga", i,i);
+    system(message);
+  }
+  free_vector(aflm,0,3);
+  cout << "done\n";
+  return 0;
+  */
 
   // Opening debug file for dumping information about the program:
   //debugfile.open("debug.log");
@@ -306,49 +339,45 @@ int main (int argc, char *argv[]) {
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
   
-  /******************************************/
-  /*** PART 3: The Cholesky decomposition ***/
-  /******************************************/
+  /*********************************************************/
+  /*** PART 3: Cholesky decomposition and alm generation ***/
+  /*********************************************************/
   const double OneOverSqr2=0.7071067811865475;
-  double **gaus0, **gaus1, ***almRe, ***almIm;
+  bool almout;
+  double **gaus0, **gaus1;
   gsl_rng *rnd;
-  int lmax, lmin, mMin, mMax, NofM, msign;
- 
+  int lmax, lmin;
+  Alm<xcomplex <double> > *aflm;
+  
   lmax = config.readi("LMAX");
   lmin = config.readi("LMIN");
-  NofM = config.readi("NM");
-  if (NofM<0) {
-    mMin = -lmax;
-    mMax =  lmax;
-  }
-  else { 
-    mMin = -1*NofM/2; 
-    mMax =    NofM/2 - (NofM+1)%2;
-  }
 
   // Allocate memory:
   gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = matrix<double>(0,Nfields-1, 0,1); 
-  //almRe = tensor3<double>(0, lmax, 0, NofM-1,0,Nfields-1); // Temporary, must think of something clever.
-  //almIm = tensor3<double>(0, lmax, 0, NofM-1,0,Nfields-1); // This fails of NofM<0!!!
-  almRe = tensor3<double>(lmin, lmax, mMin, mMax,0,Nfields-1); // Temporary, must think of something clever.
-  almIm = tensor3<double>(lmin, lmax, mMin, mMax,0,Nfields-1); // This fails of NofM<0!!!
-
-
+  aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
+  for (i=0; i<Nfields; i++) {
+    aflm[i].Set(lmax,lmax);
+    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+  }
+  
   if (dist==lognormal) variances = vector<double>(0,Nfields-1);
   // - Set random number generator
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
   // Open file to receive alm's:
-  samplefile.open(config.reads("SAMPLE_OUT").c_str());
-  if (!samplefile.is_open()) 
-    warning("corrlnfields: cannot open "+config.reads("SAMPLE_OUT")+" file.");
-  samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
-  
+  almout = (config.reads("GALM_OUT")!="0");
+  if (almout!=0) {
+    samplefile.open(config.reads("GALM_OUT").c_str());
+    if (!samplefile.is_open()) 
+      warning("corrlnfields: cannot open "+config.reads("GALM_OUT")+" file.");
+    else cout << "Will write gaussian alm's to file "+config.reads("GALM_OUT")+":\n";
+    samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
+  }
 
   // LOOP over l's:
-  for (l=lmin; l<=lmax; l++) { // skip l=0.
+  for (l=lmin; l<=lmax; l++) {
     cout << "** Working with cov. matrix for l="<<l<<":\n";
     // Get variances from Cov. matrix:
     if (dist==lognormal) {
@@ -371,11 +400,22 @@ int main (int argc, char *argv[]) {
       }  
     }
 
-    // LOOP over realizations of alm's for a fixed l:
     cout << "   Generating random alm's... "; cout.flush();
-    if (NofM<0) { mMin=-l; mMax=l; }
-    // Generate m<0 modes:
-    for (m=mMin; m<0; m++) {
+    // Generate m=0:
+    m=0;
+    for (i=0; i<Nfields; i++) {
+	gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
+	gaus0[i][1] = 0.0;
+      }
+    CorrGauss(gaus1, CovByl[l], gaus0);
+    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
+    if (almout!=0) {
+      samplefile << l <<" "<< m;
+      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+      samplefile<<endl;
+    }
+    // LOOP over m's for a fixed l:
+    for (m=1; m<=l; m++) {
       // Generate independent 1sigma complex random variables:
       for (i=0; i<Nfields; i++) {
 	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
@@ -384,63 +424,115 @@ int main (int argc, char *argv[]) {
       // Generate correlated complex gaussian variables according to CovMatrix:
       CorrGauss(gaus1, CovByl[l], gaus0);
       // Save alm to tensor:
-      for (i=0; i<Nfields; i++) {
-	almRe[l][m][i] = gaus1[i][0];
-	almIm[l][m][i] = gaus1[i][1];
+      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
+      // Save alm to file if requested:
+      if (almout!=0) {
+	samplefile << l <<" "<< m;
+	for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	samplefile<<endl;
       }
-      // Save alm to file:
-      samplefile << l <<" "<< m;
-      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
-      samplefile<<endl;
       
-    } // End of LOOP over m<0.
-    // Generate m=0 mode:
-    m=0;
-    // Generate independent 1sigma complex random variables:
-    for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
-	gaus0[i][1] = 0.0;
-    }
-    // Generate correlated complex gaussian variables according to CovMatrix:
-    CorrGauss(gaus1, CovByl[l], gaus0);
-    // Save alm to tensor:
-    for (i=0; i<Nfields; i++) {
-      almRe[l][m][i] = gaus1[i][0];
-      almIm[l][m][i] = gaus1[i][1];
-    }
-    // Save alm to file:
-    samplefile << l <<" "<< m;
-    for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
-    samplefile<<endl;
-    // End of m=0.
-    // Generate m>0 modes:
-    for (m=1; m<=mMax; m++) {
-      if (m%2==0) msign=1; else msign=-1;
-      for (i=0; i<Nfields; i++) {
-	almRe[l][m][i] = msign*almRe[l][-1*m][i];
-	almIm[l][m][i] = -1*msign*almIm[l][-1*m][i];
-      }
-      // Save alm to file:
-      samplefile << l <<" "<< m;
-      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< almRe[l][m][i]<<" "<<std::setprecision(10)<< almIm[l][m][i];
-      samplefile<<endl;
-      
-    } // End of LOOP over m>0.
-
+    } // End of LOOP over m's.
     cout << "done.\n";
     
   } // End of LOOP over l's.
-  samplefile.close();
+  if (almout!=0) {
+    samplefile.close();
+    cout << "alm's written to "+config.reads("GALM_OUT")<<endl;
+  }
   free_matrix(gaus0,0,CovSize-1,0,1);
   free_matrix(gaus1,0,CovSize-1,0,1);
-  if (dist==lognormal) free_vector(variances, 0, CovSize-1);
-  if (NofM<0) {mMin = -lmax; mMax = lmax;}
-  free_tensor3(almRe, lmin, lmax, mMin, mMax, 0, Nfields-1);
-  free_tensor3(almIm, lmin, lmax, mMin, mMax, 0, Nfields-1);
   free_GSLMatrixArray(CovByl, Nls);
+
+
+  /******************************/
+  /*** Part 4: Map generation ***/
+  /******************************/
+  int nside, npixels;
+  Healpix_Map<double> *mapf;
+  double *expmu, gmean, gvar;
+  pointing coord;
+  int field, z;
+
+  // Allocate memory for pixel maps:
+  cout << "Allocating memory for pixel maps... "; cout.flush();
+  nside=config.readi("NSIDE");
+  mapf=vector<Healpix_Map<double> >(0,Nfields-1);
+  for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
+  cout << "done.\n";
+  // Generate maps from alm's for each field:
+  cout << "Generating maps from alm's... "; cout.flush();
+  for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
+  cout << "done.\n";
+  // No need for alm's anymore, deallocate:
+  free_vector(aflm,0,Nfields-1);
   
+  // If LOGNORMAL, exponentiate pixels:
+  if (dist==lognormal) {
+    cout << "LOGNORMAL realizations: exponentiating pixels... "; cout.flush();
+    npixels = 12*nside*nside;
+    expmu = vector<double>(0,Nfields-1);
+    for (i=0; i<Nfields; i++) {
+      gmean = 0; gvar  = 0;
+      for (j=0; j<npixels; j++) gmean += mapf[i][j];
+      gmean = gmean/npixels;
+      for (j=0; j<npixels; j++) gvar  += pow(mapf[i][j]-gmean, 2);
+      gvar = gvar/(npixels-1);
+      cout <<endl<< "gmean: "<< gmean <<" mean: " << exp(gmean+gvar/2)-shifts[i] <<" gvar: "<< gvar << " var: " << (exp(gvar)-1)*pow(means[i]+shifts[i],2)<<endl;
+      expmu[i] = (means[i]+shifts[i])/sqrt(1+variances[i]/pow(means[i]+shifts[i],2));
+      for(j=0; j<npixels; j++) mapf[i][j] = expmu[i]*exp(mapf[i][j])-shifts[i];
+    }
+    free_vector(expmu,0,Nfields-1);
+    cout << "done.\n";
+  }
+  // If GAUSSIAN, only add mean:
+  else {
+    cout << "GAUSSIAN realizations: adding the field mean values to the pixels... "; cout.flush();
+    for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+    cout << "done.\n";
+  }
+  
+  // Write map to file as a table if requested:
+  if (config.reads("CATALOG_OUT")!="0") {
+    filename = config.reads("CATALOG_OUT");
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+    else {
+      outfile << "# theta, phi";
+      for (i=0; i<Nfields; i++) {
+	n2fz(i, &field, &z, N1, N2);
+	outfile << ", f"<<field<<"z"<<z;
+      }
+      outfile << endl;
+      for (j=0; j<npixels; j++) {
+	coord = mapf[0].pix2ang(j);
+	outfile << coord.theta <<" "<< coord.phi;
+	for (i=0; i<Nfields; i++) outfile <<" "<< mapf[i][j];
+	outfile << endl;
+      }
+      outfile.close();
+      cout << "Catalog written to " << filename << endl;
+    }  
+  }
+  
+  
+
+  /*
+  // Map output to fits files:
+  cout << "Writing maps to fits files... "; cout.flush();
+  for (i=0; i<Nfields; i++) {
+    sprintf(message,"test-%d.fits",i);
+    filename.assign(message);
+    write_Healpix_map_to_fits(filename,mapf[i],planckType<double>());
+  }
+  cout << "done.\n";
+  */
+
   // End of the program
+  free_vector(mapf, 0, Nfields-1);
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
+  if (dist==lognormal) free_vector(variances, 0, CovSize-1);
+  
   free_vector(means, 0, Nfields-1);
   system("rm -f corrlnfields.temp");
   gsl_rng_free(rnd);
