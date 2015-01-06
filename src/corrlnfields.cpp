@@ -20,8 +20,6 @@
 #include "healpix_map_fitsio.h"
 #include <vector>
 
-std::ofstream debugfile;        // Send debugging messages to this file.
-
 
 /********************/
 /*** Main Program ***/
@@ -31,13 +29,13 @@ int main (int argc, char *argv[]) {
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
   char message[100];                                                        // Handling warnings and errors.
   std::string filename, tempstr;
-  std::ofstream outfile, samplefile;                                        // File for output.
+  std::ofstream outfile;                                                    // File for output.
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix, **CovByl; 
   long CovSize;
   int status, i, j, l, m, Nfields;
-  double *means, *variances, *shifts, **aux; 
+  double *means, *shifts, **aux; 
   long long1, long2;
   // Functions defined in the end of this file:
   void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0);
@@ -53,38 +51,7 @@ int main (int argc, char *argv[]) {
   std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length);
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
-  /*cout << "Test alm array...\n";
-  Healpix_Map<double> map(16,RING,SET_NSIDE);
-  Alm<xcomplex <double> > *aflm;
-  aflm = vector<Alm<xcomplex <double> > >(0,3);
-  //std::vector<Alm<xcomplex <double> > > aflm(4);
-  Alm<xcomplex <double> > almT;
-  almT.Set(100,100);
-  for (i=0; i<=3; i++) {
-    aflm[i].Set(100,100);
-    for(l=0; l<=100; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
-    for(l=0; l<=100; l++) for (m=0; m<=l; m++) almT(l,m).Set(0,0);
-    aflm[i](i,0).Set(1,1);
-    almT(i,i).Set(1,1);
-    //cout << almT(2,2).re << endl;
-    //cout << almT(2,2).im << endl;
-    alm2map(aflm[i],map);
-    //alm2map(almT,map);
-    sprintf(message,"test-%d.fits",i);
-    filename.assign(message);
-    write_Healpix_map_to_fits(filename,map,planckType<double>());
-    sprintf(message,"/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/bin/map2tga test-%d.fits test-%d.tga", i,i);
-    system(message);
-  }
-  free_vector(aflm,0,3);
-  cout << "done\n";
-  return 0;
-  */
-
-  // Opening debug file for dumping information about the program:
-  //debugfile.open("debug.log");
-  //if (!debugfile.is_open()) warning("corrlnfields: cannot open debug file.");
-
+ 
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
   test_fzij(3,11); test_fzij(13,4);
@@ -361,28 +328,14 @@ int main (int argc, char *argv[]) {
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
   }
   
-  if (dist==lognormal) variances = vector<double>(0,Nfields-1);
   // - Set random number generator
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
-  // Open file to receive alm's:
-  almout = (config.reads("GALM_OUT")!="0");
-  if (almout!=0) {
-    samplefile.open(config.reads("GALM_OUT").c_str());
-    if (!samplefile.is_open()) 
-      warning("corrlnfields: cannot open "+config.reads("GALM_OUT")+" file.");
-    else cout << "Will write gaussian alm's to file "+config.reads("GALM_OUT")+":\n";
-    samplefile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
-  }
 
   // LOOP over l's:
   for (l=lmin; l<=lmax; l++) {
     cout << "** Working with cov. matrix for l="<<l<<":\n";
-    // Get variances from Cov. matrix:
-    if (dist==lognormal) {
-      for (i=0; i<Nfields; i++) variances[i] = CovByl[l]->data[i*Nfields+i];  
-    }
     
     // Perform a Cholesky decomposition:
     cout << "   Performing a Cholesky decomposition... "; cout.flush();
@@ -404,17 +357,12 @@ int main (int argc, char *argv[]) {
     // Generate m=0:
     m=0;
     for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
-	gaus0[i][1] = 0.0;
-      }
+      gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
+      gaus0[i][1] = 0.0;
+    }
     CorrGauss(gaus1, CovByl[l], gaus0);
     for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
-    if (almout!=0) {
-      samplefile << l <<" "<< m;
-      for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-      samplefile<<endl;
-    }
-    // LOOP over m's for a fixed l:
+    // LOOP over m>0 for a fixed l:
     for (m=1; m<=l; m++) {
       // Generate independent 1sigma complex random variables:
       for (i=0; i<Nfields; i++) {
@@ -424,39 +372,45 @@ int main (int argc, char *argv[]) {
       // Generate correlated complex gaussian variables according to CovMatrix:
       CorrGauss(gaus1, CovByl[l], gaus0);
       // Save alm to tensor:
-      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
-      // Save alm to file if requested:
-      if (almout!=0) {
-	samplefile << l <<" "<< m;
-	for (i=0; i<Nfields; i++) samplefile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	samplefile<<endl;
-      }
-      
+      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
     } // End of LOOP over m's.
     cout << "done.\n";
     
   } // End of LOOP over l's.
-  if (almout!=0) {
-    samplefile.close();
-    cout << "alm's written to "+config.reads("GALM_OUT")<<endl;
-  }
   free_matrix(gaus0,0,CovSize-1,0,1);
   free_matrix(gaus1,0,CovSize-1,0,1);
   free_GSLMatrixArray(CovByl, Nls);
 
-
+  // If requested, write alm's to file:
+  if (config.reads("GALM_OUT")!="0") {
+    filename = config.reads("GALM_OUT");
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) 
+      warning("corrlnfields: cannot open "+filename+" file.");
+    outfile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
+    for(l=0; l<=lmax; l++)
+      for(m=0; m<=l; m++) {
+	outfile << l <<" "<< m;
+	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	outfile<<endl;
+      } 
+    outfile.close();
+    cout << "alm's written to "+filename<<endl;
+  }
+  
   /******************************/
   /*** Part 4: Map generation ***/
   /******************************/
   int nside, npixels;
   Healpix_Map<double> *mapf;
-  double *expmu, gmean, gvar;
+  double expmu, gmean, gvar;
   pointing coord;
   int field, z;
 
   // Allocate memory for pixel maps:
   cout << "Allocating memory for pixel maps... "; cout.flush();
-  nside=config.readi("NSIDE");
+  nside   = config.readi("NSIDE");
+  npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   cout << "done.\n";
@@ -465,24 +419,21 @@ int main (int argc, char *argv[]) {
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
   // No need for alm's anymore, deallocate:
-  free_vector(aflm,0,Nfields-1);
+  //free_vector(aflm,0,Nfields-1);
   
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: exponentiating pixels... "; cout.flush();
-    npixels = 12*nside*nside;
-    expmu = vector<double>(0,Nfields-1);
     for (i=0; i<Nfields; i++) {
-      gmean = 0; gvar  = 0;
+      gmean = 0; gvar = 0;
       for (j=0; j<npixels; j++) gmean += mapf[i][j];
       gmean = gmean/npixels;
       for (j=0; j<npixels; j++) gvar  += pow(mapf[i][j]-gmean, 2);
       gvar = gvar/(npixels-1);
-      cout <<endl<< "gmean: "<< gmean <<" mean: " << exp(gmean+gvar/2)-shifts[i] <<" gvar: "<< gvar << " var: " << (exp(gvar)-1)*pow(means[i]+shifts[i],2)<<endl;
-      expmu[i] = (means[i]+shifts[i])/sqrt(1+variances[i]/pow(means[i]+shifts[i],2));
-      for(j=0; j<npixels; j++) mapf[i][j] = expmu[i]*exp(mapf[i][j])-shifts[i];
+      expmu=(means[i]+shifts[i])/exp(gvar/2);
+      for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-shifts[i];
     }
-    free_vector(expmu,0,Nfields-1);
+    //free_vector(expmu,0,Nfields-1);
     cout << "done.\n";
   }
   // If GAUSSIAN, only add mean:
@@ -527,35 +478,43 @@ int main (int argc, char *argv[]) {
   }
   cout << "done.\n";
   */
+  for (i=0; i<Nfields; i++) {
+    aflm[i].Set(lmax,lmax);
+    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+  }
+  arr<double> weight(2*mapf[0].Nside());
+  weight.fill(1);
+  for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
 
+  // If requested, write alm's to file:
+  if (config.reads("LNALM_OUT")!="0") {
+    filename = config.reads("LNALM_OUT");  
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) 
+      warning("corrlnfields: cannot open "+filename+" file.");
+    outfile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
+    for(l=0; l<=lmax; l++)
+      for(m=0; m<=l; m++) {
+	outfile << l <<" "<< m;
+	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	outfile<<endl;
+      } 
+    outfile.close();
+    cout << "alm's written to "+filename<<endl;
+  }
+  
   // End of the program
+  free_matrix(fnz, 0, N1*N2-1, 0, 1);
   free_vector(mapf, 0, Nfields-1);
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
-  if (dist==lognormal) free_vector(variances, 0, CovSize-1);
-  
   free_vector(means, 0, Nfields-1);
   system("rm -f corrlnfields.temp");
   gsl_rng_free(rnd);
-  //debugfile.close();
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
   return 0;
 }
 
-
-/*
-      // If DIST=LOGNORMAL, transform variables to lognormal:
-      if (dist==lognormal)
-	for (i=0; i<Nfields; i++) gaus0[i] = Gauss2LNvar(gaus1[i], means[i], variances[i], shifts[i]);
-      else
-	for (i=0; i<Nfields; i++) gaus0[i] = gaus1[i] + means[i];
-      
-      //sprintf(message,"%d %d %.8g %.8g %.8g %.8g",l,m,gaus0[0],gaus0[1],gaus0[2],gaus0[3]);
-      //samplefile << message << endl;
-      samplefile << l <<" "<< m;
-      for (i=0; i<CovSize; i++) samplefile <<" "<<std::setprecision(10)<< gaus0[i];
-      samplefile<<endl;
-      */
 
 
 /*** Multiply Lower-triangular matrix L to complex vector gaus0 and return gaus1 ***/
