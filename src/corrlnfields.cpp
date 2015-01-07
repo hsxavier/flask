@@ -10,7 +10,7 @@
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
 #include <math.h>               // Log function.
-#include <cstdlib>              // For function 'system'.
+#include <cstdlib>              // For function 'popen'.
 #include <string>               // For function 'to_string'.
 #include <iomanip>              // For 'setprecision'.
 #include "alm.h"
@@ -37,6 +37,7 @@ int main (int argc, char *argv[]) {
   int status, i, j, l, m, Nfields;
   double *means, *shifts, **aux; 
   long long1, long2;
+  FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   // Functions defined in the end of this file:
   void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0);
   int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2);
@@ -44,7 +45,7 @@ int main (int argc, char *argv[]) {
   double Gauss2LNvar(double gvar, double mean, double variance, double shift);
   int getll(const std::string filename);
   std::string getllstr(const std::string filename);
-  std::string SampleHeader(std::string fieldsfile);
+  std::string SampleHeader(int **fnz, int Nfields);
   void fz2n (int a1, int a2, int *n, int N1, int N2);
   void n2fz (int n, int *a1, int *a2, int N1, int N2);
   void test_fzij (int N1, int N2);
@@ -73,36 +74,44 @@ int main (int argc, char *argv[]) {
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
   // Listing files to use based on CL_PREFIX:
-  sprintf(message, "ls %s* > corrlnfields.temp", config.reads("CL_PREFIX").c_str());
-  system(message);
+  // Find out how many input C(l)'s we have.
+  sprintf(message, "ls %s* | wc -l", config.reads("CL_PREFIX").c_str()); 
+  stream = popen(message, "r");
+  if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot 'ls | wc' output");
+  fscanf(stream, "%d", &NinputCls); pclose(stream);
+  // Allocate memory:
+  filelist = vector<std::string>(0,NinputCls-1);
+  // Get list of input C(l) files:
+  sprintf(message, "ls %s*", config.reads("CL_PREFIX").c_str());
+  if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot pipe 'ls' output");
+  for (i=0; i<NinputCls; i++) {
+    fscanf(stream, "%s", message);
+    filelist[i].assign(message);
+  }
+  pclose(stream);
+
   
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
   void CountEntries(std::string filename, long *nr, long *nc);
   void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2);
-  const int NCLMAX=500;
   int a1, a2, b1, b2, N1, N2, Nlinput, **fnz, **NentMat;
-  long Nentries[NCLMAX], ncols;
+  long *Nentries, ncols;
   double ***ll, ***Cov, *wrapper[2];
   bool *fnzSet, **IsSet;
   
   // Get file list and find out how many C(l)s there are:  
-  i=0; N1=0; N2=0, Nlinput=0;
-  infile.open("corrlnfields.temp");
-  if (!infile.is_open()) error("corrlnfields: cannot open file corrlnfields.temp");
-  while (infile >> filename) {
-    getcovid(filename, &a1, &a2, &b1, &b2);
+  N1=0; N2=0, Nlinput=0;
+  Nentries = vector<long>(0,NinputCls-1);
+  for (i=0; i<NinputCls; i++) {
+    getcovid(filelist[i], &a1, &a2, &b1, &b2);
     if (a1>N1) N1=a1; if (b1>N1) N1=b1;                // Get number of fields.
     if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
-    CountEntries(filename, &(Nentries[i]), &ncols);    // Get number of Nls.
+    CountEntries(filelist[i], &(Nentries[i]), &ncols); // Get number of Nls.
     if (ncols!=2) error("corrlnfields: wrong number of columns in file "+filename);
     if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
-    i++;
-    if (i>NCLMAX) error("corrlnfields: reached maximum number of C(l)s. Increase NCLMAX.");
   }
-  infile.clear();
-  infile.seekg(0);
   cout << "Nfields: " << N1 << " Nzs: " << N2 << endl;
   
   // Allocate memory to store C(l)s:
@@ -118,13 +127,11 @@ int main (int argc, char *argv[]) {
   for(i=0; i<N1*N2; i++) fnzSet[i]=0;
   
   // Read C(l)s and store in data-cube:
-  m=0;
-  while (infile >> filename) {
+  for (m=0; m<NinputCls; m++) {
     // Find CovMatrix indexes of C(l):
-    getcovid(filename, &a1, &a2, &b1, &b2);
-    //fzfz2ij(a1, a2, b1, b2, &i, &j, N1, N2); //i=(a1-1)*N2+a2; j=(b1-1)*N2+b2;
+    getcovid(filelist[m], &a1, &a2, &b1, &b2);
     fz2n(a1, a2, &i, N1, N2); fz2n(b1, b2, &j, N1, N2); 
-    cout << filename << " goes to ["<<i<<", "<<j<<"]" << endl;
+    cout << filelist[m] << " goes to ["<<i<<", "<<j<<"]" << endl;
     // Record the order of the fields in CovMatrix:
     if (fnzSet[i]==0) { fnz[i][0] = a1; fnz[i][1] = a2; fnzSet[i] = 1; }
     else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("corrlnfields: field order in CovMatrix is messed up!"); 
@@ -133,12 +140,12 @@ int main (int argc, char *argv[]) {
     // Import data:
     wrapper[0] = &(ll[i][j][0]);
     wrapper[1] = &(Cov[i][j][0]);
-    ImportVecs(wrapper, Nentries[m], 2, filename.c_str());
+    ImportVecs(wrapper, Nentries[m], 2, filelist[m].c_str());
     NentMat[i][j] = Nentries[m];
     IsSet[i][j]=1; 
-    m++;
   };
-  infile.close();
+  free_vector(Nentries, 0, NinputCls-1);
+  free_vector(filelist, 0, NinputCls-1);
 
   // Check if every field was assigned a position in the CovMatrix:
   for (i=0; i<N1*N2; i++) if (fnzSet[i]==0) error("corrlnfields: some position in CovMatrix is unclaimed.");
@@ -152,6 +159,7 @@ int main (int argc, char *argv[]) {
     cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
   
+
   /**************************************************/
   /*** PART 2: Prepare for Cholesky decomposition ***/
   /**************************************************/
@@ -387,7 +395,7 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) 
       warning("corrlnfields: cannot open "+filename+" file.");
-    outfile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
+    outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
     for(l=0; l<=lmax; l++)
       for(m=0; m<=l; m++) {
 	outfile << l <<" "<< m;
@@ -420,6 +428,29 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   // No need for alm's anymore, deallocate:
   //free_vector(aflm,0,Nfields-1);
+
+  // Write auxiliary map to file as a table if requested:
+  if (config.reads("AUXCAT_OUT")!="0") {
+    filename = config.reads("AUXCAT_OUT");
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+    else {
+      outfile << "# theta, phi";
+      for (i=0; i<Nfields; i++) {
+	n2fz(i, &field, &z, N1, N2);
+	outfile << ", f"<<field<<"z"<<z;
+      }
+      outfile << endl;
+      for (j=0; j<npixels; j++) {
+	coord = mapf[0].pix2ang(j);
+	outfile << coord.theta <<" "<< coord.phi;
+	for (i=0; i<Nfields; i++) outfile <<" "<< mapf[i][j];
+	outfile << endl;
+      }
+      outfile.close();
+      cout << "Auxiliary catalog written to " << filename << endl;
+    }  
+  }
   
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
@@ -433,7 +464,6 @@ int main (int argc, char *argv[]) {
       expmu=(means[i]+shifts[i])/exp(gvar/2);
       for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-shifts[i];
     }
-    //free_vector(expmu,0,Nfields-1);
     cout << "done.\n";
   }
   // If GAUSSIAN, only add mean:
@@ -492,9 +522,11 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) 
       warning("corrlnfields: cannot open "+filename+" file.");
-    outfile << SampleHeader(config.reads("FLIST_IN")) <<endl<<endl; //Maybe here we should use fnz from RAM.
-    for(l=0; l<=lmax; l++)
-      for(m=0; m<=l; m++) {
+    outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
+    //for(l=0; l<=lmax; l++)
+      //for(m=0; m<=l; m++) {
+    for(l=10; l<=lmax; l++)
+      for(m=0; m<=l && m<=10; m++) {
 	outfile << l <<" "<< m;
 	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
 	outfile<<endl;
@@ -508,7 +540,6 @@ int main (int argc, char *argv[]) {
   free_vector(mapf, 0, Nfields-1);
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
   free_vector(means, 0, Nfields-1);
-  system("rm -f corrlnfields.temp");
   gsl_rng_free(rnd);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
@@ -626,6 +657,18 @@ std::string SampleHeader(std::string fieldsfile) {
  
   ss << "# l, m";
   for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2] << "Re, f" << fz[i][1] << "z" << fz[i][2] << "Im";
+  
+  return ss.str(); 
+}
+
+
+/*** Function for writing the header of alm's file ***/
+std::string SampleHeader(int **fnz, int nr) {
+  std::stringstream ss;
+  int i;
+  
+  ss << "# l, m";
+  for (i=0; i<nr; i++) ss << ", f" << fnz[i][0] << "z" << fnz[i][1] << "Re, f" << fnz[i][0] << "z" << fnz[i][1] << "Im";
   
   return ss.str(); 
 }
