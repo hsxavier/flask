@@ -10,19 +10,25 @@ LDFLAGS = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # General instructions:
-all: $(BIN)/$(PROGRAM_NAME) $(BIN)/gencovl $(BIN)/cl2var.sh
+all: $(BIN)/$(PROGRAM_NAME)
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 
 $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
-			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o
+			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
+			$(OBJ)/corrlnfields_aux.o
 	$(COMP) $(LDFLAGS) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
-			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o -o $@ $(LIBS)
+			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
+			$(OBJ)/corrlnfields_aux.o -o $@ $(LIBS)
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp 
 	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields.cpp -o $@
+
+$(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
+	$(SRC)/gsl_aux.hpp 
+	$(COMP) -c $(SRC)/corrlnfields_aux.cpp -o $@
 
 $(OBJ)/ParameterList.o: $(SRC)/ParameterList.cpp $(SRC)/ParameterList.hpp $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/ParameterList.cpp -o $@
