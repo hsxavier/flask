@@ -153,7 +153,7 @@ int main (int argc, char *argv[]) {
   /*** PART 2: Prepare for Cholesky decomposition ***/
   /**************************************************/
   double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
-  const int HWMAXL = 10000000; int lastl = HWMAXL, Nls, weirdskip;
+  const int HWMAXL = 10000000; int lastl = HWMAXL, Nls;
   
   // Load means and shifts data file:
   cout << "Loading means and shifts from file "+config.reads("MEANS_SHIFTS")+":\n";
@@ -195,9 +195,7 @@ int main (int argc, char *argv[]) {
   /*****************************************************************/
   /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
-  weirdskip=config.readi("WEIRDSKIP");
-  if (dist==lognormal && weirdskip!=0) cout << "!! LOGNORMAL with WEIRDSKIP !! Will not compute auxiliary gaussian C(l)s.\n";
-  if (dist==lognormal && weirdskip==0) {
+  if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
     // Loads necessary memory:
     cout << "Allocating extra memory... "; cout.flush();
@@ -236,40 +234,33 @@ int main (int argc, char *argv[]) {
 	cout << "              done.\n";
 	
 	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
-	  if (weirdskip==0) {
-	    // Compute correlation function Xi(theta):
-	    cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
-	    ModCl4DLT(tempCl, lastl, lsup, supindex);
-	    Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	    cout << "  done.\n";
-	    if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
-	      filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	      cout << "   Correlation function written to "+filename<<endl;
-	    }
-	    // Transform Xi(theta) to auxiliary gaussian Xi(theta):
-	    cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
-	    status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	    cout << "done.\n";
-	    if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
-	    if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
-	      filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	      cout << "   Associated Gaussian correlation function written to "+filename<<endl;
-	    }
-	    // Transform Xi(theta) back to C(l):
-	    cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
-	    Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	    ApplyClFactors(tempCl, Nls);
-	    cout << "done.\n";
-	    if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
-	      filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	      cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
-	    }	  
+	  // Compute correlation function Xi(theta):
+	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
+	  ModCl4DLT(tempCl, lastl, lsup, supindex);
+	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
+	  cout << "  done.\n";
+	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
+	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
+	    cout << "   Correlation function written to "+filename<<endl;
 	  }
-	  else { // If WEIRDSKIP!=0, the auxiliary C(l) is a scaled version of the original C(l):
-	    cout << "   Scaling C(l) with mean and shift for lognormal realization... "; cout.flush();
-	    for(l=0; l<=lastl; l++) tempCl[l]=tempCl[l]/(means[i]+shifts[i])/(means[j]+shifts[j]);
-	    cout << "done.\n";
+	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
+	  cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
+	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	  cout << "done.\n";
+	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
+	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
+	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
+	    cout << "   Associated Gaussian correlation function written to "+filename<<endl;
 	  }
+	  // Transform Xi(theta) back to C(l):
+	  cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
+	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	  ApplyClFactors(tempCl, Nls);
+	  cout << "done.\n";
+	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
+	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	    cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
+	  }	  
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
 	// Save auxiliary C(l):
@@ -282,7 +273,7 @@ int main (int argc, char *argv[]) {
   free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
-  if (dist==lognormal && weirdskip==0) {
+  if (dist==lognormal) {
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(xi, 0, 2*Nls-1);
@@ -424,7 +415,7 @@ int main (int argc, char *argv[]) {
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
   // No need for alm's anymore, deallocate:
-  free_vector(aflm, 0, Nfields-1);
+  //free_vector(aflm, 0, Nfields-1);
 
   // Write auxiliary map to file as a table if requested:
   if (config.reads("AUXCAT_OUT")!="0") {
@@ -506,15 +497,15 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   */
   // Changed the variable name from aflm to recovaflm to test bug:
-  Alm<xcomplex <double> > *recovaflm;
-  recovaflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
+  //Alm<xcomplex <double> > *recovaflm;
+  //aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
   for (i=0; i<Nfields; i++) {
-    recovaflm[i].Set(lmax,lmax);
-    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) recovaflm[i](l,m).Set(0,0);
+    //aflm[i].Set(lmax,lmax);
+    for(l=0; l<=lmax; l++) for(m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
   }
   arr<double> weight(2*mapf[0].Nside());
   weight.fill(1);
-  for(i=0; i<Nfields; i++) map2alm(mapf[i],recovaflm[i],weight);
+  for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
 
   // If requested, write alm's to file:
   if (config.reads("LNALM_OUT")!="0") {
@@ -528,13 +519,13 @@ int main (int argc, char *argv[]) {
     for(l=10; l<=50; l++)
       for(m=0; m<=10; m++) {
 	outfile << l <<" "<< m;
-	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< recovaflm[i](l,m).re<<" "<<std::setprecision(10)<< recovaflm[i](l,m).im;
+	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
 	outfile<<endl;
       } 
     outfile.close();
     cout << "alm's written to "+filename<<endl;
   }
-  free_vector(recovaflm, 0, Nfields-1);
+  free_vector(aflm, 0, Nfields-1);
 
   // End of the program
   free_matrix(fnz, 0, N1*N2-1, 0, 1);
