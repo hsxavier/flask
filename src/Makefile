@@ -18,10 +18,10 @@ clean:
 
 $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o
+			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o
 	$(COMP) $(LDFLAGS) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o -o $@ $(LIBS)
+			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o -o $@ $(LIBS)
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp 
 	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields.cpp -o $@
@@ -29,6 +29,13 @@ $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 	$(SRC)/gsl_aux.hpp 
 	$(COMP) -c $(SRC)/corrlnfields_aux.cpp -o $@
+
+$(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
+	$(SRC)/ParameterList.hpp $(SRC)/interpol.h
+	$(COMP) -c $(SRC)/Cosmology.cpp -o $@
+
+$(OBJ)/Integral.o: $(SRC)/Integral.cpp $(SRC)/Integral.hpp $(SRC)/Utilities.hpp $(SRC)/Cosmology.hpp
+	$(COMP) -c $(SRC)/Integral.cpp -o $@
 
 $(OBJ)/ParameterList.o: $(SRC)/ParameterList.cpp $(SRC)/ParameterList.hpp $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/ParameterList.cpp -o $@
@@ -45,12 +52,3 @@ $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 $(OBJ)/s2kit10_naive.o: $(SRC)/s2kit10_naive.cpp $(SRC)/s2kit10_naive.hpp $(SRC)/interpol.h $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@
 
-
-# Instructions for auxiliary programs:
-
-$(BIN)/gencovl: $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o
-	$(COMP) $(SRC)/gencovl.cpp $(OBJ)/Utilities.o $(OBJ)/interpol.o $(OBJ)/ParameterList.o -o $@
-
-$(BIN)/cl2var.sh: $(SRC)/cl2var.sh
-	cp $(SRC)/cl2var.sh $@
-	chmod 744 $@

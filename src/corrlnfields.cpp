@@ -8,19 +8,20 @@
 #include "Utilities.hpp"        // Error handling, tensor allocations.
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
 #include "s2kit10_naive.hpp"    // For Discrete Legendre Transforms.
+#include "Cosmology.hpp"        // Parameters and formulas.
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
-#include <math.h>               // Log function.
+//#include <math.h>               // Log function.
 #include <cstdlib>              // For function 'popen'.
-#include <string>               // For function 'to_string'.
+//#include <string>               // For function 'to_string'.
 #include <iomanip>              // For 'setprecision'.
-#include "alm.h"
-#include "xcomplex.h"
-#include "healpix_map.h"
-#include "alm_healpix_tools.h"
-#include "healpix_map_fitsio.h"
-#include <vector>
-
+#include <alm.h>
+#include <xcomplex.h>
+#include <healpix_map.h>
+#include <alm_healpix_tools.h>
+#include <healpix_map_fitsio.h>
+//#include <vector>
+#include <levels_facilities.h>
 
 /********************/
 /*** Main Program ***/
@@ -28,14 +29,15 @@
 int main (int argc, char *argv[]) {
   using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
-  char message[100];                                                        // Handling warnings and errors.
+  Cosmology cosmo;                                                          // Cosmological parameters.
+  char message[100], message2[100];                                         // Handling warnings and errors.
   std::string filename, tempstr;
   std::ofstream outfile;                                                    // File for output.
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix, **CovByl; 
   long CovSize;
-  int status, i, j, l, m, Nfields;
+  int status, i, j, l, m, Nfields, mmax;
   double *means, *shifts, **aux; 
   long long1, long2;
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
@@ -56,7 +58,8 @@ int main (int argc, char *argv[]) {
   cout << "   File: "<<argv[1]<<endl;
   config.lineload(argc, argv);
   config.show();
-  cout << endl; 
+  cout << endl;
+  cosmo.load(&config);
   // - Lognormal or Gausian realizations:
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
@@ -347,7 +350,7 @@ int main (int argc, char *argv[]) {
       }  
     }
 
-    cout << "   Generating random alm's...             "; cout.flush();
+    cout << "   Generating random auxiliary alm's...   "; cout.flush();
     // Generate m=0:
     m=0;
     for (i=0; i<Nfields; i++) {
@@ -382,14 +385,28 @@ int main (int argc, char *argv[]) {
     if (!outfile.is_open()) 
       warning("corrlnfields: cannot open "+filename+" file.");
     outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    //for(l=0; l<=lmax; l++)
-    //for(m=0; m<=l; m++) {
-    for(l=10; l<=50; l++)
-      for(m=0; m<=10; m++) {
-	outfile << l <<" "<< m;
-	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	outfile<<endl;
-      } 
+    lmin = config.readi("LRANGE_OUT", 0);
+    lmax = config.readi("LRANGE_OUT", 1);
+    mmax = config.readi("MMAX_OUT");
+    if (mmax>lmin) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
+    // Output all alm's:
+    if (mmax<0) {
+      for(l=lmin; l<=lmax; l++)
+	for(m=0; m<=l; m++) {
+	  outfile << l <<" "<< m;
+	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	  outfile<<endl;
+	} 
+    }
+    // Truncate m in alm output:
+    else {
+     for(l=lmin; l<=lmax; l++)
+	for(m=0; m<=mmax; m++) {
+	  outfile << l <<" "<< m;
+	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	  outfile<<endl;
+	}  
+    }
     outfile.close();
     cout << "Auxiliary alm's written to "+filename<<endl;
   }
@@ -402,6 +419,8 @@ int main (int argc, char *argv[]) {
   double expmu, gmean, gvar;
   pointing coord;
   int field, z;
+  char *arg[5];
+  char opt1[]="-bar", val1[]="1";
 
   // Allocate memory for pixel maps:
   cout << "Allocating memory for pixel maps... "; cout.flush();
@@ -414,8 +433,6 @@ int main (int argc, char *argv[]) {
   cout << "Generating maps from alm's... "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
-  // No need for alm's anymore, deallocate:
-  //free_vector(aflm, 0, Nfields-1);
 
   // Write auxiliary map to file as a table if requested:
   if (config.reads("AUXCAT_OUT")!="0") {
@@ -461,7 +478,7 @@ int main (int argc, char *argv[]) {
     cout << "done.\n";
   }
   
-  // Write map to file as a table if requested:
+  // Write final map to file as a table if requested:
   if (config.reads("CATALOG_OUT")!="0") {
     filename = config.reads("CATALOG_OUT");
     outfile.open(filename.c_str());
@@ -484,46 +501,72 @@ int main (int argc, char *argv[]) {
     }  
   }
   
+  // Map output to fits and/or tga files:
+  if (config.reads("MAPFITS_PREFIX")!="0") {
+    // Write to FITS:
+    cout << "Writing maps to fits files:\n";
+    tempstr  = config.reads("MAPFITS_PREFIX");
+    for (i=0; i<Nfields; i++) {
+      sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
+      filename.assign(message);
+      sprintf(message2, "rm -f %s", message);
+      system(message2); // Have to delete previous fits files first.
+      write_Healpix_map_to_fits(filename,mapf[i],planckType<double>());
+      cout << "Map for field ["<<i<<"] written to "<<filename<<endl;
+      // Write to TGA if requested:
+      if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+	sprintf(message2, "%sf%dz%d.tga", tempstr.c_str(), fnz[i][0], fnz[i][1]);
+	arg[1]=message; arg[2]=message2; arg[3]=opt1; arg[4]=val1;
+	map2tga_module(4, (const char **)arg);
+	cout << "Map for field ["<<i<<"] written to "<<message2<<endl;
+	if (config.readi("FITS2TGA")==2) {
+	  sprintf(message2, "rm -f %s", message);
+	  system(message2);
+	  cout << "Deleted "<<filename<<endl;;
+	}
+      }
+    }
+  }
   
-
-  /*
-  // Map output to fits files:
-  cout << "Writing maps to fits files... "; cout.flush();
-  for (i=0; i<Nfields; i++) {
-    sprintf(message,"test-%d.fits",i);
-    filename.assign(message);
-    write_Healpix_map_to_fits(filename,mapf[i],planckType<double>());
-  }
-  cout << "done.\n";
-  */
-  // Changed the variable name from aflm to recovaflm to test bug:
-  //Alm<xcomplex <double> > *recovaflm;
-  //aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
-  for (i=0; i<Nfields; i++) {
-    //aflm[i].Set(lmax,lmax);
-    for(l=0; l<=lmax; l++) for(m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
-  }
-  arr<double> weight(2*mapf[0].Nside());
-  weight.fill(1);
-  for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
-
-  // If requested, write alm's to file:
-  if (config.reads("LNALM_OUT")!="0") {
-    filename = config.reads("LNALM_OUT");  
+  // If requested, compute and write recovered alm's to file:
+  if (config.reads("RECOVALM_OUT")!="0") {
+    // Clear variables to receive new alm's:
+    for (i=0; i<Nfields; i++) for(l=0; l<=lmax; l++) for(m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+    // Compute alm's from map:
+    arr<double> weight(2*mapf[0].Nside());
+    weight.fill(1);
+    cout << "Recovering alm's from map... "; cout.flush();
+    for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
+    cout << "done.\n";
+    // Output to file:
+    filename = config.reads("RECOVALM_OUT");  
     outfile.open(filename.c_str());
-    if (!outfile.is_open()) 
-      warning("corrlnfields: cannot open "+filename+" file.");
+    if (!outfile.is_open()) warning("corrlnfields: cannot open "+filename+" file.");
     outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    //for(l=0; l<=lmax; l++)
-      //for(m=0; m<=l; m++) {
-    for(l=10; l<=50; l++)
-      for(m=0; m<=10; m++) {
-	outfile << l <<" "<< m;
-	for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	outfile<<endl;
-      } 
+    lmin = config.readi("LRANGE_OUT", 0);
+    lmax = config.readi("LRANGE_OUT", 1);
+    mmax = config.readi("MMAX_OUT");
+    if (mmax>lmin) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
+    // Output all alm's:
+    if (mmax<0) {
+      for(l=lmin; l<=lmax; l++)
+	for(m=0; m<=l; m++) {
+	  outfile << l <<" "<< m;
+	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	  outfile<<endl;
+	} 
+    }
+    // Truncate m in alm output:
+    else {
+     for(l=lmin; l<=lmax; l++)
+	for(m=0; m<=mmax; m++) {
+	  outfile << l <<" "<< m;
+	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
+	  outfile<<endl;
+	}  
+    } 
     outfile.close();
-    cout << "alm's written to "+filename<<endl;
+    cout << "Recovered alm's written to "+filename<<endl;
   }
   free_vector(aflm, 0, Nfields-1);
 
