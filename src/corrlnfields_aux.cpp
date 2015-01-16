@@ -31,9 +31,9 @@ pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, do
   double xmin, xmax;
   pointing ang;
 
-  xmin = (1.0+cos(thetamax))/2.0;
-  xmax = (1.0+cos(thetamin))/2.0;
-  ang.phi = gsl_rng_uniform(r)*(phimax-phimin)+phimin;
+  xmin      = (1.0+cos(thetamax))/2.0;
+  xmax      = (1.0+cos(thetamin))/2.0;
+  ang.phi   = gsl_rng_uniform(r)*(phimax-phimin)+phimin;
   ang.theta = acos(2*(gsl_rng_uniform(r)*(xmax-xmin)+xmin)-1);
   return ang;
 }
@@ -43,14 +43,19 @@ pointing xyz2ang(vec3 cartesian) {
   const double pi=3.141592653589793;
   double tempphi;
   pointing ang;
-  ang.theta  = acos(cartesian.z);
-  tempphi = atan(cartesian.y/cartesian.x);
+  ang.theta = acos(cartesian.z);
+  tempphi   = atan(cartesian.y/cartesian.x);
   if   (cartesian.x<0)    ang.phi = tempphi + pi;   // Quadrants 2 & 3.
   else {
     if (cartesian.y>0)    ang.phi = tempphi;        // Quadrant  1.
     else                  ang.phi = tempphi + pi*2; // Quadrant  4.
   }
   return ang;
+}
+
+// Uniformly samples the redshift of a bin. THIS IS WRONG, OR AN APPROXIMATION FOR VERY FINE BINS.
+double RandRedshift0(gsl_rng *r, double zmin, double zmax) {
+  return gsl_rng_uniform(r)*(zmax-zmin)+zmin;
 }
 
 // Wrapper so ProjDensityIntegrand can be used by GSL minimizer:

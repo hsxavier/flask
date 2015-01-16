@@ -580,7 +580,7 @@ int main (int argc, char *argv[]) {
 
 
   /**********************************/
-  /*** Part 6: catalog generation ***/
+  /*** Part 6: Selection effects  ***/
   /**********************************/
   Healpix_Map<double> *selection;
   double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
@@ -611,7 +611,7 @@ int main (int argc, char *argv[]) {
 	cout << "done.\n";
       }
   }
-  // Just output the expected number density, if requested:
+  // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	cout << "Using expected number density for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
@@ -620,6 +620,71 @@ int main (int argc, char *argv[]) {
       }
   }
   else error ("corrlnfields: unknown POISSON option.");
+  
+
+  /**********************************/
+  /*** Part 6: Generate catalog   ***/
+  /**********************************/
+  double **catalog;
+  int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet;
+  pointing ang;
+
+  cout << "Counting galaxies... "; cout.flush();
+  Ngalaxies=0; // Find out the total number of galaxies in all fields and redshifts:
+  for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) for (j=0; j<npixels; j++) Ngalaxies+=(int)mapf[i][j];
+  cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
+  
+  ncols=5;
+  catalog = matrix<double>(0,Ngalaxies-1,0,ncols-1);
+  catSet  = matrix<int>(0,Ngalaxies-1,0,ncols-1);
+  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
+  // LOOP over pixels:
+  cout << "Generating catalog... "; cout.flush();
+  gali = 0; PartialNgal = 0;
+  for (j=0; j<npixels; j++) {
+    // Count total number of galaxies of all types in pixel:
+    pixelNgal = 0; 
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) pixelNgal+=(int)mapf[i][j];
+    for(i=0; i<Nfields; i++) 
+      // Add entry of type galaxy:
+      if (ftype[i]==fgalaxies) 
+	for(m=0; m<(int)mapf[i][j]; m++) {
+	  ang = RandAngInPix(rnd, mapf[i], j);                               // Bookkeeping
+	  catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
+	  catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
+	  catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
+	  catalog[gali][3] = fnz[i][0]; /* Field ID. */                      catSet[gali][3]++;
+	  gali++;
+	}
+      // Add entry of type shear:
+      else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {catalog[PartialNgal+m][4] = mapf[i][j]; catSet[PartialNgal+m][4]++;}
+    PartialNgal+=pixelNgal;
+  } // End of LOOP over pixels.  
+  // Check if every entry was set once and only once:
+  if (gali!=Ngalaxies)        error ("corrlnfields: Galaxy counting is weird (gali != Ngalaxies).");
+  if (PartialNgal!=Ngalaxies) error ("corrlnfields: Galaxy counting is weird (PartialNgal != Ngalaxies).");
+  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
+      if (catSet[i][j]<1)     error("corrlnfields: Catalog has missing information.");
+      if (catSet[i][j]>1)     error("corrlnfields: Catalog entry being set more than once.");
+    }
+  free_matrix(catSet, 0,Ngalaxies-1,0,ncols-1);
+  cout << "done.\n";
+
+  // Write catalog to file if requested:
+  if (config.reads("CATALOG_OUT")!="0") {
+    filename = config.reads("CATALOG_OUT");
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+    else {
+      outfile << "# theta, phi, z, fID, convergence\n";
+      PrintTable(catalog, Ngalaxies, ncols, &outfile); 
+      outfile.close();
+      cout << "Catalog written to " << filename << endl;
+    }  
+  }
+
+  free_matrix(catalog, 0,Ngalaxies-1,0,ncols-1);
+  return 0;
   
   cout << "Testing pixel boundaries:\n";
   //std::vector<vec3> corner;
