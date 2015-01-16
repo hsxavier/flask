@@ -624,18 +624,22 @@ int main (int argc, char *argv[]) {
   cout << "Testing pixel boundaries:\n";
   //std::vector<vec3> corner;
   double Theta, Phi;
-  pointing pos;
-  Healpix_Map<double> BaseMap;
-  int Nsamples=10000;
-  BaseMap.SetNside(8, RING);
+  pointing rndang;
+  Healpix_Map<double> BaseMap, FineMap;
+  int Nsamples=1000;
+  BaseMap.SetNside(2, RING);
   BaseMap.fill(0);
-  for (i=0; i<Nsamples*12*8*8; i++) {
-    randang(rnd, 0, 3.141592653589793/2, 0, 3.141592653589793/2, &(pos.theta), &(pos.phi));
-    //cout << "Theta, phi\n"<<Theta<<", "<<Phi<<endl;
-    j = BaseMap.ang2pix(pos);
-    BaseMap[j] = BaseMap[j]+1.0/Nsamples;
+  FineMap.SetNside(64, RING);
+  FineMap.fill(0);
+  i=47; // Escolhemos um pixel do BaseMap e o destacamos.
+  BaseMap[i]=1.0;
+  for (j=0; j<Nsamples*64*64; j++) {
+    rndang = RandAngInPix(rnd, BaseMap, i);
+    l = FineMap.ang2pix(rndang);
+    FineMap[l] = FineMap[l] + 1.0/Nsamples;
   }
-  //write_Healpix_map_to_fits("sampling.fits",BaseMap,planckType<double>());
+  write_Healpix_map_to_fits("base.fits",BaseMap,planckType<double>());
+  write_Healpix_map_to_fits("fine.fits",FineMap,planckType<double>());
   
   
 

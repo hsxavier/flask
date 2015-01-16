@@ -5,6 +5,27 @@
 #include <gsl/gsl_min.h>
 #include "Cosmology.hpp"
 
+// Uniformly randomly selects an angular position inside a pixel.
+pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel) {
+  const double twopi=6.283185307179586;
+  std::vector<vec3> corner;
+  double thetamin, thetamax, phimin, phimax;
+  pointing ang;
+  // Find pixel limits for random sampling the angles:
+  map.boundaries(pixel, 1, corner);
+  thetamin = xyz2ang(corner[0]).theta; // N corner.
+  thetamax = xyz2ang(corner[2]).theta; // S corner.
+  phimin   = xyz2ang(corner[1]).phi;   // W corner.
+  phimax   = xyz2ang(corner[3]).phi;   // E corner.
+  if (phimin>phimax) phimin = phimin-twopi;
+  // Randomly pick angle inside the pixel. 
+  do {ang = randang(r, thetamin, thetamax, phimin, phimax);} 
+  while (map.ang2pix(ang) != pixel);
+  // Return pointing:
+  return ang;
+}
+
+// Randomly picks an angular position (uniformly) inside angular boundaries. Needed for RandAngInPix. 
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax) {
   const double twopi=6.283185307179586;
   double xmin, xmax;
@@ -13,19 +34,11 @@ pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, do
   xmin = (1.0+cos(thetamax))/2.0;
   xmax = (1.0+cos(thetamin))/2.0;
   ang.phi = gsl_rng_uniform(r)*(phimax-phimin)+phimin;
-  ang.theta = acos(2*(gsl_rng_uniform(r)*(xmax-xmin)+xmin)-1);  
+  ang.theta = acos(2*(gsl_rng_uniform(r)*(xmax-xmin)+xmin)-1);
+  return ang;
 }
 
-void randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax, double *theta, double *phi) {
-  const double twopi=6.283185307179586;
-  double xmin, xmax;
-  
-  xmin = (1.0+cos(thetamax))/2.0;
-  xmax = (1.0+cos(thetamin))/2.0;
-  *phi = gsl_rng_uniform(r)*(phimax-phimin)+phimin;
-  *theta = acos(2*(gsl_rng_uniform(r)*(xmax-xmin)+xmin)-1);  
-}
-
+// Transforms normalized {x,y,z} cartesian coordinates to unit spherical {theta, phi}:
 pointing xyz2ang(vec3 cartesian) {
   const double pi=3.141592653589793;
   double tempphi;
@@ -38,61 +51,6 @@ pointing xyz2ang(vec3 cartesian) {
     else                  ang.phi = tempphi + pi*2; // Quadrant  4.
   }
   return ang;
-}
-
-void xyz2ang(vec3 cartesian, double *theta, double *phi) {
-  const double pi=3.141592653589793;
-  double tempphi;
-  *theta  = acos(cartesian.z);
-  tempphi = atan(cartesian.y/cartesian.x);
-  if   (cartesian.x<0)    *phi = tempphi + pi;   // Quadrants 2 & 3.
-  else {
-    if (cartesian.y>0)    *phi = tempphi;        // Quadrant  1.
-    else                  *phi = tempphi + pi*2; // Quadrant  4.
-  }
-}
-
-pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel) {
-  const double twopi=6.283185307179586;
-  std::vector<vec3> corner;
-  double thetamin, thetamax, phimin, phimax;
-  pointing ang;
-
-  // Find pixel limits for random sampling the angles:
-  map.boundaries(pixel, 1, corner);
-  thetamin = xyz2ang(corner[0]).theta; // N corner.
-  thetamax = xyz2ang(corner[2]).theta; // S corner.
-  phimin   = xyz2ang(corner[1]).phi;   // W corner.
-  phimax   = xyz2ang(corner[3]).phi;   // E corner.
-  if (phimin>phimax) phimin = phimin-twopi;
-  do {ang = randang(r, thetamin, thetamax, phimin, phimax);} 
-  while (map.ang2pix(ang) != pixel);
-}
-
-// Find a and b parameters for Healpix pole cap pixel boundary:
-int PixBoundPole (double costheta1, double phi1, double costheta2, double phi2, double *a, double *b, double *t) {
-  const double PiOver2=1.570796326794897;
-  double tphi1, tphi2;
-
-  if (costheta1==costheta2) error ("PixBoundPole: Unexpected theta1 = theta2.");
-  if (phi1<0 || phi2<0) error("PixBoundPole: Unexpected phi<0.");
-  if (phi1==phi2) return 1; // Boundary is a meridian.
-
-   // Beginning of the quadrant's phi, use to translate phi to 1st quadrant:
-  *t = ((double)((int)(phi1/PiOver2)))*PiOver2;
-  // Get appropriate divergence for the boundary, either at 0 or at PiOver2:
-  if ((abs(costheta2)-abs(costheta1)) / (phi2-phi1) < 0) {
-    tphi1 = PiOver2 - (phi1 - *t);
-    tphi2 = PiOver2 - (phi2 - *t);
-  }
-  else {
-   tphi1 = phi1 - *t;
-   tphi2 = phi2 - *t;
-  }
-  *b = (costheta2-costheta1) / (1.0/(tphi2*tphi2)-1.0/(tphi1*tphi1));
-  *a = costheta1 - *b/(tphi1*tphi1);
-  return 0;
-  //if ((abs(costheta2)<abs(costheta1) && tphi2>tphi1) || (abs(costheta1)<abs(costheta2) && tphi1>tphi2)) t0=PiOver2;
 }
 
 // Wrapper so ProjDensityIntegrand can be used by GSL minimizer:
