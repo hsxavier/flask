@@ -112,18 +112,20 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   using std::string;
   using std::istringstream;
   using std::ostringstream;
-  long nrows=0, ncols=0, i, j;
+  long nrows=0, ncols=0, i, j, nheaders=0;
   ifstream file;
   istringstream inputline; ostringstream outputline;
   string word, phrase;
   type **table;
+  int datapos=0;
   
   // Open file
   file.open(filename.c_str());
   if (!file.is_open()) error("LoadTable: cannot open file "+filename);
   
-  // Count lines and columns:
+  // Detect headers (must start with #):
   getline(file,phrase);
+  while(!file.eof() && phrase[0]=='#') {datapos=file.tellg(); nheaders++; getline(file,phrase);}
   outputline << phrase;
   inputline.str(outputline.str());
   while (inputline >> word) ncols++;
@@ -132,10 +134,10 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
 
   // Loading values to table:
   file.clear();
-  file.seekg(0);
+  file.seekg(datapos);
   table=matrix<type>(offset,nrows+offset-1,offset,ncols+offset-1);
   for (i=offset; i<nrows+offset; i++)
-    for (j=offset; j<ncols+offset; j++)
+    for (j=offset; j<ncols+offset; j++) 
       if (!(file >> table[i][j])) error("LoadTable: more data expected in file "+filename);
   if(file >> word) error("LoadTable: data was ignored in "+filename);
   *nr=nrows; *nc=ncols;

@@ -23,12 +23,14 @@ $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Util
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o -o $@ $(LIBS)
 
-$(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp 
+
+$(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
+			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp
 	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields.cpp -o $@
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
-	$(SRC)/gsl_aux.hpp 
-	$(COMP) -c $(SRC)/corrlnfields_aux.cpp -o $@
+	$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
+	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields_aux.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
 	$(SRC)/ParameterList.hpp $(SRC)/interpol.h

@@ -156,10 +156,12 @@ double zSelection(double z, double z0) {
 double ProjDensityIntegrand(double z, double z0, Cosmology *p) {
   return zSelection(z,z0) * pow(ComDist(p,z),2) * dXidz(p,z);
 }
+double ProjDensityIntegrand(double z, Cosmology *p) {
+  return pow(ComDist(p,z),2) * dXidz(p,z);
+}
 double ProjDensity(double z0, double zmin, double zmax, Cosmology *p) {
   return p->galdens * qromb(ProjDensityIntegrand, zmin, zmax, z0, p);
 }
-
 
 // It is the modulus squared of the fourier transform of a 3D Tophat function with normalization 1. 
 double TophatWk2(double kR) {

@@ -11,17 +11,15 @@
 #include "Cosmology.hpp"        // Parameters and formulas.
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
-//#include <math.h>               // Log function.
 #include <cstdlib>              // For function 'popen'.
-//#include <string>               // For function 'to_string'.
 #include <iomanip>              // For 'setprecision'.
 #include <alm.h>
 #include <xcomplex.h>
 #include <healpix_map.h>
 #include <alm_healpix_tools.h>
 #include <healpix_map_fitsio.h>
-//#include <vector>
 #include <levels_facilities.h>
+#include <vec3.h>
 
 /********************/
 /*** Main Program ***/
@@ -31,24 +29,24 @@ int main (int argc, char *argv[]) {
   using namespace ParDef; ParameterList config;                             // Easy configuration file use.
   Cosmology cosmo;                                                          // Cosmological parameters.
   char message[100], message2[100];                                         // Handling warnings and errors.
+  const int fgalaxies=1, fshear=2;                                          // Field type identification.
   std::string filename, tempstr;
   std::ofstream outfile;                                                    // File for output.
   std::ifstream infile;                                                     // File for input.
   enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
   gsl_matrix *CovMatrix, **CovByl; 
   long CovSize;
-  int status, i, j, l, m, Nfields, mmax;
-  double *means, *shifts, **aux; 
+  int status, i, j, l, m, Nfields, mmax, *ftype;
+  double *means, *shifts, **aux, **zrange; 
   long long1, long2;
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
- 
+
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
   test_fzij(3,11); test_fzij(13,4);
   cout << "done.\n";
-
 
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
@@ -158,13 +156,15 @@ int main (int argc, char *argv[]) {
   double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
   const int HWMAXL = 10000000; int lastl = HWMAXL, Nls;
   
-  // Load means and shifts data file:
-  cout << "Loading means and shifts from file "+config.reads("MEANS_SHIFTS")+":\n";
-  aux   = LoadTable<double>(config.reads("MEANS_SHIFTS"), &long1, &long2); 
+  // Load means, shifts, type and z range data file:
+  cout << "Loading means and shifts from file "+config.reads("FIELDS_INFO")+":\n";
+  aux   = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2); 
   Nfields = (int)long1; // From now on will use Nfields instead of N1*N2, so the check below is important!
   if (Nfields != N1*N2) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
   fnzSet = vector<bool>(0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
-  means  = vector<double>(0, Nfields-1); 
+  means  = vector<double>(0, Nfields-1);
+  ftype  = vector<int>(0, Nfields-1);
+  zrange = matrix<double>(0,Nfields-1, 0,1);
   if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
   for (j=0; j<Nfields; j++) {
     fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
@@ -172,8 +172,11 @@ int main (int argc, char *argv[]) {
     fnzSet[i] = 1; 
     means[i]  = aux[j][2];  
     if (dist==lognormal) shifts[i] = aux[j][3];
+    ftype[i] = (int)aux[j][4];
+    zrange[i][0] = aux[j][5]; zrange[i][1] = aux[j][6]; 
   }
-  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: some mean & shift were not set.");
+  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: the properties of a field were not set.");
+  for (i=0; i<Nfields; i++) if (zrange[i][0]>zrange[i][1]) error("corrlnfields: zmin > zmax for a field.");
   if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) { // Sanity check.
 	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
       }
@@ -435,8 +438,8 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
 
   // Write auxiliary map to file as a table if requested:
-  if (config.reads("AUXCAT_OUT")!="0") {
-    filename = config.reads("AUXCAT_OUT");
+  if (config.reads("AUXMAP_OUT")!="0") {
+    filename = config.reads("AUXMAP_OUT");
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
     else {
@@ -477,10 +480,15 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
     cout << "done.\n";
   }
-  
+  // Free memory for means and shifts:
+  if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
+  free_vector(means, 0, Nfields-1);
+
+
+
   // Write final map to file as a table if requested:
-  if (config.reads("CATALOG_OUT")!="0") {
-    filename = config.reads("CATALOG_OUT");
+  if (config.reads("MAP_OUT")!="0") {
+    filename = config.reads("MAP_OUT");
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
     else {
@@ -570,11 +578,72 @@ int main (int argc, char *argv[]) {
   }
   free_vector(aflm, 0, Nfields-1);
 
+
+  /**********************************/
+  /*** Part 6: catalog generation ***/
+  /**********************************/
+  Healpix_Map<double> *selection;
+  double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
+
+  // Read selection functions from FITS files:
+  cout << "Reading selection functions from files... "; cout.flush();
+  selection = vector<Healpix_Map<double> >(0,Nfields-1);
+  tempstr   = config.reads("SELEC_PREFIX");
+  for (i=0; i<Nfields; i++) {
+    sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
+    filename.assign(message);
+    read_Healpix_map_from_fits(filename, selection[i]);
+    if (selection[i].Nside()!=mapf[i].Nside()) 
+      error("corrlnfields: "+filename+" does not have the same Nside as the corresponding map.");
+    if (selection[i].Scheme()!=mapf[i].Scheme())
+      error("corrlnfields: "+filename+" does not have the same ordering scheme as the corresponding map.");
+  }
+  cout << "done.\n";
+  // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
+  if (config.reads("SELEC_TYPE")=="FRACTION") error ("corrlnfields: SELEC_TYPE FRACTION not implemented yet.");
+  else if (config.reads("SELEC_TYPE")!="DENSITY") error ("corrlnfields: unknown SELEC_TYPE option.");
+  
+  // Poisson Sampling the galaxy fields:
+  if (config.readi("POISSON")==1) {
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+	cout << "Poisson sampling f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
+	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection[i][j]*(1.0+mapf[i][j])/**PixelSolidAngle*/);
+	cout << "done.\n";
+      }
+  }
+  // Just output the expected number density, if requested:
+  else if (config.readi("POISSON")==0) {
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+	cout << "Using expected number density for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
+	for(j=0; j<npixels; j++) mapf[i][j] = selection[i][j]*(1.0+mapf[i][j])/**PixelSolidAngle*/;
+	cout << "done.\n";
+      }
+  }
+  else error ("corrlnfields: unknown POISSON option.");
+  
+  cout << "Testing pixel boundaries:\n";
+  //std::vector<vec3> corner;
+  double Theta, Phi;
+  pointing pos;
+  Healpix_Map<double> BaseMap;
+  int Nsamples=10000;
+  BaseMap.SetNside(8, RING);
+  BaseMap.fill(0);
+  for (i=0; i<Nsamples*12*8*8; i++) {
+    randang(rnd, 0, 3.141592653589793/2, 0, 3.141592653589793/2, &(pos.theta), &(pos.phi));
+    //cout << "Theta, phi\n"<<Theta<<", "<<Phi<<endl;
+    j = BaseMap.ang2pix(pos);
+    BaseMap[j] = BaseMap[j]+1.0/Nsamples;
+  }
+  //write_Healpix_map_to_fits("sampling.fits",BaseMap,planckType<double>());
+  
+  
+
   // End of the program
-  free_matrix(fnz, 0, N1*N2-1, 0, 1);
+  free_matrix(fnz, 0,N1*N2-1, 0,1);
+  free_vector(ftype, 0, Nfields-1);
+  free_matrix(zrange,0, Nfields-1,0,1);
   free_vector(mapf, 0, Nfields-1);
-  if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
-  free_vector(means, 0, Nfields-1);
   gsl_rng_free(rnd);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
