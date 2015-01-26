@@ -5,6 +5,37 @@
 #include <gsl/gsl_min.h>
 #include "Cosmology.hpp"
 
+
+double Gamma1Quad(pointing ang) {
+  return cos(2.0*ang.phi)/pow(sin(ang.theta), 2);
+}
+
+
+// Returns the shear at 'pixel', computed from the convergence Map with truncation at 'radius':
+double Kappa2Gamma1(const Healpix_Map<double> & KappaMap, int pixel, double radius) {
+  pointing center;
+  rangeset<int> pixrange;
+  std::vector<int> pixlist;
+  int i, targetpix;
+  double result=0.0, norm=-1.0/3.141592653589793;
+  double pixsize;
+
+  // Select convergence pixels that will be used to compute the shear:
+  center = KappaMap.pix2ang(pixel);
+  KappaMap.query_disc(center, radius, pixrange);
+  pixrange.toVector(pixlist);
+  // Integrate over selected pixels:
+  //printf ("npix: %ld\n", pixlist.size());
+  for (i=0; i<pixlist.size(); i++) {
+    targetpix=pixlist[i];
+    if(targetpix != pixel) result += /*KappaMap[targetpix] **/ Gamma1Quad(xyz2ang(VecInRotBasis(center, KappaMap.pix2vec(targetpix))));
+  }
+
+  pixsize = 4.0*3.141592653589793/(12.0*KappaMap.Nside()*KappaMap.Nside());
+  return norm*result*pixsize;
+}
+
+
 // Uniformly randomly selects an angular position inside a pixel.
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel) {
   const double twopi=6.283185307179586;
@@ -39,7 +70,7 @@ pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, do
 }
 
 // Transforms normalized {x,y,z} cartesian coordinates to unit spherical {theta, phi}:
-pointing xyz2ang(vec3 cartesian) {
+pointing xyz2ang(const vec3 & cartesian) {
   const double pi=3.141592653589793;
   double tempphi;
   pointing ang;
@@ -51,6 +82,15 @@ pointing xyz2ang(vec3 cartesian) {
     else                  ang.phi = tempphi + pi*2; // Quadrant  4.
   }
   return ang;
+}
+
+// Returns the coefficients (x,y,z) of a vector described in a basis that is rotated by 'ang' from the original basis. 
+vec3 VecInRotBasis(const pointing & ang, const vec3 & orig) {
+  vec3 nuovo;
+  nuovo.x = cos(ang.theta)*cos(ang.phi)*orig.x + cos(ang.theta)*sin(ang.phi)*orig.y - sin(ang.theta)*orig.z;
+  nuovo.y =      -1.0*sin(ang.phi)     *orig.x +          cos(ang.phi)      *orig.y;
+  nuovo.z = sin(ang.theta)*cos(ang.phi)*orig.x + sin(ang.theta)*sin(ang.phi)*orig.y + cos(ang.theta)*orig.z;
+  return nuovo;
 }
 
 // Uniformly samples the redshift of a bin. THIS IS WRONG, OR AN APPROXIMATION FOR VERY FINE BINS.

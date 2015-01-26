@@ -12,9 +12,12 @@
 #include <healpix_map.h> // For RandAngInPix function.
 
 // Auxiliary functions for corrlnfields program:
+double Kappa2Gamma1(const Healpix_Map<double> & KappaMap, int pixel, double radius);
+double Gamma1Quad(pointing ang);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax);
-pointing xyz2ang(vec3 cartesian);
+pointing xyz2ang(const vec3 & cartesian);
+vec3 VecInRotBasis(const pointing & ang, const vec3 & orig);
 double RandRedshift0(gsl_rng *r, double zmin, double zmax);
 double ran_redshift(gsl_rng *r, double zmin, double zmax, Cosmology *p);
 void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0);

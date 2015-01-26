@@ -578,6 +578,37 @@ int main (int argc, char *argv[]) {
   }
   free_vector(aflm, 0, Nfields-1);
 
+  //hsxavier debug: testing shear calculation:
+  cout<< "Testing query_disc:\n";
+  //Healpix_Map<xcomplex <double> > shear;
+  Healpix_Map<double> shear;
+  pointing center; 
+  double radius;
+  rangeset<int> diskpix;
+  std::vector<int> pixlist;
+  center.theta=3.141592/2.0/2.0*0.0;
+  center.phi=3.141592/2.0;
+  radius=config.readd("SHEAR_RAD");
+  outfile.open("shear_vs_rad.dat");
+  for (i=0; i<3000; i++) {
+    radius = 0.0001*i;
+    outfile << radius << " " << Kappa2Gamma1(mapf[1], 1000, radius) << endl;
+  } 
+  outfile.close();
+  return 0;
+
+  shear.SetNside(nside, RING);
+  shear.fill(0);
+  shear.query_disc(center, radius, diskpix);
+  diskpix.toVector(pixlist);
+  for(i=0; i<pixlist.size(); i++) {
+    shear[pixlist[i]] = Gamma1Quad(xyz2ang(VecInRotBasis(center, shear.pix2vec(pixlist[i]))));
+  }
+  filename.assign("disk.fits");
+  write_Healpix_map_to_fits(filename,shear,planckType<double>());
+  cout<<"done\n";
+  return 0;
+
 
   /**********************************/
   /*** Part 6: Selection effects  ***/
@@ -634,7 +665,7 @@ int main (int argc, char *argv[]) {
   for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) for (j=0; j<npixels; j++) Ngalaxies+=(int)mapf[i][j];
   cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
   
-  ncols=5;
+  ncols=6;
   catalog = matrix<double>(0,Ngalaxies-1,0,ncols-1);
   catSet  = matrix<int>(0,Ngalaxies-1,0,ncols-1);
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
@@ -654,6 +685,7 @@ int main (int argc, char *argv[]) {
 	  catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
 	  catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
 	  catalog[gali][3] = fnz[i][0]; /* Field ID. */                      catSet[gali][3]++;
+	  catalog[gali][5] = j;                                              catSet[gali][5]++;
 	  gali++;
 	}
       // Add entry of type shear:
@@ -676,35 +708,13 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
     else {
-      outfile << "# theta, phi, z, fID, convergence\n";
+      outfile << "# theta, phi, z, fID, convergence, pixelID\n";
       PrintTable(catalog, Ngalaxies, ncols, &outfile); 
       outfile.close();
       cout << "Catalog written to " << filename << endl;
     }  
   }
-
-  free_matrix(catalog, 0,Ngalaxies-1,0,ncols-1);
-  return 0;
-  
-  cout << "Testing pixel boundaries:\n";
-  //std::vector<vec3> corner;
-  double Theta, Phi;
-  pointing rndang;
-  Healpix_Map<double> BaseMap, FineMap;
-  int Nsamples=1000;
-  BaseMap.SetNside(2, RING);
-  BaseMap.fill(0);
-  FineMap.SetNside(64, RING);
-  FineMap.fill(0);
-  i=47; // Escolhemos um pixel do BaseMap e o destacamos.
-  BaseMap[i]=1.0;
-  for (j=0; j<Nsamples*64*64; j++) {
-    rndang = RandAngInPix(rnd, BaseMap, i);
-    l = FineMap.ang2pix(rndang);
-    FineMap[l] = FineMap[l] + 1.0/Nsamples;
-  }
-  write_Healpix_map_to_fits("base.fits",BaseMap,planckType<double>());
-  write_Healpix_map_to_fits("fine.fits",FineMap,planckType<double>());
+  free_matrix(catalog, 0, Ngalaxies-1, 0, ncols-1);
   
   
 
