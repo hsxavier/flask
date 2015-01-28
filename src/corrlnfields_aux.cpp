@@ -3,37 +3,6 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_min.h>
-#include "Cosmology.hpp"
-
-
-double Gamma1Quad(pointing ang) {
-  return cos(2.0*ang.phi)/pow(sin(ang.theta), 2);
-}
-
-
-// Returns the shear at 'pixel', computed from the convergence Map with truncation at 'radius':
-double Kappa2Gamma1(const Healpix_Map<double> & KappaMap, int pixel, double radius) {
-  pointing center;
-  rangeset<int> pixrange;
-  std::vector<int> pixlist;
-  int i, targetpix;
-  double result=0.0, norm=-1.0/3.141592653589793;
-  double pixsize;
-
-  // Select convergence pixels that will be used to compute the shear:
-  center = KappaMap.pix2ang(pixel);
-  KappaMap.query_disc(center, radius, pixrange);
-  pixrange.toVector(pixlist);
-  // Integrate over selected pixels:
-  //printf ("npix: %ld\n", pixlist.size());
-  for (i=0; i<pixlist.size(); i++) {
-    targetpix=pixlist[i];
-    if(targetpix != pixel) result += /*KappaMap[targetpix] **/ Gamma1Quad(xyz2ang(VecInRotBasis(center, KappaMap.pix2vec(targetpix))));
-  }
-
-  pixsize = 4.0*3.141592653589793/(12.0*KappaMap.Nside()*KappaMap.Nside());
-  return norm*result*pixsize;
-}
 
 
 // Uniformly randomly selects an angular position inside a pixel.

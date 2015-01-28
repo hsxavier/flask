@@ -5,8 +5,8 @@ BIN = ../bin
 OBJ = ../obj
 SRC = ../src
 
-CXXFLAGS = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
-LDFLAGS = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
+CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
+LDHEAL = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # General instructions:
@@ -18,19 +18,25 @@ clean:
 
 $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o
-	$(COMP) $(LDFLAGS) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
+			$(OBJ)/GeneralOutput.o
+	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o -o $@ $(LIBS)
+			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
+			$(OBJ)/GeneralOutput.o -o $@ $(LIBS)
 
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp
-	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields.cpp -o $@
+			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
+			$(SRC)/GeneralOutput.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@
 
-$(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
+$(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
 	$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
-	$(COMP) $(CXXFLAGS) -c $(SRC)/corrlnfields_aux.cpp -o $@
+	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
+
+$(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
 	$(SRC)/ParameterList.hpp $(SRC)/interpol.h

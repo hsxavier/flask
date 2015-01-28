@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include "corrlnfields_aux.hpp" // Auxiliary functions made for this program.
+#include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
@@ -313,7 +314,7 @@ int main (int argc, char *argv[]) {
   bool almout;
   double **gaus0, **gaus1;
   gsl_rng *rnd;
-  int lmax, lmin;
+  int lmax, lmin, lminout, lmaxout;
   Alm<xcomplex <double> > *aflm;
   
   lmax = config.readi("LMAX");
@@ -388,13 +389,13 @@ int main (int argc, char *argv[]) {
     if (!outfile.is_open()) 
       warning("corrlnfields: cannot open "+filename+" file.");
     outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    lmin = config.readi("LRANGE_OUT", 0);
-    lmax = config.readi("LRANGE_OUT", 1);
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
     mmax = config.readi("MMAX_OUT");
-    if (mmax>lmin) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
+    if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
     // Output all alm's:
     if (mmax<0) {
-      for(l=lmin; l<=lmax; l++)
+      for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
@@ -403,7 +404,7 @@ int main (int argc, char *argv[]) {
     }
     // Truncate m in alm output:
     else {
-     for(l=lmin; l<=lmax; l++)
+     for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
@@ -426,14 +427,14 @@ int main (int argc, char *argv[]) {
   char opt1[]="-bar", val1[]="1";
 
   // Allocate memory for pixel maps:
-  cout << "Allocating memory for pixel maps... "; cout.flush();
+  cout << "Allocating memory for pixel maps...              "; cout.flush();
   nside   = config.readi("NSIDE");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   cout << "done.\n";
   // Generate maps from alm's for each field:
-  cout << "Generating maps from alm's... "; cout.flush();
+  cout << "Generating maps from alm's...                    "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
 
@@ -483,7 +484,7 @@ int main (int argc, char *argv[]) {
   // Free memory for means and shifts:
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
   free_vector(means, 0, Nfields-1);
-
+  
 
 
   // Write final map to file as a table if requested:
@@ -551,13 +552,13 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open "+filename+" file.");
     outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    lmin = config.readi("LRANGE_OUT", 0);
-    lmax = config.readi("LRANGE_OUT", 1);
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
     mmax = config.readi("MMAX_OUT");
-    if (mmax>lmin) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
+    if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
     // Output all alm's:
     if (mmax<0) {
-      for(l=lmin; l<=lmax; l++)
+      for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
@@ -566,7 +567,7 @@ int main (int argc, char *argv[]) {
     }
     // Truncate m in alm output:
     else {
-     for(l=lmin; l<=lmax; l++)
+     for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
@@ -579,34 +580,51 @@ int main (int argc, char *argv[]) {
   free_vector(aflm, 0, Nfields-1);
 
   //hsxavier debug: testing shear calculation:
-  cout<< "Testing query_disc:\n";
-  //Healpix_Map<xcomplex <double> > shear;
-  Healpix_Map<double> shear;
-  pointing center; 
-  double radius;
-  rangeset<int> diskpix;
-  std::vector<int> pixlist;
-  center.theta=3.141592/2.0/2.0*0.0;
-  center.phi=3.141592/2.0;
-  radius=config.readd("SHEAR_RAD");
-  outfile.open("shear_vs_rad.dat");
-  for (i=0; i<3000; i++) {
-    radius = 0.0001*i;
-    outfile << radius << " " << Kappa2Gamma1(mapf[1], 1000, radius) << endl;
-  } 
-  outfile.close();
-  return 0;
+  cout<< "Testing shear computation:\n";
+  double coeff;
+  Healpix_Map<double> *gamma1f, *gamma2f;
+  gamma1f = vector<Healpix_Map <double> >(0,Nfields-1);
+  gamma2f = vector<Healpix_Map <double> >(0,Nfields-1);
+  Alm<xcomplex <double> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
+  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);    // Temp memory
+  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);     // B-modes are zero for weak lensing.
+  
+  // LOOP over convergence fields:
+  for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
+      cout << "** Will compute shear for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<":\n";
+      
+      // Preparing memory:
+      cout << "   Allocating and cleaning memory...                    "; cout.flush();
+      gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
+      gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
+      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0); // E-modes will be set below.
+      cout << "done.\n";  
+ 
+      // Get convergence alm's from convergence map:
+      cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
+      map2alm(mapf[i], Eflm, weight); // Get klm.
+      cout << "done.\n";
+ 
+      // Calculate shear alm's from convergence alm's:
+      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
+      for(l=0; l<2; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+      for(l=2; l<=lmax; l++) { // Use Wayne Hu (2000) to get Elm from klm.
+	coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
+	for (m=0; m<=l; m++) Eflm(l,m).Set(coeff*Eflm(l,m).re,coeff*Eflm(l,m).im);
+      }
+      cout << "done.\n";
+      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", fnz[i]);
 
-  shear.SetNside(nside, RING);
-  shear.fill(0);
-  shear.query_disc(center, radius, diskpix);
-  diskpix.toVector(pixlist);
-  for(i=0; i<pixlist.size(); i++) {
-    shear[pixlist[i]] = Gamma1Quad(xyz2ang(VecInRotBasis(center, shear.pix2vec(pixlist[i]))));
-  }
-  filename.assign("disk.fits");
-  write_Healpix_map_to_fits(filename,shear,planckType<double>());
-  cout<<"done\n";
+      // Go from shear E-mode alm's to gamma1 and gamma2 maps:
+      cout << "   Transforming harmonic coefficients into shear map... "; cout.flush();
+      alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
+      cout << "done.\n";
+      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", fnz[i]);
+
+    } // End of LOOP over convergence fields.
+  Eflm.Set(0,0); 
+  Bflm.Set(0,0);
+  
   return 0;
 
 

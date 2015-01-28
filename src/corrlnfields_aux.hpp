@@ -4,16 +4,14 @@
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
 #include "Utilities.hpp"
 #include <math.h>
-#include "corrlnfields_aux.hpp"
 #include <gsl/gsl_randist.h> // for ran_redshift function.
 #include "Cosmology.hpp" // for ran_redshift function.
 #include <vec3.h>        // For xyz2ang function.
 #include <pointing.h>    // For xyz2ang function.
 #include <healpix_map.h> // For RandAngInPix function.
 
+
 // Auxiliary functions for corrlnfields program:
-double Kappa2Gamma1(const Healpix_Map<double> & KappaMap, int pixel, double radius);
-double Gamma1Quad(pointing ang);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax);
 pointing xyz2ang(const vec3 & cartesian);
