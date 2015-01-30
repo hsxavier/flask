@@ -35,7 +35,8 @@ $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.h
 	$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
 
-$(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp
+$(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
+			$(SRC)/corrlnfields_aux.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \

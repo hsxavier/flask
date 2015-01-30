@@ -43,7 +43,7 @@ int main (int argc, char *argv[]) {
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
-
+  
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
   test_fzij(3,11); test_fzij(13,4);
@@ -381,40 +381,10 @@ int main (int argc, char *argv[]) {
   free_matrix(gaus0,0,CovSize-1,0,1);
   free_matrix(gaus1,0,CovSize-1,0,1);
   free_GSLMatrixArray(CovByl, Nls);
-
   // If requested, write alm's to file:
-  if (config.reads("AUXALM_OUT")!="0") {
-    filename = config.reads("AUXALM_OUT");
-    outfile.open(filename.c_str());
-    if (!outfile.is_open()) 
-      warning("corrlnfields: cannot open "+filename+" file.");
-    outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    lminout = config.readi("LRANGE_OUT", 0);
-    lmaxout = config.readi("LRANGE_OUT", 1);
-    mmax = config.readi("MMAX_OUT");
-    if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
-    // Output all alm's:
-    if (mmax<0) {
-      for(l=lminout; l<=lmaxout; l++)
-	for(m=0; m<=l; m++) {
-	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	  outfile<<endl;
-	} 
-    }
-    // Truncate m in alm output:
-    else {
-     for(l=lminout; l<=lmaxout; l++)
-	for(m=0; m<=mmax; m++) {
-	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	  outfile<<endl;
-	}  
-    }
-    outfile.close();
-    cout << "Auxiliary alm's written to "+filename<<endl;
-  }
-  
+  GeneralOutput(aflm, config, "AUXALM_OUT", fnz, Nfields);
+
+
   /******************************/
   /*** Part 5: Map generation ***/
   /******************************/
@@ -437,29 +407,8 @@ int main (int argc, char *argv[]) {
   cout << "Generating maps from alm's...                    "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
-
   // Write auxiliary map to file as a table if requested:
-  if (config.reads("AUXMAP_OUT")!="0") {
-    filename = config.reads("AUXMAP_OUT");
-    outfile.open(filename.c_str());
-    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-    else {
-      outfile << "# theta, phi";
-      for (i=0; i<Nfields; i++) {
-	n2fz(i, &field, &z, N1, N2);
-	outfile << ", f"<<field<<"z"<<z;
-      }
-      outfile << endl;
-      for (j=0; j<npixels; j++) {
-	coord = mapf[0].pix2ang(j);
-	outfile << coord.theta <<" "<< coord.phi;
-	for (i=0; i<Nfields; i++) outfile <<" "<< mapf[i][j];
-	outfile << endl;
-      }
-      outfile.close();
-      cout << "Auxiliary catalog written to " << filename << endl;
-    }  
-  }
+  GeneralOutput(mapf, config, "AUXMAP_OUT", fnz, N1, N2);
   
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
@@ -485,58 +434,12 @@ int main (int argc, char *argv[]) {
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
   free_vector(means, 0, Nfields-1);
   
-
-
   // Write final map to file as a table if requested:
-  if (config.reads("MAP_OUT")!="0") {
-    filename = config.reads("MAP_OUT");
-    outfile.open(filename.c_str());
-    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-    else {
-      outfile << "# theta, phi";
-      for (i=0; i<Nfields; i++) {
-	n2fz(i, &field, &z, N1, N2);
-	outfile << ", f"<<field<<"z"<<z;
-      }
-      outfile << endl;
-      for (j=0; j<npixels; j++) {
-	coord = mapf[0].pix2ang(j);
-	outfile << coord.theta <<" "<< coord.phi;
-	for (i=0; i<Nfields; i++) outfile <<" "<< mapf[i][j];
-	outfile << endl;
-      }
-      outfile.close();
-      cout << "Catalog written to " << filename << endl;
-    }  
-  }
-  
+  GeneralOutput(mapf, config, "MAP_OUT", fnz, N1, N2);
   // Map output to fits and/or tga files:
-  if (config.reads("MAPFITS_PREFIX")!="0") {
-    // Write to FITS:
-    cout << "Writing maps to fits files:\n";
-    tempstr  = config.reads("MAPFITS_PREFIX");
-    for (i=0; i<Nfields; i++) {
-      sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
-      filename.assign(message);
-      sprintf(message2, "rm -f %s", message);
-      system(message2); // Have to delete previous fits files first.
-      write_Healpix_map_to_fits(filename,mapf[i],planckType<double>());
-      cout << "Map for field ["<<i<<"] written to "<<filename<<endl;
-      // Write to TGA if requested:
-      if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
-	sprintf(message2, "%sf%dz%d.tga", tempstr.c_str(), fnz[i][0], fnz[i][1]);
-	arg[1]=message; arg[2]=message2; arg[3]=opt1; arg[4]=val1;
-	map2tga_module(4, (const char **)arg);
-	cout << "Map for field ["<<i<<"] written to "<<message2<<endl;
-	if (config.readi("FITS2TGA")==2) {
-	  sprintf(message2, "rm -f %s", message);
-	  system(message2);
-	  cout << "Deleted "<<filename<<endl;;
-	}
-      }
-    }
-  }
+  GeneralOutput(mapf, config, "MAPFITS_PREFIX", fnz, Nfields);
   
+
   // If requested, compute and write recovered alm's to file:
   if (config.reads("RECOVALM_OUT")!="0") {
     // Clear variables to receive new alm's:
@@ -548,34 +451,7 @@ int main (int argc, char *argv[]) {
     for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
     cout << "done.\n";
     // Output to file:
-    filename = config.reads("RECOVALM_OUT");  
-    outfile.open(filename.c_str());
-    if (!outfile.is_open()) warning("corrlnfields: cannot open "+filename+" file.");
-    outfile << SampleHeader(fnz, Nfields) <<endl<<endl;
-    lminout = config.readi("LRANGE_OUT", 0);
-    lmaxout = config.readi("LRANGE_OUT", 1);
-    mmax = config.readi("MMAX_OUT");
-    if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
-    // Output all alm's:
-    if (mmax<0) {
-      for(l=lminout; l<=lmaxout; l++)
-	for(m=0; m<=l; m++) {
-	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	  outfile<<endl;
-	} 
-    }
-    // Truncate m in alm output:
-    else {
-     for(l=lminout; l<=lmaxout; l++)
-	for(m=0; m<=mmax; m++) {
-	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< aflm[i](l,m).re<<" "<<std::setprecision(10)<< aflm[i](l,m).im;
-	  outfile<<endl;
-	}  
-    } 
-    outfile.close();
-    cout << "Recovered alm's written to "+filename<<endl;
+    GeneralOutput(aflm, config, "RECOVALM_OUT", fnz, Nfields);
   }
   free_vector(aflm, 0, Nfields-1);
 
