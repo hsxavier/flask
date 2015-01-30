@@ -12,6 +12,7 @@
 
 
 // Auxiliary functions for corrlnfields program:
+void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax);
 pointing xyz2ang(const vec3 & cartesian);

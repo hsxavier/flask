@@ -176,6 +176,59 @@ void GeneralOutput(Healpix_Map<double> *mapf, const ParameterList & config, std:
 }
 
 
+// Prints two lists of maps to a single TEXT file.
+void GeneralOutput(Healpix_Map<double> *gamma1, Healpix_Map<double> *gamma2, 
+		   const ParameterList & config, std::string keyword, int **fnz, int N1, int N2) {
+  std::string filename;
+  std::ofstream outfile;
+  int i, j, Nfields, field, z, npixels, *nside, n;
+  pointing coord;
+
+  if (config.reads(keyword)!="0") {
+    Nfields=N1*N2; 
+    
+    // Check which maps are allocated and avoid different-size maps.
+    j=0;
+    nside = vector<int>(0,Nfields-1);
+    for (i=0; i<Nfields; i++) {
+      nside[i]  = gamma1[i].Nside(); // Record all maps Nsides.
+      if (nside[i]!=gamma2[i].Nside()) error ("GeneralOutput: expecting pair of maps with same number of pixels.");
+      if (nside[i]!=0) {             // Look for allocated maps.
+	if (j==0) {                  // Initialize j to first non-zero Nside.
+	  j=nside[i]; n=i;
+	}
+	else if (nside[i]!=j) error ("GeneralOutput: maps do not have the same number of pixels.");
+      }
+    }
+    npixels=12*j*j;
+    
+    // Output to file:
+    filename=config.reads(keyword);
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) warning("GeneralOutput: cannot open file "+filename);
+    else {
+      // Set Headers:
+      outfile << "# theta, phi";
+      for (i=0; i<Nfields; i++) if (nside[i]!=0) { 
+	  n2fz(i, &field, &z, N1, N2);
+	  outfile <<", f"<<field<<"z"<<z<<"[1]"<<", f"<<field<<"z"<<z<<"[2]";
+	}
+      outfile << std::endl;
+      // LOOP over allocated fields:
+      for (j=0; j<npixels; j++) {
+	coord = gamma1[n].pix2ang(j);
+	outfile << coord.theta <<" "<< coord.phi;
+	for (i=0; i<Nfields; i++) if (nside[i]!=0) outfile <<" "<< gamma1[i][j]<<" "<< gamma2[i][j];
+	outfile << std::endl;
+      }
+    }
+    outfile.close();
+    std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
+    free_vector(nside, 0,Nfields-1);
+  } 
+}
+
+
 // Prints a list of maps to a single TEXT file.
 void GeneralOutput(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int **fnz, int N1, int N2) {
   std::string filename;

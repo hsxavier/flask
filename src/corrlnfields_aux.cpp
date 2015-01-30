@@ -3,6 +3,41 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_min.h>
+#include <xcomplex.h>
+
+// Generates galaxy ellipticity from shear and convergence, including random source ellipticity:
+void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2) {
+  xcomplex<double> g, epsSrc, eps, k, one, gamma;
+
+  // Set complex numbers:
+  if (sigma>0.0) {
+    epsSrc.re = gsl_ran_gaussian(rnd, sigma);
+    epsSrc.im = gsl_ran_gaussian(rnd, sigma);
+  }
+  else {
+    epsSrc.re = 0.0;
+    epsSrc.im = 0.0;
+  }
+
+  gamma.re = gamma1; gamma.im = gamma2;
+  k.re     = kappa;  k.im     = 0.0;
+  one.re   = 1.0;    one.im   = 0.0;
+
+  // Compute reduced shear:
+  g = gamma/(one-kappa);
+  // Compute ellipticity of the image:
+  if (g.norm() <= 1.0) {
+    eps = (epsSrc+g) / (one + g.conj()*epsSrc);
+  }
+  else {
+    eps = (one + g*epsSrc.conj())/(epsSrc.conj()+g.conj());
+  }
+
+  //Return ellipticity of the image:
+  (*eps1) = eps.re;
+  (*eps2) = eps.im;
+  printf("%lf, %lf\n", eps.re,eps.im);
+} 
 
 
 // Uniformly randomly selects an angular position inside a pixel.

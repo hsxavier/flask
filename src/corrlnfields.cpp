@@ -147,7 +147,7 @@ int main (int argc, char *argv[]) {
     if (!outfile.is_open()) error("corrlnfields: cannot open FLIST_OUT file.");
     PrintTable(fnz, N1*N2, 2, &outfile);
     outfile.close();
-    cout << "Written field list to "+config.reads("FLIST_OUT")<<endl;
+    cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
   
 
@@ -350,7 +350,7 @@ int main (int argc, char *argv[]) {
       if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
       else { 
 	PrintGSLMatrix(CovByl[l], &outfile); outfile.close();
-	cout << "   Cholesky decomposition output matrix written to " << filename << endl;
+	cout << ">> Cholesky decomposition output matrix written to " << filename << endl;
       }  
     }
 
@@ -452,61 +452,19 @@ int main (int argc, char *argv[]) {
     cout << "done.\n";
     // Output to file:
     GeneralOutput(aflm, config, "RECOVALM_OUT", fnz, Nfields);
+    weight.dealloc();
   }
   free_vector(aflm, 0, Nfields-1);
 
-  //hsxavier debug: testing shear calculation:
-  cout<< "Testing shear computation:\n";
-  double coeff;
-  Healpix_Map<double> *gamma1f, *gamma2f;
-  gamma1f = vector<Healpix_Map <double> >(0,Nfields-1);
-  gamma2f = vector<Healpix_Map <double> >(0,Nfields-1);
-  Alm<xcomplex <double> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
-  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);    // Temp memory
-  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);     // B-modes are zero for weak lensing.
-  
-  // LOOP over convergence fields:
-  for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
-      cout << "** Will compute shear for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<":\n";
-      
-      // Preparing memory:
-      cout << "   Allocating and cleaning memory...                    "; cout.flush();
-      gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
-      gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
-      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0); // E-modes will be set below.
-      cout << "done.\n";  
- 
-      // Get convergence alm's from convergence map:
-      cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
-      map2alm(mapf[i], Eflm, weight); // Get klm.
-      cout << "done.\n";
- 
-      // Calculate shear alm's from convergence alm's:
-      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
-      for(l=0; l<2; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
-      for(l=2; l<=lmax; l++) { // Use Wayne Hu (2000) to get Elm from klm.
-	coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
-	for (m=0; m<=l; m++) Eflm(l,m).Set(coeff*Eflm(l,m).re,coeff*Eflm(l,m).im);
-      }
-      cout << "done.\n";
-      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", fnz[i]);
-
-      // Go from shear E-mode alm's to gamma1 and gamma2 maps:
-      cout << "   Transforming harmonic coefficients into shear map... "; cout.flush();
-      alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
-      cout << "done.\n";
-      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", fnz[i]);
-
-    } // End of LOOP over convergence fields.
-  Eflm.Set(0,0); 
-  Bflm.Set(0,0);
-  
-  return 0;
 
 
-  /**********************************/
-  /*** Part 6: Selection effects  ***/
-  /**********************************/
+  /************************************/
+  /*** Part 6: Maps to Observables  ***/
+  /************************************/
+
+
+  /*** Galaxy fields ***/
+
   Healpix_Map<double> *selection;
   double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
 
@@ -546,20 +504,73 @@ int main (int argc, char *argv[]) {
   }
   else error ("corrlnfields: unknown POISSON option.");
   
+  
+  /*** Lensing fields ***/
+
+  double coeff;
+  Healpix_Map<double> *gamma1f, *gamma2f;
+  gamma1f = vector<Healpix_Map <double> >(0,Nfields-1);
+  gamma2f = vector<Healpix_Map <double> >(0,Nfields-1);
+  Alm<xcomplex <double> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
+  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);    // Temp memory
+  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);     // B-modes are zero for weak lensing.
+  
+  // LOOP over convergence fields:
+  for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
+      cout << "** Will compute shear for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<":\n";
+      
+      // Preparing memory:
+      cout << "   Allocating and cleaning memory...                    "; cout.flush();
+      gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
+      gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
+      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0); // E-modes will be set below.
+      cout << "done.\n";  
+ 
+      // Get convergence alm's from convergence map:
+      cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
+      map2alm(mapf[i], Eflm, weight); // Get klm.
+      cout << "done.\n";
+ 
+      // Calculate shear alm's from convergence alm's:
+      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
+      for(l=0; l<2; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+      for(l=2; l<=lmax; l++) { // Use Wayne Hu (2000) to get Elm from klm.
+	coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
+	for (m=0; m<=l; m++) Eflm(l,m).Set(coeff*Eflm(l,m).re,coeff*Eflm(l,m).im);
+      }
+      cout << "done.\n";
+      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", fnz[i]);
+
+      // Go from shear E-mode alm's to gamma1 and gamma2 maps:
+      cout << "   Transforming harmonic coefficients into shear map... "; cout.flush();
+      alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
+      cout << "done.\n";
+      // Write kappa, gamma1 and gamma2 to FITS file:
+      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", fnz[i]);
+
+    } // End of LOOP over convergence fields.
+  weight.dealloc();
+  Eflm.Set(0,0); 
+  Bflm.Set(0,0);
+  // Output shear maps to TEXT tables:
+  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fnz, N1, N2);
+
 
   /**********************************/
   /*** Part 6: Generate catalog   ***/
   /**********************************/
-  double **catalog;
+
+  double **catalog, esig;
   int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet;
   pointing ang;
 
+  esig = config.readd("ELLIP_SIGMA");
   cout << "Counting galaxies... "; cout.flush();
   Ngalaxies=0; // Find out the total number of galaxies in all fields and redshifts:
   for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) for (j=0; j<npixels; j++) Ngalaxies+=(int)mapf[i][j];
   cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
   
-  ncols=6;
+  ncols=10;
   catalog = matrix<double>(0,Ngalaxies-1,0,ncols-1);
   catSet  = matrix<int>(0,Ngalaxies-1,0,ncols-1);
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
@@ -571,19 +582,25 @@ int main (int argc, char *argv[]) {
     pixelNgal = 0; 
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) pixelNgal+=(int)mapf[i][j];
     for(i=0; i<Nfields; i++) 
-      // Add entry of type galaxy:
+      // Add entry of type GALAXY:
       if (ftype[i]==fgalaxies) 
 	for(m=0; m<(int)mapf[i][j]; m++) {
 	  ang = RandAngInPix(rnd, mapf[i], j);                               // Bookkeeping
 	  catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
 	  catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
 	  catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
-	  catalog[gali][3] = fnz[i][0]; /* Field ID. */                      catSet[gali][3]++;
-	  catalog[gali][5] = j;                                              catSet[gali][5]++;
+	  catalog[gali][3] = fnz[i][0]; /* Field ID (galaxy type) */         catSet[gali][3]++;
+	  catalog[gali][9] = j;                                              catSet[gali][9]++;
 	  gali++;
 	}
-      // Add entry of type shear:
-      else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {catalog[PartialNgal+m][4] = mapf[i][j]; catSet[PartialNgal+m][4]++;}
+      // Add entry of type SHEAR:
+      else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {
+	  catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
+	  catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
+	  catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
+	  GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma1f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
+	  catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
+	}
     PartialNgal+=pixelNgal;
   } // End of LOOP over pixels.  
   // Check if every entry was set once and only once:
@@ -602,10 +619,10 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
     else {
-      outfile << "# theta, phi, z, fID, convergence, pixelID\n";
+      outfile << "# theta, phi, z, fID, convergence, gamma1, gamma2, ellip1, ellip2, pixelID\n";
       PrintTable(catalog, Ngalaxies, ncols, &outfile); 
       outfile.close();
-      cout << "Catalog written to " << filename << endl;
+      cout << ">> Catalog written to " << filename << endl;
     }  
   }
   free_matrix(catalog, 0, Ngalaxies-1, 0, ncols-1);

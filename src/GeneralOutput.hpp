@@ -24,6 +24,9 @@ void GeneralOutput(const Alm<xcomplex <double> > & a, const ParameterList & conf
 void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config, std::string keyword, int *fnz);
 // Prints a list of maps to a single TEXT file:
 void GeneralOutput(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int **fnz, int N1, int N2);
+// Prints two lists of maps to a single TEXT file:
+void GeneralOutput(Healpix_Map<double> *gamma1, Healpix_Map<double> *gamma2, 
+		   const ParameterList & config, std::string keyword, int **fnz, int N1, int N2);
 // One set of (Kappa, gamma1, gamma2) maps to one FITS file, named with a prefix and the field ID:
 void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> & g1map, 
 		   const Healpix_Map<double> & g2map, const ParameterList & config, std::string keyword, int *fnz);
