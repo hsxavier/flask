@@ -26,17 +26,15 @@
 /*** Main Program ***/
 /********************/
 int main (int argc, char *argv[]) {
-  using std::cout; using std::endl; using std::string; using std::ofstream; // Basic stuff.
-  using namespace ParDef; ParameterList config;                             // Easy configuration file use.
-  Cosmology cosmo;                                                          // Cosmological parameters.
-  char message[100], message2[100];                                         // Handling warnings and errors.
-  const int fgalaxies=1, fshear=2;                                          // Field type identification.
+  using std::cout; using std::endl;                     // Basic stuff.
+  using namespace ParDef; ParameterList config;         // Easy configuration file use.
+  Cosmology cosmo;                                      // Cosmological parameters.
+  char message[100];                                    // Handling warnings and errors.
+  const int fgalaxies=1, fshear=2;                      // Field type identification.
   std::string filename, tempstr;
-  std::ofstream outfile;                                                    // File for output.
-  std::ifstream infile;                                                     // File for input.
-  enum simtype {gaussian, lognormal}; simtype dist;                         // For specifying simulation type.
-  gsl_matrix *CovMatrix, **CovByl; 
-  long CovSize;
+  std::ofstream outfile;                                // File for output.
+  enum simtype {gaussian, lognormal}; simtype dist;     // For specifying simulation type.
+  gsl_matrix **CovByl; 
   int status, i, j, l, m, Nfields, mmax, *ftype;
   double *means, *shifts, **aux, **zrange; 
   long long1, long2;
@@ -59,6 +57,7 @@ int main (int argc, char *argv[]) {
   config.show();
   cout << endl;
   cosmo.load(&config);
+  if (config.reads("EXIT_AT")!="0") config.findpar(config.reads("EXIT_AT")+":"); // Produce warning if last output is unknown.
   // - Lognormal or Gausian realizations:
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
@@ -149,7 +148,13 @@ int main (int argc, char *argv[]) {
     outfile.close();
     cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
-  
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="FLIST_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
+
 
   /**************************************************/
   /*** PART 2: Prepare for Cholesky decomposition ***/
@@ -290,6 +295,14 @@ int main (int argc, char *argv[]) {
   }
   cout << "done.\n";
 
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
+      config.reads("EXIT_AT")=="GXIOUT_PREFIX" || 
+      config.reads("EXIT_AT")=="GCLOUT_PREFIX") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
   
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
@@ -378,12 +391,19 @@ int main (int argc, char *argv[]) {
     cout << "done.\n";
     
   } // End of LOOP over l's.
-  free_matrix(gaus0,0,CovSize-1,0,1);
-  free_matrix(gaus1,0,CovSize-1,0,1);
+  free_matrix(gaus0,0,Nfields-1,0,1);
+  free_matrix(gaus1,0,Nfields-1,0,1);
   free_GSLMatrixArray(CovByl, Nls);
   // If requested, write alm's to file:
   GeneralOutput(aflm, config, "AUXALM_OUT", fnz, Nfields);
 
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX" || 
+      config.reads("EXIT_AT")=="AUXALM_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
 
   /******************************/
   /*** Part 5: Map generation ***/
@@ -410,6 +430,13 @@ int main (int argc, char *argv[]) {
   // Write auxiliary map to file as a table if requested:
   GeneralOutput(mapf, config, "AUXMAP_OUT", fnz, N1, N2);
   
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="AUXMAP_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
+
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: exponentiating pixels... "; cout.flush();
@@ -439,6 +466,13 @@ int main (int argc, char *argv[]) {
   // Map output to fits and/or tga files:
   GeneralOutput(mapf, config, "MAPFITS_PREFIX", fnz, Nfields);
   
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="MAP_OUT" ||
+      config.reads("EXIT_AT")=="MAPFITS_PREFIX") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
 
   // If requested, compute and write recovered alm's to file:
   if (config.reads("RECOVALM_OUT")!="0") {
@@ -455,8 +489,13 @@ int main (int argc, char *argv[]) {
     weight.dealloc();
   }
   free_vector(aflm, 0, Nfields-1);
-
-
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="RECOVALM_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
+    
 
   /************************************/
   /*** Part 6: Maps to Observables  ***/
@@ -555,6 +594,14 @@ int main (int argc, char *argv[]) {
   // Output shear maps to TEXT tables:
   GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fnz, N1, N2);
 
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="SHEAR_ALM_PREFIX"  ||
+      config.reads("EXIT_AT")=="SHEAR_FITS_PREFIX" || 
+      config.reads("EXIT_AT")=="SHEAR_MAP_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
 
   /**********************************/
   /*** Part 6: Generate catalog   ***/
@@ -598,7 +645,7 @@ int main (int argc, char *argv[]) {
 	  catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
 	  catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
 	  catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
-	  GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma1f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
+	  GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
 	  catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
 	}
     PartialNgal+=pixelNgal;
@@ -634,6 +681,8 @@ int main (int argc, char *argv[]) {
   free_vector(ftype, 0, Nfields-1);
   free_matrix(zrange,0, Nfields-1,0,1);
   free_vector(mapf, 0, Nfields-1);
+  free_vector(gamma1f, 0, Nfields-1);
+  free_vector(gamma2f, 0, Nfields-1);
   gsl_rng_free(rnd);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;

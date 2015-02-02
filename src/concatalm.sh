@@ -16,6 +16,8 @@ echo "Cling for $prefix..."
 ../bin/alm2Cl.py $prefix.dat > ${prefix}_cl.dat
 rm $prefix.dat -f
 
+exit 0
+
 prefix=aux-alm
 # Join multiple realizations into one file:
 echo "Joining $prefix..."

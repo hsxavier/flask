@@ -10,6 +10,12 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
   xcomplex<double> g, epsSrc, eps, k, one, gamma;
 
   // Set complex numbers:
+  gamma.re = gamma1; gamma.im = gamma2;
+  k.re     = kappa;  k.im     = 0.0;
+  one.re   = 1.0;    one.im   = 0.0;
+  // Compute reduced shear:
+  g = gamma/(one-k);
+  // Generate source intrinsic ellipticity:
   if (sigma>0.0) {
     epsSrc.re = gsl_ran_gaussian(rnd, sigma);
     epsSrc.im = gsl_ran_gaussian(rnd, sigma);
@@ -18,13 +24,6 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
     epsSrc.re = 0.0;
     epsSrc.im = 0.0;
   }
-
-  gamma.re = gamma1; gamma.im = gamma2;
-  k.re     = kappa;  k.im     = 0.0;
-  one.re   = 1.0;    one.im   = 0.0;
-
-  // Compute reduced shear:
-  g = gamma/(one-kappa);
   // Compute ellipticity of the image:
   if (g.norm() <= 1.0) {
     eps = (epsSrc+g) / (one + g.conj()*epsSrc);
@@ -32,11 +31,9 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
   else {
     eps = (one + g*epsSrc.conj())/(epsSrc.conj()+g.conj());
   }
-
   //Return ellipticity of the image:
   (*eps1) = eps.re;
   (*eps2) = eps.im;
-  printf("%lf, %lf\n", eps.re,eps.im);
 } 
 
 

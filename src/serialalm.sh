@@ -6,6 +6,6 @@ last=$2
 
 i=$first
 while [ $i -le $last ]; do
-    ../bin/corrlnfields ../sree.config RNDSEED: $i LNALM_OUT: recov-alm-$i.dat AUXALM_OUT: aux-alm-$i.dat > /dev/null
+    ../bin/corrlnfields ../sree.config RNDSEED: $i RECOVALM_OUT: recov-alm-$i.dat > /dev/null #AUXALM_OUT: aux-alm-$i.dat > /dev/null
     i=`expr $i + 1`
 done

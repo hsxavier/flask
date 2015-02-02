@@ -23,16 +23,16 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=34;
+  const int     npars=35;
   const string  par_name[npars] = {"RNDSEED", "DIST", "LMAX", "CL_PREFIX", "FLIST_OUT", "AUXALM_OUT", 
 				   "SUPPRESS_L", "SUP_INDEX", "XIOUT_PREFIX","FIELDS_INFO", 
 				   "GXIOUT_PREFIX", "GCLOUT_PREFIX", "CHOLESKY_PREFIX","LMIN", "NSIDE", 
 				   "MAP_OUT", "RECOVALM_OUT", "AUXMAP_OUT", "LRANGE_OUT", "MMAX_OUT", 
 				   "MAPFITS_PREFIX", "FITS2TGA", "OMEGA_m", "OMEGA_L", "W_de", "GALDENSITY",
                                    "SELEC_PREFIX", "SELEC_TYPE", "POISSON", "CATALOG_OUT", "SHEAR_ALM_PREFIX", 
-				   "SHEAR_FITS_PREFIX", "SHEAR_MAP_OUT", "ELLIP_SIGMA"};
+				   "SHEAR_FITS_PREFIX", "SHEAR_MAP_OUT", "ELLIP_SIGMA", "EXIT_AT"};
   const int     par_type[npars] = {i1, s, i1, s, s, s, d1, d1, s, s, s, s, s, i1, i1, s, s, s, i2, i1, s, 
-				   i1, d1, d1, d1, d1, s, s, i1, s, s, s, s, d1};
+				   i1, d1, d1, d1, d1, s, s, i1, s, s, s, s, d1, s};
   // END OF PARAMETER SETTINGS.
 }
 
@@ -60,12 +60,12 @@ struct parameter {
 class ParameterList {
 private: 
   parameter list[MAXPARS];
-  int findpar (std::string word) const;
   int parloaded;
 public:
   ParameterList ();
   ParameterList (const char *filename);
   //ParameterList (const ParameterList & plist);
+  int findpar (std::string word) const;
   void load (const char *filename);
   void lineload (int argc, char *argv[]);
   void show (std::ostream * output = &std::cout) const;
