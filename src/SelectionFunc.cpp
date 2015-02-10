@@ -2,6 +2,7 @@
 #include "Utilities.hpp"
 #include "corrlnfields_aux.hpp" // For definitions namespace.
 #include <healpix_map_fitsio.h>
+#include "interpol.h"
 
 //using std::cout; using std::endl;
 
@@ -15,7 +16,7 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
   using namespace definitions;
   std::string tempstr, filename;
   char message[100];
-  int i, j;
+  int i, j, Nside=-1;
   double *wrapper[2];
   long Nrows, Ncolumns;
 
@@ -45,6 +46,9 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
 	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
 	filename.assign(message);
 	read_Healpix_map_from_fits(filename, AngularSel[i]);
+	if (Nside==-1) Nside=AngularSel[i].Nside();
+	else if (AngularSel[i].Nside() != Nside) 
+	  error("SelectionFunction.load: selection FITS files have different number of pixels.");
       }
     // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
     if (config.reads("SELEC_TYPE")=="FRACTION") error ("SelectionFunction.load: SELEC_TYPE FRACTION not implemented yet.");
@@ -57,6 +61,7 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
     // Load a fixed angular selection function:
     AngularSel = vector<Healpix_Map<double> >(0,0);
     read_Healpix_map_from_fits(tempstr, AngularSel[0]);
+    Nside = AngularSel[0].Nside();
     // Prepare for radial selection functions:
     zSel      = vector<double*>(0, Nfields-1);
     zEntries  = vector<double*>(0, Nfields-1);
@@ -77,6 +82,9 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
   }
   
   else error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
+
+  // Final settings:
+  Npixels = 12*Nside*Nside;
 }
 
 
@@ -122,4 +130,27 @@ SelectionFunction::~SelectionFunction() {
   }
 
   // If Separable not set, no memory was allocated: do nothing.
+}
+
+
+// Returns the selection function for the field (or redshift) fz and the angular position pix:
+double SelectionFunction::operator()(int fz, int pix) {
+  using namespace definitions;
+  double z0;
+  // Error checks:
+  if (ftype[fz]!=fgalaxies) error("SelectionFunction.operator(): this is only set for fields of type galaxies.");
+  else if (pix >= Npixels || pix < 0) error("SelectionFunction.operator(): requested pixel is out of range.");
+  else if (fz  >= Nfields || fz  < 0) error("SelectionFunction.operator(): unknown requested field.");
+  else if (Separable!=0 && Separable!=1) error("SelectionFunction.operator(): this object was not initialized (use load first).");
+  // Normal execution:
+  else {
+    // For non-separable selection functions, return the Healpix map value:
+    if (Separable==0) return AngularSel[fz][pix];
+    // For separable selection functions, multiply radial to angular part:
+    else if (Separable==1) {
+      // Get mean redshift of the field:
+      z0 = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; 
+      return Interpol(zEntries[fz], NzEntries[fz], zSel[fz], z0) * AngularSel[0][pix];
+    }
+  }
 }

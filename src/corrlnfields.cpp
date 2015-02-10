@@ -23,12 +23,7 @@
 #include <vec3.h>
 #include "SelectionFunc.hpp"
 
-void test_func(const ParameterList & config, int **fnz, int *ftype, double **zrange, int Nfields) {
-  std::cout << "!! Will test selection function loading:\n"; 
-  SelectionFunction teste;
-  teste.load(config, fnz, ftype, zrange, Nfields);
-  std::cout <<"done!\n";
-}
+
 
 /********************/
 /*** Main Program ***/
@@ -55,23 +50,7 @@ int main (int argc, char *argv[]) {
   test_fzij(3,11); test_fzij(13,4);
   cout << "done.\n";
 
-  /*
-  double *wrap[5];
-  LoadVecs(wrap, "test.dat", &long1, &long2, 0, 1);
-  for (i=0; i<long1; i++) {
-    for (j=0; j<long2; j++) cout << wrap[j][i] << " ";
-    cout << endl;
-  }
-  cout << "Vai liberar vetores\n";
-  for (j=0; j<long2; j++) {
-      cout << "vai liberar field: "<<j<<endl;
-      free_vector(wrap[j], 0, long1);
-      cout << "liberou field: "<<j<<endl;
-    }
   
-  return 0;
-  */
-
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
@@ -220,12 +199,6 @@ int main (int argc, char *argv[]) {
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
-
-  for (i=0; i<10000; i++) {
-    cout << "*** i = "<<i<<" ***\n";
-    test_func(config, fnz, ftype, zrange, Nfields);
-  }
-  return 0;
 
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
@@ -705,7 +678,6 @@ int main (int argc, char *argv[]) {
     }  
   }
   free_matrix(catalog, 0, Ngalaxies-1, 0, ncols-1);
-  
   
 
   // End of the program

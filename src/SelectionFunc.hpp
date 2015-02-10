@@ -10,7 +10,7 @@ private:
   Healpix_Map<double> *AngularSel;
   double **zSel, **zEntries, **fieldZrange;
   long *NzEntries;
-  int Separable, Nfields, *ftype;
+  int Separable, Nfields, *ftype, Npixels;
 public:
   SelectionFunction();
   void load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int Nfields0);
