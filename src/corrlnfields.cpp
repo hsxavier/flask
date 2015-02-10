@@ -508,33 +508,20 @@ int main (int argc, char *argv[]) {
 
 
   /*** Galaxy fields ***/
-
-  Healpix_Map<double> *selection;
-  double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
-
-  // Read selection functions from FITS files:
-  cout << "Reading selection functions from files... "; cout.flush();
-  selection = vector<Healpix_Map<double> >(0,Nfields-1);
-  tempstr   = config.reads("SELEC_PREFIX");
-  for (i=0; i<Nfields; i++) {
-    sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
-    filename.assign(message);
-    read_Healpix_map_from_fits(filename, selection[i]);
-    if (selection[i].Nside()!=mapf[i].Nside()) 
-      error("corrlnfields: "+filename+" does not have the same Nside as the corresponding map.");
-    if (selection[i].Scheme()!=mapf[i].Scheme())
-      error("corrlnfields: "+filename+" does not have the same ordering scheme as the corresponding map.");
-  }
-  cout << "done.\n";
-  // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
-  if (config.reads("SELEC_TYPE")=="FRACTION") error ("corrlnfields: SELEC_TYPE FRACTION not implemented yet.");
-  else if (config.reads("SELEC_TYPE")!="DENSITY") error ("corrlnfields: unknown SELEC_TYPE option.");
   
+  double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
+  SelectionFunction selection;
+  
+  // Read in selection functions from FITS files and possibly text files (for radial part):
+  cout << "Reading selection functions from files... "; cout.flush();
+  selection.load(config, fnz, ftype, zrange, Nfields); // !! One should implement check if mapf and selection have same Nside and Scheme.
+  cout << "done.\n";
+
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	cout << "Poisson sampling f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
-	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection[i][j]*(1.0+mapf[i][j])/**PixelSolidAngle*/);
+	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/);
 	cout << "done.\n";
       }
   }
@@ -542,7 +529,7 @@ int main (int argc, char *argv[]) {
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	cout << "Using expected number density for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
-	for(j=0; j<npixels; j++) mapf[i][j] = selection[i][j]*(1.0+mapf[i][j])/**PixelSolidAngle*/;
+	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/;
 	cout << "done.\n";
       }
   }
