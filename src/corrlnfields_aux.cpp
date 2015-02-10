@@ -281,13 +281,12 @@ std::string SampleHeader(int **fnz, int nr) {
      of the correlation function. ***/
 void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2) {
   int i=0, num, index, fileL;
-  
   fileL=filename.length();
   // LOOP over the four indexes that indentifies the C(l):
   for(index=1; index<=4; index++) {
     num=0;
     // Find a number:
-    while (isdigit(filename.c_str()[i])==0) {i++; if(i>=fileL && index!=4) error("getcovid: cannot find four numbers.");}
+    while (isdigit(filename.c_str()[i])==0) {i++; if(i>=fileL) error("getcovid: cannot find four numbers.");}
     // Read the number:
     while (isdigit(filename.c_str()[i])!=0) {num = num*10 + (filename.c_str()[i]-'0'); i++;}
     // Save it as an index:
@@ -326,7 +325,7 @@ void CountEntries(std::string filename, long *nr, long *nc) {
   outputline << phrase;
   inputline.str(outputline.str());
   while (inputline >> word) ncols++;
-  while(!file.eof()) {getline(file,phrase); nrows++;}
+  while(!file.eof()) {getline(file,phrase); if (phrase.length()>0) nrows++;}
 
   file.close();
   *nr=nrows+1;

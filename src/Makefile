@@ -19,11 +19,11 @@ clean:
 $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
-			$(OBJ)/GeneralOutput.o
+			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o
 	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
-			$(OBJ)/GeneralOutput.o -o $@ $(LIBS)
+			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o -o $@ $(LIBS)
 
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
@@ -32,8 +32,12 @@ $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
-	$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
+			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
+
+$(OBJ)/SelectionFunc.o: $(SRC)/SelectionFunc.cpp $(SRC)/SelectionFunc.hpp $(SRC)/ParameterList.hpp \
+			$(SRC)/Utilities.hpp $(SRC)/corrlnfields_aux.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/SelectionFunc.cpp -o $@
 
 $(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/corrlnfields_aux.hpp

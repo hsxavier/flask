@@ -6,7 +6,7 @@ import sys
 inputfile = sys.argv[1]
 
 f1Re, f1Im, f2Re, f2Im = np.loadtxt(inputfile, unpack=True)
-nrealiz=10000*11
+nrealiz=5000*11
 #nrealiz=3*11
 lmin=10
 lmax=50

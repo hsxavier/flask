@@ -21,16 +21,24 @@
 #include <healpix_map_fitsio.h>
 #include <levels_facilities.h>
 #include <vec3.h>
+#include "SelectionFunc.hpp"
+
+void test_func(const ParameterList & config, int **fnz, int *ftype, double **zrange, int Nfields) {
+  std::cout << "!! Will test selection function loading:\n"; 
+  SelectionFunction teste;
+  teste.load(config, fnz, ftype, zrange, Nfields);
+  std::cout <<"done!\n";
+}
 
 /********************/
 /*** Main Program ***/
 /********************/
 int main (int argc, char *argv[]) {
   using std::cout; using std::endl;                     // Basic stuff.
+  using namespace definitions;                          // Global definitions.
   using namespace ParDef; ParameterList config;         // Easy configuration file use.
   Cosmology cosmo;                                      // Cosmological parameters.
   char message[100];                                    // Handling warnings and errors.
-  const int fgalaxies=1, fshear=2;                      // Field type identification.
   std::string filename, tempstr;
   std::ofstream outfile;                                // File for output.
   enum simtype {gaussian, lognormal}; simtype dist;     // For specifying simulation type.
@@ -40,12 +48,29 @@ int main (int argc, char *argv[]) {
   long long1, long2;
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
-
+  
   
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
   test_fzij(3,11); test_fzij(13,4);
   cout << "done.\n";
+
+  /*
+  double *wrap[5];
+  LoadVecs(wrap, "test.dat", &long1, &long2, 0, 1);
+  for (i=0; i<long1; i++) {
+    for (j=0; j<long2; j++) cout << wrap[j][i] << " ";
+    cout << endl;
+  }
+  cout << "Vai liberar vetores\n";
+  for (j=0; j<long2; j++) {
+      cout << "vai liberar field: "<<j<<endl;
+      free_vector(wrap[j], 0, long1);
+      cout << "liberou field: "<<j<<endl;
+    }
+  
+  return 0;
+  */
 
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
@@ -79,13 +104,10 @@ int main (int argc, char *argv[]) {
     filelist[i].assign(message);
   }
   pclose(stream);
-
   
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
-  void CountEntries(std::string filename, long *nr, long *nc);
-  void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2);
   int a1, a2, b1, b2, N1, N2, Nlinput, **fnz, **NentMat;
   long *Nentries, ncols;
   double ***ll, ***Cov, *wrapper[2];
@@ -103,18 +125,20 @@ int main (int argc, char *argv[]) {
     if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
   }
   cout << "Nfields: " << N1 << " Nzs: " << N2 << endl;
+  Nfields = N1*N2;
   
+
   // Allocate memory to store C(l)s:
   // First two indexes are CovMatrix indexes and last is for ll.
   // fnz stores the order that the fields are stored in CovMatrix.
-  fnz     =     matrix<int>(0, N1*N2-1, 0, 1);                 // Records what field is stored in each element of CovMatrix.
-  fnzSet  =    vector<bool>(0, N1*N2-1);                       // For bookkeeping.
-  ll      = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, Nlinput); // Records the ll for each C(l) file. 
-  Cov     = tensor3<double>(0, N1*N2-1, 0, N1*N2-1, 0, Nlinput); // Records the C(l) for each C(l) file.
-  IsSet   =    matrix<bool>(0, N1*N2-1, 0, N1*N2-1);           // For bookkeeping.
-  NentMat =     matrix<int>(0, N1*N2-1, 0, N1*N2-1);           // Number of C(l) entries in file.
-  for(i=0; i<N1*N2; i++) for(j=0; j<N1*N2; j++) IsSet[i][j]=0;
-  for(i=0; i<N1*N2; i++) fnzSet[i]=0;
+  fnz     =     matrix<int>(0, Nfields-1, 0, 1);                 // Records what field is stored in each element of CovMatrix.
+  fnzSet  =    vector<bool>(0, Nfields-1);                       // For bookkeeping.
+  ll      = tensor3<double>(0, Nfields-1, 0, Nfields-1, 0, Nlinput); // Records the ll for each C(l) file. 
+  Cov     = tensor3<double>(0, Nfields-1, 0, Nfields-1, 0, Nlinput); // Records the C(l) for each C(l) file.
+  IsSet   =    matrix<bool>(0, Nfields-1, 0, Nfields-1);           // For bookkeeping.
+  NentMat =     matrix<int>(0, Nfields-1, 0, Nfields-1);           // Number of C(l) entries in file.
+  for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) IsSet[i][j]=0;
+  for(i=0; i<Nfields; i++) fnzSet[i]=0;
   
   // Read C(l)s and store in data-cube:
   for (m=0; m<NinputCls; m++) {
@@ -138,13 +162,13 @@ int main (int argc, char *argv[]) {
   free_vector(filelist, 0, NinputCls-1);
 
   // Check if every field was assigned a position in the CovMatrix:
-  for (i=0; i<N1*N2; i++) if (fnzSet[i]==0) error("corrlnfields: some position in CovMatrix is unclaimed.");
-  free_vector(fnzSet, 0, N1*N2-1);
+  for (i=0; i<Nfields; i++) if (fnzSet[i]==0) error("corrlnfields: some position in CovMatrix is unclaimed.");
+  free_vector(fnzSet, 0, Nfields-1);
   // If positions are OK and output required, print them out:
   if (config.reads("FLIST_OUT")!="0") {
     outfile.open(config.reads("FLIST_OUT").c_str());
     if (!outfile.is_open()) error("corrlnfields: cannot open FLIST_OUT file.");
-    PrintTable(fnz, N1*N2, 2, &outfile);
+    PrintTable(fnz, Nfields, 2, &outfile);
     outfile.close();
     cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
@@ -165,8 +189,8 @@ int main (int argc, char *argv[]) {
   // Load means, shifts, type and z range data file:
   cout << "Loading means and shifts from file "+config.reads("FIELDS_INFO")+":\n";
   aux   = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2); 
-  Nfields = (int)long1; // From now on will use Nfields instead of N1*N2, so the check below is important!
-  if (Nfields != N1*N2) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
+  //Check if number of fields in INFO is the same as in the Cls:
+  if ((int)long1 != Nfields) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
   fnzSet = vector<bool>(0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
   means  = vector<double>(0, Nfields-1);
   ftype  = vector<int>(0, Nfields-1);
@@ -197,13 +221,18 @@ int main (int argc, char *argv[]) {
       }
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
 
+  for (i=0; i<10000; i++) {
+    cout << "*** i = "<<i<<" ***\n";
+    test_func(config, fnz, ftype, zrange, Nfields);
+  }
+  return 0;
+
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
   tempCl = vector<double>(0, lastl);
   CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
   cout << "done.\n";
-
-
+  
   /*****************************************************************/
   /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
@@ -214,13 +243,16 @@ int main (int argc, char *argv[]) {
     workspace  = vector<double>(0, 16*Nls-1);
     LegendreP  = vector<double>(0, 2*Nls*Nls-1);
     xi         = vector<double>(0, 2*Nls-1);
-    theta      = vector<double>(0, 2*Nls-1);
     lls        = vector<double>(0, lastl);
     DLTweights = vector<double>(0, 4*Nls-1);
     // Initialize vectors:
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
-    ArcCosEvalPts(2*Nls, theta);
-    for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI; 
+    // angle theta is only necessary for output:
+    if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
+      theta    = vector<double>(0, 2*Nls-1);
+      ArcCosEvalPts(2*Nls, theta);
+      for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
+    } 
     cout << "done.\n";
     // Loads C(l) exponential suppression:
     lsup     = config.readd("SUPPRESS_L");
@@ -253,7 +285,7 @@ int main (int argc, char *argv[]) {
 	  cout << "  done.\n";
 	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
 	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	    cout << "   Correlation function written to "+filename<<endl;
+	    cout << ">> Correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
 	  cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
@@ -262,7 +294,7 @@ int main (int argc, char *argv[]) {
 	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
 	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
 	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	    cout << "   Associated Gaussian correlation function written to "+filename<<endl;
+	    cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) back to C(l):
 	  cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
@@ -271,7 +303,7 @@ int main (int argc, char *argv[]) {
 	  cout << "done.\n";
 	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
 	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	    cout << "   C(l) for auxiliary Gaussian variables written to "+filename<<endl;
+	    cout << ">> C(l) for auxiliary Gaussian variables written to "+filename<<endl;
 	  }	  
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
@@ -289,9 +321,9 @@ int main (int argc, char *argv[]) {
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(xi, 0, 2*Nls-1);
-    free_vector(theta, 0, 2*Nls-1);
     free_vector(lls, 0, lastl);
     free_vector(DLTweights, 0, 4*Nls-1); 
+    if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*Nls-1);
   }
   cout << "done.\n";
 
@@ -677,12 +709,12 @@ int main (int argc, char *argv[]) {
   
 
   // End of the program
-  free_matrix(fnz, 0,N1*N2-1, 0,1);
-  free_vector(ftype, 0, Nfields-1);
-  free_matrix(zrange,0, Nfields-1,0,1);
-  free_vector(mapf, 0, Nfields-1);
-  free_vector(gamma1f, 0, Nfields-1);
-  free_vector(gamma2f, 0, Nfields-1);
+  free_matrix(fnz,     0, Nfields-1, 0,1);
+  free_vector(ftype,   0, Nfields-1 );
+  free_matrix(zrange,  0, Nfields-1, 0,1);
+  free_vector(mapf,    0, Nfields-1 );
+  free_vector(gamma1f, 0, Nfields-1 );
+  free_vector(gamma2f, 0, Nfields-1 );
   gsl_rng_free(rnd);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;

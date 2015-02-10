@@ -1,3 +1,4 @@
+alm2cl=$1 # 1 - Calculates Cl and erases alms; 0 - Keep alms and do not calculate Cls.
 
 prefix=recov-alm 
 # Join multiple realizations into one file:
@@ -12,11 +13,11 @@ echo "Erasing temp files from $prefix..."
 rm $prefix-*.dat -f
 rm ${prefix}_*.dat -f
 # Run python script to compute C(l)s:
-echo "Cling for $prefix..."
-../bin/alm2Cl.py $prefix.dat > ${prefix}_cl.dat
-rm $prefix.dat -f
-
-exit 0
+if [ $alm2cl -eq 1 ]; then
+    echo "Cling for $prefix..."
+    ../bin/alm2Cl.py $prefix.dat > ${prefix}_cl.dat
+    rm $prefix.dat -f
+fi
 
 prefix=aux-alm
 # Join multiple realizations into one file:
@@ -31,6 +32,8 @@ echo "Erasing temp files from $prefix..."
 rm $prefix-*.dat -f
 rm ${prefix}_*.dat -f
 # Run python script to compute C(l)s:
-echo "Cling for $prefix..."
-../bin/alm2Cl.py $prefix.dat > ${prefix}_cl.dat
-rm $prefix.dat -f
+if [ $alm2cl -eq 1 ]; then
+    echo "Cling for $prefix..."
+    ../bin/alm2Cl.py $prefix.dat > ${prefix}_cl.dat
+    rm $prefix.dat -f
+fi

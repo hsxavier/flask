@@ -11,6 +11,12 @@
 #include <healpix_map.h> // For RandAngInPix function.
 
 
+// Global definitions
+namespace definitions {
+  const int fgalaxies=1, fshear=2;                      // Field type identification.
+}
+
+
 // Auxiliary functions for corrlnfields program:
 void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);

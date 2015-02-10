@@ -8,6 +8,7 @@
 #include <iomanip>   // for setw()
 
 /****** Import vertical vectors from file ******/
+// No memory allocation is done here. It must be done before.  
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename) {
    
    /* Declaração das variáveis */

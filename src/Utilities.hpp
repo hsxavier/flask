@@ -107,7 +107,7 @@ void free_tensor3(type ***t, long n1i, long n1f, long n2i, long n2f, long n3i, l
 
 // Import table (matrix[1..nr][1..nc]) from file:
 template <typename type>
-type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
+type **LoadTable(std::string filename, long *nr, long *nc, int offset=0, int verbose=0) {
   using std::ifstream;
   using std::string;
   using std::istringstream;
@@ -123,27 +123,79 @@ type **LoadTable(std::string filename, long *nr, long *nc, int offset=0) {
   file.open(filename.c_str());
   if (!file.is_open()) error("LoadTable: cannot open file "+filename);
   
-  // Detect headers (must start with #):
+  // Detect headers (must start with # or empty lines):
   getline(file,phrase);
-  while(!file.eof() && phrase[0]=='#') {datapos=file.tellg(); nheaders++; getline(file,phrase);}
+  while(!file.eof() && (phrase[0]=='#' || phrase.length()==0)) {datapos=file.tellg(); nheaders++; getline(file,phrase);}
+  // Count number of columns (using first data row):
   outputline << phrase;
   inputline.str(outputline.str());
   while (inputline >> word) ncols++;
-  while(!file.eof()) {getline(file,phrase); nrows++;}
-  std::cout<<"LoadTable will allocate "<<nrows<<" lines and "<<ncols<<" columns for file "<<filename<<std::endl;
-
+  // Count number of rows (ignoring comments and empty spaces):
+  while(!file.eof() && phrase[0]!='#' && phrase.length()!=0) {getline(file,phrase); nrows++;}
+  if (phrase.length()!=0 && phrase[0]!='#') nrows++;
+  // Inform number of rows and columns if requested:
+  if (verbose!=0) 
+    std::cout<<"LoadTable will allocate "<<nrows<<" lines and "<<ncols<<" columns for file "<<filename<<std::endl;
+  
   // Loading values to table:
   file.clear();
   file.seekg(datapos);
-  table=matrix<type>(offset,nrows+offset-1,offset,ncols+offset-1);
+  table = matrix<type>(offset,nrows+offset-1,offset,ncols+offset-1);
   for (i=offset; i<nrows+offset; i++)
     for (j=offset; j<ncols+offset; j++) 
-      if (!(file >> table[i][j])) error("LoadTable: more data expected in file "+filename);
-  if(file >> word) error("LoadTable: data was ignored in "+filename);
+      if (!(file >> table[i][j])) error("LoadTable: more data expected in file "+filename); // DO NOT put comments in the end of the file!
+  if(file >> word && word[0]!='#') error("LoadTable: data was ignored in "+filename);
   *nr=nrows; *nc=ncols;
 
   file.close();
   return table;
+}
+
+
+// Import column vectors (table[1..nc] must be allocated already) from file:
+// Since the memory is allocated here, the pointer table is set here too!
+template <typename type>
+void LoadVecs(type **table, std::string filename, long *nr, long *nc, int offset=0, int verbose=0) {
+  using std::ifstream;
+  using std::string;
+  using std::istringstream;
+  using std::ostringstream;
+  long nrows=0, ncols=0, i, j, nheaders=0;
+  ifstream file;
+  istringstream inputline; ostringstream outputline;
+  string word, phrase;
+  int datapos=0;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("LoadVecs: cannot open file "+filename);
+  
+  // Detect headers (must start with # or empty lines):
+  getline(file,phrase);
+  while(!file.eof() && (phrase[0]=='#' || phrase.length()==0)) {datapos=file.tellg(); nheaders++; getline(file,phrase);}
+  // Count number of columns (using first data row):
+  outputline << phrase;
+  inputline.str(outputline.str());
+  while (inputline >> word) ncols++;
+  // Count number of rows (ignoring comments and empty spaces):
+  while(!file.eof() && phrase[0]!='#' && phrase.length()!=0) {getline(file,phrase); nrows++;}
+  if (phrase.length()!=0 && phrase[0]!='#') nrows++;
+  // Inform number of rows and columns if requested:
+  if (verbose!=0) 
+    std::cout<<"LoadVecs will allocate "<<nrows<<" entries for "<<ncols<<" columns vectors in file "<<filename<<std::endl;
+  
+  // Loading values to table:
+  file.clear();
+  file.seekg(datapos);
+  // Allocate columns for the vectors:
+  for (j=offset; j<ncols+offset; j++) table[j] = vector<type>(offset,nrows+offset-1);
+  // Read data into vectors:
+  for (i=offset; i<nrows+offset; i++)
+    for (j=offset; j<ncols+offset; j++) 
+      if (!(file >> table[j][i])) error("LoadVecs: more data expected in file "+filename); // DO NOT put comments in the end of the file!
+  if(file >> word && word[0]!='#') error("LoadVecs: data was ignored in "+filename);
+  *nr=nrows; *nc=ncols;
+  file.close();
 }
 
 
