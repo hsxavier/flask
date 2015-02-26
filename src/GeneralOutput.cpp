@@ -6,6 +6,46 @@
 #include "Utilities.hpp"        // For warnings, errros and dynamic allocation.
 
 
+/***********************/
+/*** Matrices output ***/
+/***********************/
+
+// Print a GSL matrix to file
+void GeneralOutput(const gsl_matrix *Cov, std::string filename) {
+  std::ofstream outfile; 
+
+  outfile.open(filename.c_str());
+  if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+  else { 
+    PrintGSLMatrix(Cov, &outfile); 
+    outfile.close();
+    std::cout << ">> GSL matrix written to "+filename<<std::endl;
+  }  
+}
+
+
+// Print all GSL matrices in a vector to files:
+void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::string keyword) {
+  std::string filename;
+  std::ofstream outfile; 
+  int lmin, lmax, l;
+
+  if (config.reads(keyword)!="0") {
+    lmin = config.readi("LMIN");
+    lmax = config.readi("LMAX");
+    for (l=lmin; l<=lmax; l++) {
+      filename=config.reads(keyword)+"l"+ZeroPad(l,lmax)+".dat";
+      outfile.open(filename.c_str());
+      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+      else { 
+	PrintGSLMatrix(CovByl[l], &outfile); 
+	outfile.close();
+	std::cout << ">> "+keyword+" ["<<l<<"] written to "+filename<<std::endl;
+      }
+    }  
+  }
+}
+
 
 /********************/
 /*** Alm's output ***/

@@ -50,8 +50,8 @@ void PrintVecs(double **table, long nrows, long ncols, std::ostream *output/* = 
 void error (const std::string message) {
   //using std::cout;
   using std::cerr;
-  //cout << "\n*** ERROR!  " << message << " ***\n";
-  cerr << "\n*** ERROR!  " << message << " ***\n";
+  //cout << "\n!! ERROR!  " << message << " !!\n";
+  cerr << "\n!! ERROR!  " << message << " !!\n";
   exit(1);
 }
 int warning (const std::string message) {
@@ -59,8 +59,8 @@ int warning (const std::string message) {
   using std::cerr;
   static int counter=0;
   if (message!="count") {
-    //cout << "\n*** WARNING!  " << message << " ***\n";
-    cerr << "\n*** WARNING!  " << message << " ***\n";
+    //cout << "\n!! WARNING!  " << message << " !!\n";
+    cerr << "\n!! WARNING!  " << message << " !!\n";
     counter++;
     return 0;
   }

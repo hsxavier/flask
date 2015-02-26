@@ -525,13 +525,13 @@ double *GetCl4DLT(double *Clin, double *ll, int Clinsize, double lsup, double su
 
 
 /*** Interpolates the input Cls to get a C_l for each l, from 0 to lmax ***/
-void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax) {
+void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax, int extrapol) {
   int l;
 
-                         Clout[0] = 0.0; // Set monopole to zero.
-  if (ll[0]>1.0)         Clout[1] = 0.0; // If not present, set dipole to zero too.
-  else                   Clout[1] = Interpol(ll, Clinsize, Clin, 1.0);
-  for(l=2; l<=lmax; l++) Clout[l] = Interpol(ll, Clinsize, Clin, (double)l);
+                                Clout[0] = 0.0; // Set monopole to zero.
+  if (ll[0]>1.0 && extrapol==0) Clout[1] = 0.0; // If not present, set dipole to zero too.
+  else                          Clout[1] = Interpol(ll, Clinsize, Clin, 1.0);
+  for(l=2; l<=lmax; l++)        Clout[l] = Interpol(ll, Clinsize, Clin, (double)l);
 }
 
 

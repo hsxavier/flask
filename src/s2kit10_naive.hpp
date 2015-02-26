@@ -17,7 +17,7 @@ void Naive_AnalysisX(double *data, int bw, int m, double *weights, double *resul
 
 double suppress(double l, double lsup, double supindex);
 double *GetCl4DLT(double *Clin, double *ll, int Clinsize, double lsup, double supindex, int lmax);
-void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax);
+void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax, int extrapol=0);
 void ModCl4DLT(double *Clout, int lmax, double lsup, double supindex);
 double unsuppress(double l, double lsup, double supindex);
 void ApplyClFactors(double *Cl, int ClLength, double lsup=-1, double supindex=0);

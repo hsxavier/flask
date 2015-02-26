@@ -12,7 +12,7 @@ SelectionFunction::SelectionFunction () {
 }
 
 // Load selection functions:
-void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int Nfields0) {
+void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int N10, int N20) {
   using namespace definitions;
   std::string tempstr, filename;
   char message[100];
@@ -21,7 +21,8 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
   long Nrows, Ncolumns;
 
   // Overall properties of the selection functions and fields:
-  Nfields     = Nfields0;
+  N1 = N10;     N2 = N20;
+  Nfields     = N1*N2;
   Separable   = config.readi("SELEC_SEPARABLE");
   tempstr     = config.reads("SELEC_PREFIX");
   //cout << "just read normal stuff - Nfields: "<<Nfields<<" Separable: "<<Separable<<endl;

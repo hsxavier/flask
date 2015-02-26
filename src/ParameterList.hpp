@@ -26,7 +26,7 @@ namespace ParDef {
   const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=37;
+  const int     npars=43;
   const string  par_name[npars] = {"RNDSEED", "DIST", "LMAX", "CL_PREFIX", "FLIST_OUT", "AUXALM_OUT", 
 				   "SUPPRESS_L", "SUP_INDEX", "XIOUT_PREFIX","FIELDS_INFO", 
 				   "GXIOUT_PREFIX", "GCLOUT_PREFIX", "CHOLESKY_PREFIX","LMIN", "NSIDE", 
@@ -34,14 +34,16 @@ namespace ParDef {
 				   "MAPFITS_PREFIX", "FITS2TGA", "OMEGA_m", "OMEGA_L", "W_de", "GALDENSITY",
                                    "SELEC_PREFIX", "SELEC_TYPE", "SELEC_SEPARABLE", "SELEC_Z_PREFIX", 
 				   "POISSON", "CATALOG_OUT", "SHEAR_ALM_PREFIX", "SHEAR_FITS_PREFIX", 
-				   "SHEAR_MAP_OUT", "ELLIP_SIGMA", "EXIT_AT"};
+				   "SHEAR_MAP_OUT", "ELLIP_SIGMA", "EXIT_AT", "COVL_PREFIX", "EXTRAP_DIPOLE",
+				   "REGULARIZE_METHOD", "NEW_EVAL", "REGULARIZE_STEP", "REG_COVL_PREFIX"};
   const int     par_type[npars] = {i1, s, i1, s, s, s, d1, d1, s, s, s, s, s, i1, i1, s, s, s, i2, i1, s, 
-				   i1, d1, d1, d1, d1, s, s, i1, s, i1, s, s, s, s, d1, s};
+				   i1, d1, d1, d1, d1, s, s, i1, s, i1, s, s, s, s, d1, s, s, i1, i1, d1, 
+				   d1, s};
   // END OF PARAMETER SETTINGS.
 }
 
 
-const int MAXPARS=40;    // Maximum number of parameters ParameterList can hold.
+const int MAXPARS=50;    // Maximum number of parameters ParameterList can hold.
 const int MAXPARNAME=20; // Maximum size of parameter name.
 // Type of data a parameter can hold:
 union data {

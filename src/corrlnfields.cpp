@@ -22,7 +22,7 @@
 #include <levels_facilities.h>
 #include <vec3.h>
 #include "SelectionFunc.hpp"
-
+#include "RegularizeCov.hpp"
 
 
 /********************/
@@ -43,7 +43,6 @@ int main (int argc, char *argv[]) {
   long long1, long2;
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
-  
   
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
@@ -84,6 +83,16 @@ int main (int argc, char *argv[]) {
   }
   pclose(stream);
   
+  /*
+  gsl_matrix *mat;
+  mat = LoadGSLMatrix("../src/covmatrix.dat");
+  PrintGSLMatrix(mat);
+  RegularizeCov(mat, config);
+  cout<<endl;
+  PrintGSLMatrix(mat);
+  return 0;
+  */
+
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
@@ -222,16 +231,18 @@ int main (int argc, char *argv[]) {
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
     // angle theta is only necessary for output:
     if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
+      cout << "Generating table of sampling angles... "; cout.flush();
       theta    = vector<double>(0, 2*Nls-1);
       ArcCosEvalPts(2*Nls, theta);
       for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
+      cout << "done.\n";
     } 
     cout << "done.\n";
     // Loads C(l) exponential suppression:
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
     // Load s2kit 1.0 Legendre Polynomials:
-    cout << "Generating table of Legendre polynomials and sampling angles... "; cout.flush();
+    cout << "Generating table of Legendre polynomials... "; cout.flush();
     PmlTableGen(Nls, 0, LegendreP, workspace);
     cout << "done.\n";
     // Compute s2kit 1.0 Discrete Legendre Transform weights:
@@ -247,7 +258,7 @@ int main (int argc, char *argv[]) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Interpolate C(l) for every l; input C(l) might not be like that:
 	cout << "   Interpolating input C(l) for all l's... "; cout.flush();
-	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl);
+	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl, config.readi("EXTRAP_DIPOLE"));
 	cout << "              done.\n";
 	
 	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
@@ -265,6 +276,7 @@ int main (int argc, char *argv[]) {
 	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
 	  cout << "done.\n";
 	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
+	  if (i==j && xi[0]<0) warning("corrlnfields: auxiliary field variance is negative.");
 	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
 	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
@@ -324,6 +336,14 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
+  // Output covariance matrices for each l if requested:
+  GeneralOutput(CovByl, config, "COVL_PREFIX");
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="COVL_PREFIX") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
   
   /*********************************************************/
   /*** PART 4: Cholesky decomposition and alm generation ***/
@@ -353,58 +373,66 @@ int main (int argc, char *argv[]) {
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
 
   // LOOP over l's:
+  j=0; // Will count number of Cholesky failures.
   for (l=lmin; l<=lmax; l++) {
     cout << "** Working with cov. matrix for l="<<l<<":\n";
-    
+    // Check if cov. matrix is positive definite and performs regularization if necessary:
+    RegularizeCov(CovByl[l], config);
+    // Output regularized matrix if requested:
+    if (config.reads("REG_COVL_PREFIX")!="0") {
+	filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
+	GeneralOutput(CovByl[l], filename); 
+    }
     // Perform a Cholesky decomposition:
     cout << "   Performing a Cholesky decomposition... "; cout.flush();
     status = gsl_linalg_cholesky_decomp(CovByl[l]);
-    if (status==GSL_EDOM) error("Cholesky decomposition failed: matrix is not positive-definite.");
+    if (status==GSL_EDOM) { warning("Cholesky decomposition failed: matrix is not positive-definite."); j++; }
     cout << "done.\n";
-    // Output file if requested:
-    if (config.reads("CHOLESKY_PREFIX")!="0") {
-      filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
-      outfile.open(filename.c_str());
-      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-      else { 
-	PrintGSLMatrix(CovByl[l], &outfile); outfile.close();
-	cout << ">> Cholesky decomposition output matrix written to " << filename << endl;
-      }  
-    }
-
-    cout << "   Generating random auxiliary alm's...   "; cout.flush();
-    // Generate m=0:
-    m=0;
-    for (i=0; i<Nfields; i++) {
-      gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
-      gaus0[i][1] = 0.0;
-    }
-    CorrGauss(gaus1, CovByl[l], gaus0);
-    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
-    // LOOP over m>0 for a fixed l:
-    for (m=1; m<=l; m++) {
-      // Generate independent 1sigma complex random variables:
-      for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
-	gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
+    // Only proceed if Cholesky was successfull:
+    if (status!=GSL_EDOM) { 
+      // Output file if requested:
+      if (config.reads("CHOLESKY_PREFIX")!="0") {
+	filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
+	GeneralOutput(CovByl[l], filename); 
       }
-      // Generate correlated complex gaussian variables according to CovMatrix:
+      
+      cout << "   Generating random auxiliary alm's...   "; cout.flush();
+      // Generate m=0:
+      m=0;
+      for (i=0; i<Nfields; i++) {
+	gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
+	gaus0[i][1] = 0.0;
+      }
       CorrGauss(gaus1, CovByl[l], gaus0);
-      // Save alm to tensor:
-      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
-    } // End of LOOP over m's.
-    cout << "done.\n";
-    
+      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
+      // LOOP over m>0 for a fixed l:
+      for (m=1; m<=l; m++) {
+	// Generate independent 1sigma complex random variables:
+	for (i=0; i<Nfields; i++) {
+	  gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	  gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	}
+	// Generate correlated complex gaussian variables according to CovMatrix:
+	CorrGauss(gaus1, CovByl[l], gaus0);
+	// Save alm to tensor:
+	for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
+      } // End of LOOP over m's.
+      cout << "done.\n";
+    } // End of successfull Cholesky block. 
   } // End of LOOP over l's.
   free_matrix(gaus0,0,Nfields-1,0,1);
   free_matrix(gaus1,0,Nfields-1,0,1);
   free_GSLMatrixArray(CovByl, Nls);
+  // Exit if any Cholesky failed:
+  if (j>0) {sprintf(message,"Cholesky decomposition failed %d times.",j); error(message);} 
+
   // If requested, write alm's to file:
   GeneralOutput(aflm, config, "AUXALM_OUT", fnz, Nfields);
 
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX" || 
-      config.reads("EXIT_AT")=="AUXALM_OUT") {
+      config.reads("EXIT_AT")=="AUXALM_OUT"      ||
+      config.reads("EXIT_AT")=="REG_COVL_PREFIX" ) {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -514,7 +542,7 @@ int main (int argc, char *argv[]) {
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
-  selection.load(config, fnz, ftype, zrange, Nfields); // !! One should implement check if mapf and selection have same Nside and Scheme.
+  selection.load(config, fnz, ftype, zrange, N1, N2); // !! One should implement check if mapf and selection have same Nside and Scheme.
   cout << "done.\n";
 
   // Poisson Sampling the galaxy fields:

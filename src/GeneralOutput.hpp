@@ -6,6 +6,14 @@
 #include <xcomplex.h>    // For GeneralOutput function.
 #include "ParameterList.hpp"
 #include "Utilities.hpp"
+#include <gsl/gsl_matrix.h> // For GSL matrix output.
+
+/*** Matrix output ***/
+
+// Prints a GSL matrix to a file:
+void GeneralOutput(const gsl_matrix *Cov, std::string filename);
+// Prints all GSL matrices in a vector to files:
+void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::string keyword);
 
 
 /*** Alm's output ***/
