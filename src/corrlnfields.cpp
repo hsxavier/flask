@@ -84,12 +84,17 @@ int main (int argc, char *argv[]) {
   pclose(stream);
   
   /*
-  gsl_matrix *mat;
-  mat = LoadGSLMatrix("../src/covmatrix.dat");
-  PrintGSLMatrix(mat);
-  RegularizeCov(mat, config);
+  gsl_matrix *mat1, *mat2;
+  double diff;
+  mat1 = LoadGSLMatrix("../tests/test/covl-l0580.dat");
+  mat2 = gsl_matrix_alloc(mat1->size1,mat1->size2);
+  gsl_matrix_memcpy(mat2, mat1);
+  PrintGSLMatrix(mat1);
+  RegularizeCov(mat2, config);
   cout<<endl;
-  PrintGSLMatrix(mat);
+  PrintGSLMatrix(mat2);
+  diff = MaxFracDiff(mat2,mat1);
+  printf("\nMax fractional diff: %g\n",diff);
   return 0;
   */
 

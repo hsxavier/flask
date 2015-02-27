@@ -5,14 +5,29 @@
 #include "gsl_aux.hpp" // For PrintGSLMatrix.
 #include <cmath>       // For sqrt.
 
+
+// Compute the maximum fractional difference between two matrices, A/B-1 (element-wise):
+double MaxFracDiff(gsl_matrix *A, gsl_matrix *B) {
+  int i, j;
+  double fracdiff, max=-1.0;
+
+  for (i=0; i<A->size1; i++)
+    for (j=0; j<A->size2; j++) {
+      fracdiff = fabs((gsl_matrix_get(A,i,j) - gsl_matrix_get(B,i,j)) / gsl_matrix_get(B,i,j));
+      if (fracdiff>max) max=fracdiff;	
+    }
+  return max;
+}
+
+
 // Normalize elements of a SYMMETRIC matrix by the quadratic sum of its independent elements:
 void NormMatrix(gsl_matrix *A) {
   int i, j;
   double norm=0;
   
-  // Compute the norm through a quadratic sum of the upper triangular part of matrix:
+  // Compute the norm through a quadratic sum of the elements (Frobenius norm):
   for (i=0; i<A->size1; i++)
-    for (j=i; j<A->size2; j++) norm += A->data[i*A->size1+j]*A->data[i*A->size1+j];
+    for (j=0; j<A->size2; j++) norm += A->data[i*A->size1+j]*A->data[i*A->size1+j];
   norm = sqrt(norm);
   
   // Normalize the whole matrix:
@@ -23,12 +38,50 @@ void NormMatrix(gsl_matrix *A) {
 }
 
 
+// Quicksort method for ordering gsl_vector by decreasing absolute value:
+// First call for vec[0...N-1] should be AbsSort(vec,0,N-1).
+void AbsSort(gsl_vector *vec, int lini, int linf) {
+  int npivot, i,j, ncol;
+  double vpivot;
+  double aux;
+  
+  /* Define posição e valor do elemento de comparação */
+  npivot = linf;
+  vpivot = fabs(gsl_vector_get(vec,npivot));
+  
+  i=lini;
+  while(i<npivot) {
+
+    // Se elemento é menor (no sentido absoluto) que pivot, permuta as linhas da matriz.
+    if ( fabs(gsl_vector_get(vec,i))  < vpivot ) {
+      aux               = vec->data[npivot];
+      vec->data[npivot] = vec->data[i];
+      npivot            = npivot - 1;
+      vec->data[i]      = vec->data[npivot];
+      vec->data[npivot] = aux;    
+      // Fim das operações de permutação.
+    }
+    // Se não, pega o próximo.
+    else i++;   
+  
+  } // Fecha o while.
+  
+  /* Chama recursivamente o AbsSort para as partes separadas */
+  if (npivot - lini > 1) AbsSort(vec, lini, npivot-1);
+  if (linf - npivot > 1) AbsSort(vec, npivot+1, linf);
+
+  /* Fim do algoritmo */
+}
+
+
 // Returns an evaluation of the change from vec0 to vec1.
 // Current implementation returns the total difference between components of vec1 and vec0 that 
-// did not stayed positive.
+// did not stayed positive. 
+// Both vectors must be already sorted by absolute value!!
 double GradeVecChange(gsl_vector *vec1, gsl_vector *vec0) {
   int i;
   double sum=0;
+
   if (vec1->size != vec0->size) error("GradeVecChange: encountered vectors with different sizes.");
   for (i=0; i<vec1->size; i++) 
     if(vec1->data[i]<0 || vec0->data[i]<0) 
@@ -54,7 +107,8 @@ void GetDirection(gsl_matrix *direction, double step, gsl_matrix *input) {
   status    = gsl_matrix_memcpy(onedir, input);
   status    = gsl_eigen_symm(onedir, eval0, workspace); // This destroys onedir!
   if (status != GSL_SUCCESS) error("GetDirection: cannot compute eigenvalues for input matrix.");
-  
+  AbsSort(eval0, 0, eval0->size-1); // Must sort both vectors eval1 and eval0 by absolute value. 
+
   // Select one independent element of matrix, change it and record the effect over negative eigenvalues:
   for (i=0; i<input->size1; i++)
     for (j=i; j<input->size2; j++) {
@@ -62,11 +116,12 @@ void GetDirection(gsl_matrix *direction, double step, gsl_matrix *input) {
       status = gsl_matrix_memcpy(onedir, input);
       // Shift the element:
       onedir->data[i*onedir->size1+j] = onedir->data[i*onedir->size1+j] * (1.0 + step);
-      onedir->data[j*onedir->size1+i] = onedir->data[i*onedir->size1+j];      
+      onedir->data[j*onedir->size1+i] = onedir->data[i*onedir->size1+j]; 
       // Compute eigenvalue:
       status = gsl_eigen_symm(onedir, eval1, workspace); // This destroys onedir!
       if (status != GSL_SUCCESS) error("GetDirection: cannot compute eigenvalues for onedir matrix.");
       // Set direction element according to the change in negative eigenvalues:
+      AbsSort(eval1, 0, eval1->size-1); // Must sort both vectors eval1 and eval0 by absolute value. 
       direction->data[i*direction->size1+j] = GradeVecChange(eval1, eval0);
       direction->data[j*direction->size1+i] = direction->data[i*direction->size1+j];
     }
@@ -162,7 +217,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	// Allocate memory:
 	workspace  = gsl_eigen_symm_alloc(A->size1);
 	direction  = gsl_matrix_alloc(A->size1, A->size2);
-	testmatrix = gsl_matrix_alloc (A->size1, A->size2);
+	testmatrix = gsl_matrix_alloc(A->size1, A->size2);
 
 	// While distorted matrix is not positive-definite, keep on distorting:
 	posdef = 0;
