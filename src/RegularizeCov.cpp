@@ -6,6 +6,12 @@
 #include <cmath>       // For sqrt.
 
 
+
+/**************************************/
+/*** For regularizing cov. matrices ***/
+/**************************************/
+
+
 // Compute the maximum fractional difference between two matrices, A/B-1 (element-wise):
 double MaxFracDiff(gsl_matrix *A, gsl_matrix *B) {
   int i, j;
@@ -263,3 +269,7 @@ void GetEigenValues(gsl_vector *eval, gsl_matrix *A, gsl_eigen_symm_workspace *w
   if (status != GSL_SUCCESS) error("GetEigenValues: cannot get matrix eigenvalues.");
   gsl_matrix_free(M);
 }
+
+
+/*******************************/
+/*** ***/

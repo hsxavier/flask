@@ -635,6 +635,7 @@ int main (int argc, char *argv[]) {
   double **catalog, esig;
   int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet;
   pointing ang;
+  int ziter, fiter;
 
   esig = config.readd("ELLIP_SIGMA");
   cout << "Counting galaxies... "; cout.flush();
@@ -646,45 +647,55 @@ int main (int argc, char *argv[]) {
   catalog = matrix<double>(0,Ngalaxies-1,0,ncols-1);
   catSet  = matrix<int>(0,Ngalaxies-1,0,ncols-1);
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
-  // LOOP over pixels:
+  
+  // LOOP over 3D bins (pixels and redshifts):
   cout << "Generating catalog... "; cout.flush();
   gali = 0; PartialNgal = 0;
-  for (j=0; j<npixels; j++) {
-    // Count total number of galaxies of all types in pixel:
-    pixelNgal = 0; 
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) pixelNgal+=(int)mapf[i][j];
-    for(i=0; i<Nfields; i++) 
-      // Add entry of type GALAXY:
-      if (ftype[i]==fgalaxies) 
-	for(m=0; m<(int)mapf[i][j]; m++) {
-	  ang = RandAngInPix(rnd, mapf[i], j);                               // Bookkeeping
-	  catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
-	  catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
-	  catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
-	  catalog[gali][3] = fnz[i][0]; /* Field ID (galaxy type) */         catSet[gali][3]++;
-	  catalog[gali][9] = j;                                              catSet[gali][9]++;
-	  gali++;
-	}
-      // Add entry of type SHEAR:
-      else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {
-	  catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
-	  catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
-	  catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
-	  GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
-	  catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
-	}
-    PartialNgal+=pixelNgal;
-  } // End of LOOP over pixels.  
+  for (j=0; j<npixels; j++) for(ziter=1; ziter<=N2; ziter++) {
+      // Count total number of galaxies of all types in bin:
+      pixelNgal = 0; 
+      for (fiter=1; fiter<=N1; fiter++) { 
+	fz2n(fiter, ziter, &i, N1, N2);
+	if (ftype[i]==fgalaxies) pixelNgal+=(int)mapf[i][j];
+      }
+      
+      // LOOP over field IDs:
+      for (fiter=1; fiter<=N1; fiter++) {
+	fz2n(fiter, ziter, &i, N1, N2);
+	// Add entry of type GALAXY:
+	if (ftype[i]==fgalaxies) 
+	  for(m=0; m<(int)mapf[i][j]; m++) {
+	    ang = RandAngInPix(rnd, mapf[i], j);                               // Bookkeeping
+	    catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
+	    catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
+	    catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
+	    catalog[gali][3] = fnz[i][0]; /* Field ID (galaxy type) */         catSet[gali][3]++;
+	    catalog[gali][9] = j;                                              catSet[gali][9]++;
+	    gali++;
+	  }
+	// Add entry of type SHEAR:
+	else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {
+	    catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
+	    catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
+	    catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
+	    GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
+	    catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
+	  }
+      } // End of LOOP over field IDs.
+ 
+      PartialNgal+=pixelNgal;
+    } // End of LOOP over pixels.  
+
   // Check if every entry was set once and only once:
   if (gali!=Ngalaxies)        error ("corrlnfields: Galaxy counting is weird (gali != Ngalaxies).");
   if (PartialNgal!=Ngalaxies) error ("corrlnfields: Galaxy counting is weird (PartialNgal != Ngalaxies).");
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
       if (catSet[i][j]<1)     error("corrlnfields: Catalog has missing information.");
-      if (catSet[i][j]>1)     error("corrlnfields: Catalog entry being set more than once.");
+      if (catSet[i][j]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,Ngalaxies-1,0,ncols-1);
   cout << "done.\n";
-
+  
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
     filename = config.reads("CATALOG_OUT");
