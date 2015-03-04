@@ -539,10 +539,17 @@ void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax, i
 void ModCl4DLT(double *Cl, int lmax, double lsup, double supindex) {
   const double sqr2over4pi = 0.1125395395196383;
   int l;
-
-  for(l=0; l<=lmax; l++) 
-    Cl[l] = sqr2over4pi*sqrt((double)(2*l+1))*Cl[l]*suppress((double)l,lsup,supindex);
+  
   // Suppression needed to avoid oscillations in Xi(theta).
+  if (lsup>0 && supindex>0) {
+    for(l=0; l<=lmax; l++) 
+      Cl[l] = sqr2over4pi*sqrt((double)(2*l+1))*Cl[l]*suppress((double)l,lsup,supindex);
+  }
+  // Suppression can be turned off by seeting lsup or supindex to <0.
+  else {
+    for(l=0; l<=lmax; l++) 
+      Cl[l] = sqr2over4pi*sqrt((double)(2*l+1))*Cl[l];
+  }
 }
 
 

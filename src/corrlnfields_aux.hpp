@@ -26,6 +26,7 @@ vec3 VecInRotBasis(const pointing & ang, const vec3 & orig);
 double RandRedshift0(gsl_rng *r, double zmin, double zmax);
 double ran_redshift(gsl_rng *r, double zmin, double zmax, Cosmology *p);
 void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0);
+void GetLNCorr(double *lnXi, double *gXi, int XiLength, double mean1, double shift1, double mean2, double shift2);
 int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2);
 int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *shifts);
 double Gauss2LNvar(double gvar, double mean, double variance, double shift);

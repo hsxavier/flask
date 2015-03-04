@@ -165,6 +165,14 @@ void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0) {
 }
 
 
+/*** Transforms a correlation function of gaussian variables gXi into a corr. function of corresponding lognormal variables lnXi ***/
+void GetLNCorr(double *lnXi, double *gXi, int XiLength, double mean1, double shift1, double mean2, double shift2) {
+  int i;
+  
+  for (i=0; i<XiLength; i++) lnXi[i] = ( exp(gXi[i]) - 1.0 ) * (mean1+shift1) * (mean2+shift2);
+}
+
+
 /*** Transforms a correlation function of lognormal variables lnXi into a corr. function of associated gaussian variables gXi ***/
 int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double shift1, double mean2, double shift2) {
   int i, status=0;

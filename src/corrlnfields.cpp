@@ -300,22 +300,12 @@ int main (int argc, char *argv[]) {
 	// Save auxiliary C(l):
 	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];		
       } // End of LOOP over C(l)[i,j] that were set.
-  
-  // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
-  cout << "Massive memory deallocation... "; cout.flush();
-  free_vector(tempCl, 0, lastl);
+
+  // Memory deallocation:
   free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
-  if (dist==lognormal) {
-    free_vector(workspace, 0, 16*Nls-1);
-    free_vector(LegendreP, 0, 2*Nls*Nls-1);
-    free_vector(xi, 0, 2*Nls-1);
-    free_vector(lls, 0, lastl);
-    free_vector(DLTweights, 0, 4*Nls-1); 
-    if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*Nls-1);
-  }
-  cout << "done.\n";
+  //if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*Nls-1);
 
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
@@ -349,7 +339,68 @@ int main (int argc, char *argv[]) {
     cout<<endl;
     return 0;
   }
+
+
+  /***********************************************************/
+  /*** PART 3.5: Obtain regularized input Cls if requested ***/
+  /***********************************************************/
+
+  if (config.reads("REG_CL_PREFIX")!="0") {
+    cout << "** Will compute regularized lognormal Cls:\n";
+    if (dist!=lognormal) warning("corrlnfields: option DIST is not LOGNORMAL. Crashing in 3, 2, 1...");
+
+    // Regularizing auxiliary gaussian covariance matrices:
+    for (l=1; l<Nls; l++) {
+      cout << "   l: "<<l<<endl;
+      RegularizeCov(CovByl[l], config);
+      }
+    
+    // LOOP over fields:
+    for(i=0; i<Nfields; i++)
+      for(j=i; j<Nfields; j++) {
+	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+	// Copy the Cl to a vector:
+	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
+	// Compute correlation function Xi(theta):
+	cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
+	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
+	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
+	cout << "done.\n";
+	// Get Xi(theta) for lognormal variables:
+	cout << "   Getting correlation function for lognormal variables... "; cout.flush();
+	GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	cout << "done.\n";
+	// Compute the Cls:
+	cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
+	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	ApplyClFactors(tempCl, Nls, lsup, supindex);
+	cout << "done.\n";
+	// Output:
+	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
+      } 
+
+  } // End of computing regularized lognormal Cls.
   
+  // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
+  free_vector(tempCl, 0, lastl);
+  if (dist==lognormal) {
+    cout << "   DLT memory deallocation... "; cout.flush();
+    free_vector(workspace, 0, 16*Nls-1);
+    free_vector(LegendreP, 0, 2*Nls*Nls-1);
+    free_vector(xi, 0, 2*Nls-1);
+    free_vector(lls, 0, lastl);
+    free_vector(DLTweights, 0, 4*Nls-1); 
+    cout << "done.\n";
+  }
+  
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="REG_CL_PREFIX") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
+
   /*********************************************************/
   /*** PART 4: Cholesky decomposition and alm generation ***/
   /*********************************************************/
@@ -388,6 +439,7 @@ int main (int argc, char *argv[]) {
 	filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
 	GeneralOutput(CovByl[l], filename); 
     }
+
     // Perform a Cholesky decomposition:
     cout << "   Performing a Cholesky decomposition... "; cout.flush();
     status = gsl_linalg_cholesky_decomp(CovByl[l]);
