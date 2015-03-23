@@ -565,6 +565,6 @@ void ApplyClFactors(double *Cl, int ClLength, double lsup/*=-1*/, double supinde
   const double twopisqr2 = 8.885765876316732; // 2*PI*sqrt(2).
   int l;
   
-  if (lsup<0) for (l=0; l<ClLength; l++) Cl[l] = twopisqr2*Cl[l]/sqrt((double)(2*l+1));
+  if (lsup<0 || supindex<0) for (l=0; l<ClLength; l++) Cl[l] = twopisqr2*Cl[l]/sqrt((double)(2*l+1));
   else for (l=0; l<ClLength; l++) Cl[l] = twopisqr2*Cl[l]/sqrt((double)(2*l+1))*unsuppress((double)l, lsup, supindex);
 }

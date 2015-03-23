@@ -16,7 +16,7 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
   using namespace definitions;
   std::string tempstr, filename;
   char message[100];
-  int i, j, Nside=-1;
+  int i, j, Nside=-1, scheme=-1;
   double *wrapper[2];
   long Nrows, Ncolumns;
 
@@ -47,9 +47,13 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
 	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
 	filename.assign(message);
 	read_Healpix_map_from_fits(filename, AngularSel[i]);
+	// Check if all selection functions have same Nside and Scheme:
 	if (Nside==-1) Nside=AngularSel[i].Nside();
 	else if (AngularSel[i].Nside() != Nside) 
 	  error("SelectionFunction.load: selection FITS files have different number of pixels.");
+	if (scheme==-1) scheme=AngularSel[i].Scheme();
+	else if (AngularSel[i].Scheme() != scheme) 
+	  error("SelectionFunction.load: selection FITS files have different pixel orderings.");
       }
     // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
     if (config.reads("SELEC_TYPE")=="FRACTION") error ("SelectionFunction.load: SELEC_TYPE FRACTION not implemented yet.");
@@ -86,6 +90,18 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
 
   // Final settings:
   Npixels = 12*Nside*Nside;
+}
+
+
+// Returns Nside (Healpix) of the angular part of the selection function.
+int SelectionFunction::Nside() {
+  return AngularSel[0].Nside();
+}
+
+
+// Returns Scheme (Healpix) of the angular part of the selection function.
+int SelectionFunction::Scheme() {
+  return (int)(AngularSel[0].Scheme());
 }
 
 

@@ -14,6 +14,8 @@ private:
 public:
   SelectionFunction();
   void load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int N10, int N20);
+  int Nside();
+  int Scheme();
   double operator()(int fz, int pix);
   double operator()(int fz);
   ~SelectionFunction();

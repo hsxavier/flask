@@ -600,6 +600,8 @@ int main (int argc, char *argv[]) {
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
   selection.load(config, fnz, ftype, zrange, N1, N2); // !! One should implement check if mapf and selection have same Nside and Scheme.
+  if (selection.Nside()!=mapf[0].Nside()) error("corrlnfields: Selection function and maps have different number of pixels.");
+  if (selection.Scheme()!=mapf[0].Scheme()) error("corrlnfields: Selection function and maps have different pixel ordering schemes.");
   cout << "done.\n";
 
   // Poisson Sampling the galaxy fields:
@@ -620,7 +622,8 @@ int main (int argc, char *argv[]) {
   }
   else error ("corrlnfields: unknown POISSON option.");
   
-  
+  //GeneralOutput(mapf, config, "MAPFITS_PREFIX", fnz, Nfields);
+
   /*** Lensing fields ***/
 
   double coeff;
