@@ -1,6 +1,6 @@
 #include "SelectionFunc.hpp"
 #include "Utilities.hpp"
-#include "corrlnfields_aux.hpp" // For definitions namespace.
+#include "corrlnfields_aux.hpp" // For definitions namespace and n2fz function.
 #include <healpix_map_fitsio.h>
 #include "interpol.h"
 
@@ -12,11 +12,11 @@ SelectionFunction::SelectionFunction () {
 }
 
 // Load selection functions:
-void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int N10, int N20) {
+void SelectionFunction::load(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20) {
   using namespace definitions;
   std::string tempstr, filename;
   char message[100];
-  int i, j, Nside=-1, scheme=-1;
+  int i, j, Nside=-1, scheme=-1, f, z;
   double *wrapper[2];
   long Nrows, Ncolumns;
 
@@ -44,7 +44,8 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
     AngularSel = vector<Healpix_Map<double> >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	//cout << "vai carregar fits para galáxias - field: "<<i<<endl;
-	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), fnz[i][0], fnz[i][1]);
+	n2fz(i, &f, &z, N1, N2);
+	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
 	filename.assign(message);
 	read_Healpix_map_from_fits(filename, AngularSel[i]);
 	// Check if all selection functions have same Nside and Scheme:
@@ -76,7 +77,8 @@ void SelectionFunction::load(const ParameterList & config, int **fnz, int *ftype
     // LOOP over radial selection files:
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	//cout << "vai carregar z selection para field: "<<i<<endl;
-	sprintf(message, "%sf%d.dat", tempstr.c_str(), fnz[i][0]);
+	n2fz(i, &f, &z, N1, N2);
+	sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
 	filename.assign(message);
 	// Load radial selection functions:
 	LoadVecs(wrapper, filename, &(NzEntries[i]), &Ncolumns,0,1); // This allocates memory for zEntries[i] and zSel[i].

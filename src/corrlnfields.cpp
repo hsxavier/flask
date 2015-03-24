@@ -82,21 +82,6 @@ int main (int argc, char *argv[]) {
     filelist[i].assign(message);
   }
   pclose(stream);
-  
-  /*
-  gsl_matrix *mat1, *mat2;
-  double diff;
-  mat1 = LoadGSLMatrix("../tests/test/covl-l0580.dat");
-  mat2 = gsl_matrix_alloc(mat1->size1,mat1->size2);
-  gsl_matrix_memcpy(mat2, mat1);
-  PrintGSLMatrix(mat1);
-  RegularizeCov(mat2, config);
-  cout<<endl;
-  PrintGSLMatrix(mat2);
-  diff = MaxFracDiff(mat2,mat1);
-  printf("\nMax fractional diff: %g\n",diff);
-  return 0;
-  */
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
@@ -165,6 +150,7 @@ int main (int argc, char *argv[]) {
     outfile.close();
     cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
+  free_matrix(fnz, 0, Nfields-1, 0,1);
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="FLIST_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
@@ -172,27 +158,6 @@ int main (int argc, char *argv[]) {
       return 0;
   }
 
-  // debug code:
-  int lmax, lmin, *ldebug;
-  double *corr;
-  lmax   = config.readi("LMAX");
-  lmin   = config.readi("LMIN");
-  corr   = vector<double>(0, lmax);
-  ldebug = vector<int>(0, lmax);
-  l=0;
-  // Find lmin:
-  while((int)ll[0][0][l] != lmin) l++;
-  cout << "ll: "<< ll[0][0][l] << "  l(i): "<<l<<endl;  
-  // compute correlation:
-  while ((int)ll[0][0][l] <= lmax) {
-    ldebug[l]                        = (int)ll[0][0][l];
-    if (IsSet[0][1]==1)      corr[l] = Cov[0][1][l]/sqrt(Cov[0][0][l]*Cov[1][1][l]);
-    else if (IsSet[1][0]==1) corr[l] = Cov[1][0][l]/sqrt(Cov[0][0][l]*Cov[1][1][l]);
-    else error("wrong debugging");
-    l++;
-  }
-  // end of debug code.
-  
 
   /**************************************************/
   /*** PART 2: Prepare for Cholesky decomposition ***/
@@ -361,22 +326,6 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-  // debug code:
-  outfile.open("debug.dat");
-  outfile << "# l, ldebug, shift1, shift2, corr, eval1, eval2\n";
-  gsl_vector *eval;
-  gsl_eigen_symm_workspace *workspaceE;
-  l=0;
-  workspaceE = gsl_eigen_symm_alloc(CovByl[l]->size1);
-  eval      = gsl_vector_alloc(CovByl[l]->size1);
-  for (l=lmin; l<=lmax; l=l+5) {
-    gsl_eigen_symm(CovByl[l], eval, workspaceE);
-    AbsSort(eval, 0, 1);
-    outfile << l <<" "<< ldebug[l-2] <<" "<< shifts[0] <<" "<< shifts[1] <<" "<< corr[l-2] <<" "<< eval->data[0] <<" "<< eval->data[1]<<endl; 
-  }
-  outfile.close();
-  return 0;
-  // end of debug code.
 
   /***********************************************************/
   /*** PART 3.5: Obtain regularized input Cls if requested ***/
@@ -445,7 +394,7 @@ int main (int argc, char *argv[]) {
   bool almout;
   double **gaus0, **gaus1;
   gsl_rng *rnd;
-  //int lmax, lmin;
+  int lmax, lmin;
   Alm<xcomplex <double> > *aflm;
   
   lmax = config.readi("LMAX");
@@ -521,7 +470,7 @@ int main (int argc, char *argv[]) {
   if (j>0) {sprintf(message,"Cholesky decomposition failed %d times.",j); error(message);} 
 
   // If requested, write alm's to file:
-  GeneralOutput(aflm, config, "AUXALM_OUT", fnz, Nfields);
+  GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
 
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX" || 
@@ -539,7 +488,6 @@ int main (int argc, char *argv[]) {
   Healpix_Map<double> *mapf;
   double expmu, gmean, gvar;
   pointing coord;
-  int field, z;
   char *arg[5];
   char opt1[]="-bar", val1[]="1";
 
@@ -555,7 +503,7 @@ int main (int argc, char *argv[]) {
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
   // Write auxiliary map to file as a table if requested:
-  GeneralOutput(mapf, config, "AUXMAP_OUT", fnz, N1, N2);
+  GeneralOutput(mapf, config, "AUXMAP_OUT", N1, N2);
   
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="AUXMAP_OUT") {
@@ -589,9 +537,9 @@ int main (int argc, char *argv[]) {
   free_vector(means, 0, Nfields-1);
   
   // Write final map to file as a table if requested:
-  GeneralOutput(mapf, config, "MAP_OUT", fnz, N1, N2);
+  GeneralOutput(mapf, config, "MAP_OUT", N1, N2);
   // Map output to fits and/or tga files:
-  GeneralOutput(mapf, config, "MAPFITS_PREFIX", fnz, Nfields);
+  GeneralOutput(mapf, config, "MAPFITS_PREFIX", N1, N2, 1);
   
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="MAP_OUT" ||
@@ -612,7 +560,7 @@ int main (int argc, char *argv[]) {
     for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
     cout << "done.\n";
     // Output to file:
-    GeneralOutput(aflm, config, "RECOVALM_OUT", fnz, Nfields);
+    GeneralOutput(aflm, config, "RECOVALM_OUT", N1, N2);
     weight.dealloc();
   }
   free_vector(aflm, 0, Nfields-1);
@@ -633,10 +581,11 @@ int main (int argc, char *argv[]) {
   
   double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
   SelectionFunction selection;
+  int f, z;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
-  selection.load(config, fnz, ftype, zrange, N1, N2); // !! One should implement check if mapf and selection have same Nside and Scheme.
+  selection.load(config, ftype, zrange, N1, N2); 
   if (selection.Nside()!=mapf[0].Nside()) error("corrlnfields: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=mapf[0].Scheme()) error("corrlnfields: Selection function and maps have different pixel ordering schemes.");
   cout << "done.\n";
@@ -644,7 +593,8 @@ int main (int argc, char *argv[]) {
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	cout << "Poisson sampling f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
+	n2fz(i, &f, &z, N1, N2);
+	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
 	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/);
 	cout << "done.\n";
       }
@@ -652,7 +602,8 @@ int main (int argc, char *argv[]) {
   // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	cout << "Using expected number density for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<"... "; cout.flush();
+	n2fz(i, &f, &z, N1, N2);
+	cout << "Using expected number density for f"<<f<<"z"<<z<<"... "; cout.flush();
 	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/;
 	cout << "done.\n";
       }
@@ -673,7 +624,8 @@ int main (int argc, char *argv[]) {
   
   // LOOP over convergence fields:
   for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
-      cout << "** Will compute shear for f"<<fnz[i][0]<<"z"<<fnz[i][1]<<":\n";
+      n2fz(i, &f, &z, N1, N2);
+      cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
       
       // Preparing memory:
       cout << "   Allocating and cleaning memory...                    "; cout.flush();
@@ -695,21 +647,23 @@ int main (int argc, char *argv[]) {
 	for (m=0; m<=l; m++) Eflm(l,m).Set(coeff*Eflm(l,m).re,coeff*Eflm(l,m).im);
       }
       cout << "done.\n";
-      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", fnz[i]);
+      n2fz(i, &f, &z, N1, N2);
+      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
 
       // Go from shear E-mode alm's to gamma1 and gamma2 maps:
       cout << "   Transforming harmonic coefficients into shear map... "; cout.flush();
       alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
       cout << "done.\n";
       // Write kappa, gamma1 and gamma2 to FITS file:
-      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", fnz[i]);
+      n2fz(i, &f, &z, N1, N2);
+      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
 
     } // End of LOOP over convergence fields.
   weight.dealloc();
   Eflm.Set(0,0); 
   Bflm.Set(0,0);
   // Output shear maps to TEXT tables:
-  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fnz, N1, N2);
+  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", N1, N2);
 
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="SHEAR_ALM_PREFIX"  ||
@@ -761,7 +715,7 @@ int main (int argc, char *argv[]) {
 	    catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
 	    catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
 	    catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
-	    catalog[gali][3] = fnz[i][0]; /* Field ID (galaxy type) */         catSet[gali][3]++;
+	    catalog[gali][3] = fiter; /* Field ID (galaxy type) */             catSet[gali][3]++;
 	    catalog[gali][9] = j;                                              catSet[gali][9]++;
 	    gali++;
 	  }
@@ -804,7 +758,6 @@ int main (int argc, char *argv[]) {
   
 
   // End of the program
-  free_matrix(fnz,     0, Nfields-1, 0,1);
   free_vector(ftype,   0, Nfields-1 );
   free_matrix(zrange,  0, Nfields-1, 0,1);
   free_vector(mapf,    0, Nfields-1 );

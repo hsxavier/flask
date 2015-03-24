@@ -256,35 +256,6 @@ std::string getllstr(const std::string filename) {
 }
 
 
-/*** Function for writing the header of alm's file ***/
-std::string SampleHeader(std::string fieldsfile) {
-  std::stringstream ss;
-  int **fz; 
-  long nr, nc, i, j;
-
-  fz = LoadTable<int>(fieldsfile, &nr, &nc, 1);
-  if (nc!=2) error("SampleHeader: expect 2 columns in file "+fieldsfile);
- 
-  ss << "# l, m";
-  for (i=1; i<=nr; i++) ss << ", f" << fz[i][1] << "z" << fz[i][2] << "Re, f" << fz[i][1] << "z" << fz[i][2] << "Im";
-  
-  return ss.str(); 
-}
-
-
-/*** Function for writing the header of alm's file ***/
-std::string SampleHeader(int **fnz, int nr) {
-  std::stringstream ss;
-  int i;
-  
-  ss << "# l, m";
-  for (i=0; i<nr; i++) ss << ", f" << fnz[i][0] << "z" << fnz[i][1] << "Re, f" << fnz[i][0] << "z" << fnz[i][1] << "Im";
-  
-  return ss.str(); 
-}
-
-
-
 /*** Get four numbers separated by characters that specify the fields and redshifts
      of the correlation function. ***/
 void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2) {

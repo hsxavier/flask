@@ -13,7 +13,7 @@ private:
   int Separable, Nfields, *ftype, Npixels, N1, N2;
 public:
   SelectionFunction();
-  void load(const ParameterList & config, int **fnz, int *ftype0, double **fzrange, int N10, int N20);
+  void load(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20);
   int Nside();
   int Scheme();
   double operator()(int fz, int pix);

@@ -32,8 +32,6 @@ int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *
 double Gauss2LNvar(double gvar, double mean, double variance, double shift);
 int getll(const std::string filename);
 std::string getllstr(const std::string filename);
-std::string SampleHeader(std::string fieldsfile); // Not used by 08-jan-2015.
-std::string SampleHeader(int **fnz, int Nfields);
 void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2); // Not used by 08-jan-2015.
 void CountEntries(std::string filename, long *nr, long *nc); // Not used by 08-jan-2015.
 void fz2n (int a1, int a2, int *n, int N1, int N2);
