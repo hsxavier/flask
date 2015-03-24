@@ -23,7 +23,7 @@
 #include <vec3.h>
 #include "SelectionFunc.hpp"
 #include "RegularizeCov.hpp"
-
+#include <gsl/gsl_eigen.h> // debug
 
 /********************/
 /*** Main Program ***/
@@ -172,6 +172,27 @@ int main (int argc, char *argv[]) {
       return 0;
   }
 
+  // debug code:
+  int lmax, lmin, *ldebug;
+  double *corr;
+  lmax   = config.readi("LMAX");
+  lmin   = config.readi("LMIN");
+  corr   = vector<double>(0, lmax);
+  ldebug = vector<int>(0, lmax);
+  l=0;
+  // Find lmin:
+  while((int)ll[0][0][l] != lmin) l++;
+  cout << "ll: "<< ll[0][0][l] << "  l(i): "<<l<<endl;  
+  // compute correlation:
+  while ((int)ll[0][0][l] <= lmax) {
+    ldebug[l]                        = (int)ll[0][0][l];
+    if (IsSet[0][1]==1)      corr[l] = Cov[0][1][l]/sqrt(Cov[0][0][l]*Cov[1][1][l]);
+    else if (IsSet[1][0]==1) corr[l] = Cov[1][0][l]/sqrt(Cov[0][0][l]*Cov[1][1][l]);
+    else error("wrong debugging");
+    l++;
+  }
+  // end of debug code.
+  
 
   /**************************************************/
   /*** PART 2: Prepare for Cholesky decomposition ***/
@@ -340,6 +361,22 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
+  // debug code:
+  outfile.open("debug.dat");
+  outfile << "# l, ldebug, shift1, shift2, corr, eval1, eval2\n";
+  gsl_vector *eval;
+  gsl_eigen_symm_workspace *workspaceE;
+  l=0;
+  workspaceE = gsl_eigen_symm_alloc(CovByl[l]->size1);
+  eval      = gsl_vector_alloc(CovByl[l]->size1);
+  for (l=lmin; l<=lmax; l=l+5) {
+    gsl_eigen_symm(CovByl[l], eval, workspaceE);
+    AbsSort(eval, 0, 1);
+    outfile << l <<" "<< ldebug[l-2] <<" "<< shifts[0] <<" "<< shifts[1] <<" "<< corr[l-2] <<" "<< eval->data[0] <<" "<< eval->data[1]<<endl; 
+  }
+  outfile.close();
+  return 0;
+  // end of debug code.
 
   /***********************************************************/
   /*** PART 3.5: Obtain regularized input Cls if requested ***/
@@ -353,7 +390,7 @@ int main (int argc, char *argv[]) {
     for (l=1; l<Nls; l++) {
       cout << "   l: "<<l<<endl;
       RegularizeCov(CovByl[l], config);
-      }
+    }
     
     // LOOP over fields:
     for(i=0; i<Nfields; i++)
@@ -408,7 +445,7 @@ int main (int argc, char *argv[]) {
   bool almout;
   double **gaus0, **gaus1;
   gsl_rng *rnd;
-  int lmax, lmin, lminout, lmaxout;
+  //int lmax, lmin;
   Alm<xcomplex <double> > *aflm;
   
   lmax = config.readi("LMAX");
