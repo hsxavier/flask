@@ -5,6 +5,7 @@
 #include <gsl/gsl_min.h>
 #include <xcomplex.h>
 
+
 // Generates galaxy ellipticity from shear and convergence, including random source ellipticity:
 void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2) {
   xcomplex<double> g, epsSrc, eps, k, one, gamma;

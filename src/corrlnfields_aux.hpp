@@ -41,4 +41,28 @@ void ij2fzfz (int i, int j, int *a1, int *a2, int *b1, int *b2, int N1, int N2);
 void test_fzij (int N1, int N2);
 std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length);
 
+// Template definitions
+
+// Returns the minimum of matrix[offset...offset+length][index], keeping index fixed.
+template<typename type>
+type Minimum(type **matrix, int index, int length, int offset=0) {
+  int i;
+  type min;
+  min = matrix[offset][index];
+  for(i=offset+1; i<offset+length; i++) if (matrix[i][index]<min) min=matrix[i][index];
+  return min;
+}
+
+// Returns the maximum of matrix[offset...offset+length][index], keeping index fixed.
+template<typename type>
+type Maximum(type **matrix, int index, int length, int offset=0) {
+  int i;
+  type max;
+  max = matrix[offset][index];
+  for(i=offset+1; i<offset+length; i++) if (matrix[i][index]>max) max=matrix[i][index];
+  return max;
+}
+
+
+
 #endif

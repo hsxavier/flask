@@ -38,17 +38,21 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile;                                // File for output.
   enum simtype {gaussian, lognormal}; simtype dist;     // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, l, m, Nfields, mmax, *ftype;
-  double *means, *shifts, **aux, **zrange; 
+  int status, i, j, l, m, N1, N2, Nfields, mmax, *ftype;
+  double *means, *shifts, **zrange; 
   long long1, long2;
   FILE* stream; int NinputCls; std::string *filelist;                       // To list input Cls.
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
   
+
+  /**********************************************/
+  /*** PART 0: Test code and load config file ***/
+  /**********************************************/
+
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
   test_fzij(3,11); test_fzij(13,4);
   cout << "done.\n";
-
   
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
@@ -66,15 +70,71 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
+
+  /***********************************/
+  /*** PART 1: Loads fields info   ***/
+  /***********************************/
+  bool *fnzSet;
+  double **aux;
+
+  // Load means, shifts, type and z range data file:
+  cout << "Loading means and shifts from file "+config.reads("FIELDS_INFO")+"... "; cout.flush();
+  aux     = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2);
+  Nfields = (int)long1;
+  fnzSet  = vector<bool>     (0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
+  means   = vector<double>   (0, Nfields-1);
+  ftype   = vector<int>      (0, Nfields-1);
+  zrange  = matrix<double>   (0, Nfields-1, 0,1);
+  if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
+  // Check if some input properties are as expected:
+  if  (Minimum(aux, 0, Nfields)!=1) error("corrlnfields: first field index in FIELDS_INFO should be 1.");
+  if  (Minimum(aux, 1, Nfields)!=1) error("corrlnfields: first redshift index FIELDS_INFO should be 1.");
+  N1 = Maximum(aux, 0, Nfields);
+  N2 = Maximum(aux, 1, Nfields);
+  if  (N1*N2 != Nfields)            error("corrlnfields: mismatch between number and indexes of fields.");
+  // Should introduce other checks here, e.g. if there are no gaps or other issues in field IDs.
+  
+  // Parse information to separate arrays:
+  for (j=0; j<Nfields; j++) {
+    fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
+    if (fnzSet[i]==1) error ("corrlnfields: found more than one mean & shift entry for the same f-z.");
+    fnzSet[i] = 1; 
+    means[i]  = aux[j][2];  
+    if (dist==lognormal) shifts[i] = aux[j][3];
+    ftype[i] = (int)aux[j][4];
+    zrange[i][0] = aux[j][5]; zrange[i][1] = aux[j][6]; 
+  }
+  // A few checks on the input:
+  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: the properties of a field were not set.");
+  for (i=0; i<Nfields; i++) if (zrange[i][0]>zrange[i][1]) error("corrlnfields: zmin > zmax for a field.");
+  if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) {
+	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
+      }
+  free_vector(fnzSet, 0, Nfields-1);
+  free_matrix(aux, 0, Nfields-1, 0, long2-1);
+  cout << "done.\n";
+  
+  cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
+
+
+  /********************************************/
+  /*** PART 2: Load C(l)s and organize them ***/
+  /********************************************/
+  const int HWMAXL = 10000000; int lastl = HWMAXL, Nls;
+  int a1, a2, b1, b2, Nlinput, **fnz, **NentMat;
+  long *Nentries, ncols;
+  double ***ll, ***Cov, *wrapper[2];
+  bool **IsSet;
+  
   // Listing files to use based on CL_PREFIX:
   // Find out how many input C(l)'s we have.
+  cout << "Will load input C(l)s:\n";
   sprintf(message, "ls %s* | wc -l", config.reads("CL_PREFIX").c_str()); 
   stream = popen(message, "r");
   if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot 'ls | wc' output");
   fscanf(stream, "%d", &NinputCls); pclose(stream);
-  // Allocate memory:
-  filelist = vector<std::string>(0,NinputCls-1);
   // Get list of input C(l) files:
+  filelist = vector<std::string>(0,NinputCls-1);
   sprintf(message, "ls %s*", config.reads("CL_PREFIX").c_str());
   if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot pipe 'ls' output");
   for (i=0; i<NinputCls; i++) {
@@ -83,16 +143,8 @@ int main (int argc, char *argv[]) {
   }
   pclose(stream);
 
-  /********************************************/
-  /*** PART 1: Load C(l)s and organize them ***/
-  /********************************************/
-  int a1, a2, b1, b2, N1, N2, Nlinput, **fnz, **NentMat;
-  long *Nentries, ncols;
-  double ***ll, ***Cov, *wrapper[2];
-  bool *fnzSet, **IsSet;
-  
   // Get file list and find out how many C(l)s there are:  
-  N1=0; N2=0, Nlinput=0;
+  N1=0; N2=0; Nlinput=0;
   Nentries = vector<long>(0,NinputCls-1);
   for (i=0; i<NinputCls; i++) {
     getcovid(filelist[i], &a1, &a2, &b1, &b2);
@@ -102,8 +154,8 @@ int main (int argc, char *argv[]) {
     if (ncols!=2) error("corrlnfields: wrong number of columns in file "+filename);
     if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
   }
-  cout << "Nfields: " << N1 << " Nzs: " << N2 << endl;
-  Nfields = N1*N2;
+  //Check if number of fields in INFO is the same as in the Cls:
+  if (Nfields != N1*N2) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
   
 
   // Allocate memory to store C(l)s:
@@ -158,57 +210,25 @@ int main (int argc, char *argv[]) {
       return 0;
   }
 
-
-  /**************************************************/
-  /*** PART 2: Prepare for Cholesky decomposition ***/
-  /**************************************************/
-  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
-  const int HWMAXL = 10000000; int lastl = HWMAXL, Nls;
-  
-  // Load means, shifts, type and z range data file:
-  cout << "Loading means and shifts from file "+config.reads("FIELDS_INFO")+":\n";
-  aux   = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2); 
-  //Check if number of fields in INFO is the same as in the Cls:
-  if ((int)long1 != Nfields) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
-  fnzSet = vector<bool>(0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
-  means  = vector<double>(0, Nfields-1);
-  ftype  = vector<int>(0, Nfields-1);
-  zrange = matrix<double>(0,Nfields-1, 0,1);
-  if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
-  for (j=0; j<Nfields; j++) {
-    fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
-    if (fnzSet[i]==1) error ("corrlnfields: found more than one mean & shift entry for the same f-z.");
-    fnzSet[i] = 1; 
-    means[i]  = aux[j][2];  
-    if (dist==lognormal) shifts[i] = aux[j][3];
-    ftype[i] = (int)aux[j][4];
-    zrange[i][0] = aux[j][5]; zrange[i][1] = aux[j][6]; 
-  }
-  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: the properties of a field were not set.");
-  for (i=0; i<Nfields; i++) if (zrange[i][0]>zrange[i][1]) error("corrlnfields: zmin > zmax for a field.");
-  if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) { // Sanity check.
-	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
-      }
-  free_vector(fnzSet, 0, Nfields-1);
-  free_matrix(aux, 0, Nfields-1, 0, long2-1);
-  cout << "Done.\n";
-  
   // Look for the maximum l value described by all C(l)s:
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("corrlnfields: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
+  
+    
+  /*****************************************************************/
+  /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
+  /*****************************************************************/
+  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
 
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube necessary for Cholesky decomposition... "; cout.flush();
   tempCl = vector<double>(0, lastl);
   CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
   cout << "done.\n";
-  
-  /*****************************************************************/
-  /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
-  /*****************************************************************/
+
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
     // Loads necessary memory:
