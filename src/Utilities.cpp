@@ -155,7 +155,7 @@ double gasdev(long *idum) {
 }
 /* (C) Copr. 1986-92 Numerical Recipes Software #?w,(1. */
 
-/*** Returns getll as string ***/
+/*** Pads a string containing a number with zeroes on the left ***/
 std::string ZeroPad(int num, int max) {
   std::stringstream ss;
   int ndigits=1;
