@@ -150,6 +150,8 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
   gsl_vector *eval;
   gsl_eigen_symm_workspace *workspace;
   gsl_matrix *testmatrix;
+  
+  printf("entrou na regularize\n");
 
   method  = config.readi("REGULARIZE_METHOD");
   NewEval = config.readd("NEW_EVAL"); 

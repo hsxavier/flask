@@ -114,15 +114,15 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   
   cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
-
   
-  status = ClProcess(CovByl, means, shifts, N1, N2, &Nls, config);
+
+  status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
   if (status==1) { // Exit if fast output was inside ClProcess.
     cout << "\nTotal number of warnings: " << warning("count") << endl;
     cout<<endl;
     return 0; 
   }
-  
+  cout << "Nls: "<<Nls<<endl;
   /*********************************************************/
   /*** PART 4: Cholesky decomposition and alm generation ***/
   /*********************************************************/

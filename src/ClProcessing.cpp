@@ -117,16 +117,17 @@ std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x
 
 
 /*** Wraps all processing of the input Cls up to the gaussian covariance matrices for each l ***/
-int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2, int *Nls, const ParameterList & config) {
+int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, int N2, int *NlsOut, const ParameterList & config) {
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
   simtype dist;                                         // For specifying simulation type.
   char message[100];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
-  int i, j, l, m, status, Nfields;
+  int i, j, l, m, status, Nfields, Nls;
   std::string filename;
   bool *fnzSet;
+  gsl_matrix **CovByl;
 
   // Getting general information:
   Nfields=N1*N2;
@@ -229,13 +230,16 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("corrlnfields: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
-  (*Nls)=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
-    
+  Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
+  (*NlsOut)=Nls;
+
+  
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   cout << "Allocating data-cube needed for Cholesky decomposition... "; cout.flush();
-  CovByl = GSLMatrixArray((*Nls), Nfields, Nfields);
+  CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
+  (*CovBylAddr) = CovByl;
   cout << "done.\n";
-   
+ 
   /*****************************************************************/
   /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
@@ -247,18 +251,18 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
     // Loads necessary memory:
     cout << "Allocating memory for DLT... "; cout.flush();
     lls        = vector<double>(0, lastl);
-    workspace  = vector<double>(0, 16*(*Nls)-1);
-    LegendreP  = vector<double>(0, 2*(*Nls)*(*Nls)-1);
-    DLTweights = vector<double>(0, 4*(*Nls)-1);
-    xi         = vector<double>(0, 2*(*Nls)-1);
+    workspace  = vector<double>(0, 16*Nls-1);
+    LegendreP  = vector<double>(0, 2*Nls*Nls-1);
+    DLTweights = vector<double>(0, 4*Nls-1);
+    xi         = vector<double>(0, 2*Nls-1);
     // Initialize vectors:
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
     // angle theta is only necessary for output:
     if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
       cout << "Generating table of sampling angles... "; cout.flush();
-      theta    = vector<double>(0, 2*(*Nls)-1);
-      ArcCosEvalPts(2*(*Nls), theta);
-      for (i=0; i<2*(*Nls); i++) theta[i] = theta[i]*180.0/M_PI;
+      theta    = vector<double>(0, 2*Nls-1);
+      ArcCosEvalPts(2*Nls, theta);
+      for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
       cout << "done.\n";
     } 
     cout << "done.\n";
@@ -267,11 +271,11 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
     supindex = config.readd("SUP_INDEX"); 
     // Load s2kit 1.0 Legendre Polynomials:
     cout << "Generating table of Legendre polynomials... "; cout.flush();
-    PmlTableGen((*Nls), 0, LegendreP, workspace);
+    PmlTableGen(Nls, 0, LegendreP, workspace);
     cout << "done.\n";
     // Compute s2kit 1.0 Discrete Legendre Transform weights:
     cout << "Calculating forward DLT weights... "; cout.flush();
-    makeweights((*Nls), DLTweights);
+    makeweights(Nls, DLTweights);
     cout << "done.\n";
   }
 
@@ -289,42 +293,42 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
 	  // Compute correlation function Xi(theta):
 	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
 	  ModCl4DLT(tempCl, lastl, lsup, supindex);
-	  Naive_SynthesizeX(tempCl, (*Nls), 0, xi, LegendreP);
+	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	  cout << "  done.\n";
 	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*(*Nls));
+	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << ">> Correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
 	  cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
-	  status=GetGaussCorr(xi, xi, 2*(*Nls), means[i], shifts[i], means[j], shifts[j]);
+	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
 	  cout << "done.\n";
 	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
 	  if (i==j && xi[0]<0) warning("corrlnfields: auxiliary field variance is negative.");
 	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*(*Nls));
+	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	    cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) back to C(l):
 	  cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
-	  Naive_AnalysisX(xi, (*Nls), 0, DLTweights, tempCl, LegendreP, workspace);
-	  ApplyClFactors(tempCl, (*Nls));
+	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	  ApplyClFactors(tempCl, Nls);
 	  cout << "done.\n";
 	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, (*Nls));
+	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
 	    cout << ">> C(l) for auxiliary Gaussian variables written to "+filename<<endl;
 	  }	  
 	}                                 /** END OF LOGNORMAL ONLY **/ 
 	
 	// Save auxiliary C(l):
-	for (l=0; l<(*Nls); l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];		
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];		
       } // End of LOOP over C(l)[i,j] that were set.
 
   // Memory deallocation:
   free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_tensor3(ll,     0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
   free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
-  if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*(*Nls)-1);
+  if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*Nls-1);
 
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
@@ -340,7 +344,7 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
 	  sprintf(message,"corrlnfields: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
 	  error(message);
 	}
-	for (l=0; l<(*Nls); l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
+	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
       }
   cout << "done.\n";
@@ -361,7 +365,7 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
     if (dist!=lognormal) warning("corrlnfields: option DIST is not LOGNORMAL. Crashing in 3, 2, 1...");
 
     // Regularizing auxiliary gaussian covariance matrices:
-    for (l=1; l<(*Nls); l++) {
+    for (l=1; l<Nls; l++) {
       cout << "   l: "<<l<<endl;
       RegularizeCov(CovByl[l], config);
     }
@@ -371,23 +375,23 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
       for(j=i; j<Nfields; j++) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Copy the Cl to a vector:
-	for (l=0; l<(*Nls); l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
+	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
 	// Compute correlation function Xi(theta):
 	cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
 	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
-	Naive_SynthesizeX(tempCl, (*Nls), 0, xi, LegendreP);
+	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	cout << "done.\n";
 	// Get Xi(theta) for lognormal variables:
 	cout << "   Getting correlation function for lognormal variables... "; cout.flush();
-	GetLNCorr(xi, xi, 2*(*Nls), means[i], shifts[i], means[j], shifts[j]);
+	GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
 	cout << "done.\n";
 	// Compute the Cls:
 	cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
-	Naive_AnalysisX(xi, (*Nls), 0, DLTweights, tempCl, LegendreP, workspace);
-	ApplyClFactors(tempCl, (*Nls), lsup, supindex);
+	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	ApplyClFactors(tempCl, Nls, lsup, supindex);
 	cout << "done.\n";
 	// Output:
-	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, (*Nls));
+	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
 	cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
       } 
 
@@ -397,11 +401,11 @@ int ClProcess(gsl_matrix **CovByl, double *means, double *shifts, int N1, int N2
   free_vector(tempCl, 0, lastl);
   if (dist==lognormal) {
     cout << "   DLT memory deallocation... "; cout.flush();
-    free_vector(workspace, 0, 16*(*Nls)-1);
-    free_vector(LegendreP, 0, 2*(*Nls)*(*Nls)-1);
-    free_vector(xi, 0, 2*(*Nls)-1);
+    free_vector(workspace, 0, 16*Nls-1);
+    free_vector(LegendreP, 0, 2*Nls*Nls-1);
+    free_vector(xi, 0, 2*Nls-1);
     free_vector(lls, 0, lastl);
-    free_vector(DLTweights, 0, 4*(*Nls)-1); 
+    free_vector(DLTweights, 0, 4*Nls-1); 
     cout << "done.\n";
   }
   
