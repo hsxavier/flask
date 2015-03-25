@@ -151,8 +151,6 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
   gsl_eigen_symm_workspace *workspace;
   gsl_matrix *testmatrix;
   
-  printf("entrou na regularize\n");
-
   method  = config.readi("REGULARIZE_METHOD");
   NewEval = config.readd("NEW_EVAL"); 
   if (method>2 || method<0) error("RegularizeCov: unkown method.");

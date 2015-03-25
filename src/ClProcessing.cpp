@@ -249,7 +249,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
     // Loads necessary memory:
-    cout << "Allocating memory for DLT... "; cout.flush();
+    cout << "Allocating memory for DLT...                              "; cout.flush();
     lls        = vector<double>(0, lastl);
     workspace  = vector<double>(0, 16*Nls-1);
     LegendreP  = vector<double>(0, 2*Nls*Nls-1);
@@ -259,7 +259,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
     // angle theta is only necessary for output:
     if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
-      cout << "Generating table of sampling angles... "; cout.flush();
+      cout << "Generating table of sampling angles...                "; cout.flush();
       theta    = vector<double>(0, 2*Nls-1);
       ArcCosEvalPts(2*Nls, theta);
       for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
@@ -270,11 +270,11 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
     // Load s2kit 1.0 Legendre Polynomials:
-    cout << "Generating table of Legendre polynomials... "; cout.flush();
+    cout << "Generating table of Legendre polynomials...               "; cout.flush();
     PmlTableGen(Nls, 0, LegendreP, workspace);
     cout << "done.\n";
     // Compute s2kit 1.0 Discrete Legendre Transform weights:
-    cout << "Calculating forward DLT weights... "; cout.flush();
+    cout << "Calculating forward DLT weights...                        "; cout.flush();
     makeweights(Nls, DLTweights);
     cout << "done.\n";
   }
@@ -285,13 +285,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       if (IsSet[i][j]==1) {
 	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 	// Interpolate C(l) for every l; input C(l) might not be like that:
-	cout << "   Interpolating input C(l) for all l's... "; cout.flush();
+	cout << "   Interpolating input C(l) for all l's...  "; cout.flush();
 	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl, config.readi("EXTRAP_DIPOLE"));
 	cout << "              done.\n";
 	
 	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	  // Compute correlation function Xi(theta):
-	  cout << "   DLT (inverse) to obtain the correlation function... "; cout.flush();
+	  cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
 	  ModCl4DLT(tempCl, lastl, lsup, supindex);
 	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	  cout << "  done.\n";
@@ -300,7 +300,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	    cout << ">> Correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
-	  cout << "   Computing associated gaussian correlation function... "; cout.flush(); 
+	  cout << "   Computing associated gaussian correlation function...  "; cout.flush(); 
 	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
 	  cout << "done.\n";
 	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
@@ -310,7 +310,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	    cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
 	  }
 	  // Transform Xi(theta) back to C(l):
-	  cout << "   DLT (forward) to obtain the angular power spectrum... "; cout.flush(); 
+	  cout << "   DLT (forward) to obtain the angular power spectrum...  "; cout.flush(); 
 	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
 	  ApplyClFactors(tempCl, Nls);
 	  cout << "done.\n";
@@ -336,7 +336,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       config.reads("EXIT_AT")=="GCLOUT_PREFIX") return 1;
     
   // Set Cov(l)[i,j] = Cov(l)[j,i]
-  cout << "Set remaining covariance matrices elements based on symmetry... "; cout.flush(); 
+  cout << "Set remaining cov. matrices elements based on symmetry... "; cout.flush(); 
   for(i=0; i<Nfields; i++)
     for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==0) {
@@ -400,7 +400,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   // Freeing memory: from now on we only need CovByl, means, shifts, fnz.
   free_vector(tempCl, 0, lastl);
   if (dist==lognormal) {
-    cout << "   DLT memory deallocation... "; cout.flush();
+    cout << "DLT memory deallocation...                                "; cout.flush();
     free_vector(workspace, 0, 16*Nls-1);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(xi, 0, 2*Nls-1);

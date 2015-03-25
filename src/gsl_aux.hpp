@@ -13,6 +13,9 @@ void free_GSLMatrixArray(gsl_matrix **array, int Nmatrices);
 // Import a table from file to gsl_matrix format:
 gsl_matrix *LoadGSLMatrix(std::string filename);
 
+// Import a table from file to gsl_matrix format (already allocated):
+void LoadGSLMatrix(std::string filename, gsl_matrix *matrix);
+
 // Print GSL matrix as a table (with rows and columns):
 void PrintGSLMatrix(const gsl_matrix *A, std::ostream *output = &std::cout);
 

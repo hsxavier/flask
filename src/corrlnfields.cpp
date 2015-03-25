@@ -116,13 +116,35 @@ int main (int argc, char *argv[]) {
   cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
   
 
-  status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
-  if (status==1) { // Exit if fast output was inside ClProcess.
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0; 
+  /**************************************************************/
+  /*** PART 2: Load input Cls and transform them if necessary ***/
+  /**************************************************************/  
+  std::string CholeskyInPrefix;
+  int lmax, lmin;
+  
+  CholeskyInPrefix = config.reads("CHOL_IN_PREFIX");
+  lmax             = config.readi("LMAX");
+  lmin             = config.readi("LMIN");
+
+  // If input triangular matrices unspecified, compute them from input Cls:
+  if (CholeskyInPrefix=="0") {
+    status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
+    if (status==1) { // Exit if fast output was inside ClProcess.
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0; 
+    }
+    cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
   }
-  cout << "Nls: "<<Nls<<endl;
+  // If input triangular matrices are specified, allocate memory for them:
+  else {
+    cout << "Allocating memory for mixing matrices (CHOL_IN_PREFIX)... "; cout.flush();
+    CovByl = GSLMatrixArray(lmax+1, Nfields, Nfields); // Allocation should have offset to avoid unnecessary low ells.
+    cout << "done.\n";                                 // If we are loading the matrices ell by ell, an array is not necessary! 
+    if (config.reads("REG_COVL_PREFIX")!="0") 
+      warning("Regularized cov. matrices will not be computed, so they cannot be output.");
+  }
+
   /*********************************************************/
   /*** PART 4: Cholesky decomposition and alm generation ***/
   /*********************************************************/
@@ -130,12 +152,8 @@ int main (int argc, char *argv[]) {
   bool almout;
   double **gaus0, **gaus1;
   gsl_rng *rnd;
-  int lmax, lmin;
   Alm<xcomplex <double> > *aflm;
   
-  lmax = config.readi("LMAX");
-  lmin = config.readi("LMIN");
-
   // Allocate memory:
   gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = matrix<double>(0,Nfields-1, 0,1); 
@@ -154,19 +172,32 @@ int main (int argc, char *argv[]) {
   j=0; // Will count number of Cholesky failures.
   for (l=lmin; l<=lmax; l++) {
     cout << "** Working with cov. matrix for l="<<l<<":\n";
-    // Check if cov. matrix is positive definite and performs regularization if necessary:
-    RegularizeCov(CovByl[l], config);
-    // Output regularized matrix if requested:
-    if (config.reads("REG_COVL_PREFIX")!="0") {
+    
+    // Load triangular matrices if they are already computed:
+    if (CholeskyInPrefix != "0") {
+      filename = CholeskyInPrefix+"l"+ZeroPad(l,lmax)+".dat";
+      cout << "   Loading "+filename+"... "; cout.flush();
+      LoadGSLMatrix(filename, CovByl[l]);
+      cout << "done.\n";
+      status=0;
+    } 
+
+    // Compute triangular matrices if required:
+    else {   
+      // Check if cov. matrix is positive definite and performs regularization if necessary:
+      RegularizeCov(CovByl[l], config);
+      // Output regularized matrix if requested:
+      if (config.reads("REG_COVL_PREFIX")!="0") {
 	filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
 	GeneralOutput(CovByl[l], filename); 
+      }
+      // Perform a Cholesky decomposition:
+      cout << "   Performing a Cholesky decomposition...              "; cout.flush();
+      status = gsl_linalg_cholesky_decomp(CovByl[l]);
+      if (status==GSL_EDOM) { warning("Cholesky decomposition failed: matrix is not positive-definite."); j++; }
+      cout << "done.\n";
     }
 
-    // Perform a Cholesky decomposition:
-    cout << "   Performing a Cholesky decomposition... "; cout.flush();
-    status = gsl_linalg_cholesky_decomp(CovByl[l]);
-    if (status==GSL_EDOM) { warning("Cholesky decomposition failed: matrix is not positive-definite."); j++; }
-    cout << "done.\n";
     // Only proceed if Cholesky was successfull:
     if (status!=GSL_EDOM) { 
       // Output file if requested:
@@ -174,8 +205,7 @@ int main (int argc, char *argv[]) {
 	filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
 	GeneralOutput(CovByl[l], filename); 
       }
-      
-      cout << "   Generating random auxiliary alm's...   "; cout.flush();
+      cout << "   Generating random auxiliary alm's...                "; cout.flush();
       // Generate m=0:
       m=0;
       for (i=0; i<Nfields; i++) {

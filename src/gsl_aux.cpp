@@ -34,6 +34,21 @@ void free_GSLMatrixArray(gsl_matrix **array, int Nmatrices) {
 }
 
 
+/*** Import a matrix from a file to a GSLMatrix already allocated ***/
+void LoadGSLMatrix(std::string filename, gsl_matrix *matrix) {
+  FILE *file;
+  int status;
+
+  // Open file:
+  if ((file=fopen(filename.c_str(), "r"))==NULL) error("LoadGSLMatrix: cannot open file "+filename);
+  
+  // Loading values to table:
+  status=gsl_matrix_fscanf(file, matrix);
+  if(status==GSL_EFAILED) error("LoadGSLMatrix: gsl_matrix_fscanf failed!");
+  
+  fclose(file);  
+}
+
 
 /*** Import a table from file to gsl_matrix format ***/
 gsl_matrix *LoadGSLMatrix(std::string filename) {
@@ -75,10 +90,10 @@ void PrintGSLMatrix(const gsl_matrix *A, std::ostream *output /*= &std::cout*/) 
   long i, j;
 
   (*output).setf(std::ios_base::showpoint);
-  (*output).precision(6);
+  (*output).precision(14);
   for (i=0; i<(A->size1); i++) {
     for (j=0; j<(A->size2); j++) {
-      (*output).width(10); *output << A->data[i*(A->size1)+j] << " ";
+      (*output).width(20); *output << A->data[i*(A->size1)+j] << " ";
     }
     *output << std::endl;
   }       
