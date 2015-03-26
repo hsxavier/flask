@@ -5,6 +5,7 @@ BIN = ../bin
 OBJ = ../obj
 SRC = ../src
 
+CXXOMP = -fopenmp
 CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
 LDHEAL = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
@@ -36,7 +37,7 @@ $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
 			$(SRC)/s2kit10_naive.hpp $(SRC)/GeneralOutput.hpp $(SRC)/RegularizeCov.hpp \
 			$(SRC)/corrlnfields_aux.hpp
-	$(COMP)  $(CXXHEAL) -c $(SRC)/ClProcessing.cpp -o $@
+	$(COMP)  $(CXXHEAL) -c $(SRC)/ClProcessing.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
 			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
