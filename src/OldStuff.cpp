@@ -30,3 +30,16 @@ int GetGaussCov(gsl_matrix *gCovar, gsl_matrix *lnCovar, double *means, double *
     }
   return status;
 }
+
+
+// Compute the matrix eigenvalues without destroying the matrix (by making a copy first):
+void GetEigenValues(gsl_vector *eval, gsl_matrix *A, gsl_eigen_symm_workspace *w) {
+  int status;
+  gsl_matrix *M;
+  
+  M      = gsl_matrix_alloc(A->size1, A->size2);
+  status = gsl_matrix_memcpy(M, A);
+  status = gsl_eigen_symm(M, eval, w);
+  if (status != GSL_SUCCESS) error("GetEigenValues: cannot get matrix eigenvalues.");
+  gsl_matrix_free(M);
+}

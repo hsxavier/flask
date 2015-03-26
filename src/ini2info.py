@@ -96,6 +96,10 @@ for line in lines:
                 if len(halfwidthz) == 1:
                     halfwidthz = halfwidthz * nz;
 
+# Convergence kappa shift formula
+def HilbertShift(z):
+    return 0.008*z + 0.029*(z**2) - 0.0079*(z**3) + 0.00065*(z**4) 
+
 # Functions for output:
 def mean(f):
     m = [GalMean, KappaMean]
@@ -116,7 +120,8 @@ def shift(f, z):
             if FixKappa==1:
                 return KappaShift
             if FixKappa==0:
-                return np.interp(z, fileZ, fileSh)
+                #return np.interp(z, fileZ, fileSh)
+                return HilbertShift(z)
     elif nf==1:
         if HasGal==1: 
             return GalShift

@@ -154,6 +154,11 @@ int main (int argc, char *argv[]) {
   gsl_rng *rnd;
   Alm<xcomplex <double> > *aflm;
   
+  // For veryfing how much change was inflicted by regularization:
+  gsl_matrix *gslm;
+  gslm = gsl_matrix_alloc(Nfields, Nfields);
+  
+
   // Allocate memory:
   gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = matrix<double>(0,Nfields-1, 0,1); 
@@ -185,7 +190,9 @@ int main (int argc, char *argv[]) {
     // Compute triangular matrices if required:
     else {   
       // Check if cov. matrix is positive definite and performs regularization if necessary:
+      gsl_matrix_memcpy(gslm, CovByl[l]);
       RegularizeCov(CovByl[l], config);
+      cout << "   Max. % change: " << MaxFracDiff(CovByl[l], gslm) << endl;
       // Output regularized matrix if requested:
       if (config.reads("REG_COVL_PREFIX")!="0") {
 	filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
