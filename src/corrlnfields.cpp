@@ -189,6 +189,7 @@ int main (int argc, char *argv[]) {
   double **gaus0, **gaus1;
   gsl_rng *rnd;
   Alm<xcomplex <double> > *aflm;
+  int jmax, jmin;
     
   // Set random number generator:
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
@@ -197,8 +198,6 @@ int main (int argc, char *argv[]) {
 
   // Allocate memory for gaussian alm's:
   cout << "Allocating memory for auxiliary gaussian alm's...         "; cout.flush();
-  gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
-  gaus1 = matrix<double>(0,Nfields-1, 0,1); 
   aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
   for (i=0; i<Nfields; i++) {
     aflm[i].Set(lmax,lmax);
@@ -206,34 +205,45 @@ int main (int argc, char *argv[]) {
   }
   cout << "done.\n";
 
-  // LOOP over l's:
+  // LOOP over l's and m's:
   cout << "Generating auxiliary gaussian alm's...                    "; cout.flush(); 
-  for (l=lmin; l<=lmax; l++) {
-    // Generate m=0:
-    m=0;
-    for (i=0; i<Nfields; i++) {
-      gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
-      gaus0[i][1] = 0.0;
-    }
-    CorrGauss(gaus1, CovByl[l], gaus0);
-    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);
-    // LOOP over m>0 for a fixed l:
-    for (m=1; m<=l; m++) {
-      // Generate independent 1sigma complex random variables:
-      for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
-	gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
-      }
-      // Generate correlated complex gaussian variables according to CovMatrix:
-      CorrGauss(gaus1, CovByl[l], gaus0);
-      // Save alm to tensor:
-      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
-    } // End of LOOP over m's.
-  } // End of LOOP over l's.
-  cout << "done.\n";
+  jmin = (lmin*(lmin+1))/2;
+  jmax = (lmax*(lmax+3))/2;
+#pragma omp parallel for ordered schedule(dynamic) private(l, m, i, gaus0, gaus1)
+  for(j=jmin; j<=jmax; j++) {
+    //for (l=lmin; l<=lmax; l++) for (m=0; m<=l; m++) {
 
-  free_matrix(gaus0,0,Nfields-1,0,1);
-  free_matrix(gaus1,0,Nfields-1,0,1);
+    // Allocate temporary memory for random variables:
+    gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
+    gaus1 = matrix<double>(0,Nfields-1, 0,1); 
+
+    l = (int)((sqrt(8.0*j+1.0)-1.0)/2.0);
+    m = j-(l*(l+1))/2;
+    
+    // Generate independent 1sigma complex random variables:
+#pragma omp ordered
+    {
+      if (m==0) for (i=0; i<Nfields; i++) {
+	  gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
+	  gaus0[i][1] = 0.0; 
+	}                                                      // m=0 are real, so real part gets all the variance.
+      else      for (i=0; i<Nfields; i++) {
+	  gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	  gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	}
+    }
+    // Generate correlated complex gaussian variables according to CovMatrix:
+    CorrGauss(gaus1, CovByl[l], gaus0);
+    
+    // Save alm to tensor:
+    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
+    
+    // Free temporary memory:
+    free_matrix(gaus0,0,Nfields-1,0,1);
+    free_matrix(gaus1,0,Nfields-1,0,1);
+    
+  } // End of LOOP over l's and m's.
+  cout << "done.\n";
   free_GSLMatrixArray(CovByl, Nls);
   
   // If requested, write alm's to file:
