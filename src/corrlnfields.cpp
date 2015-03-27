@@ -256,14 +256,14 @@ int main (int argc, char *argv[]) {
   char opt1[]="-bar", val1[]="1";
 
   // Allocate memory for pixel maps:
-  cout << "Allocating memory for pixel maps...              "; cout.flush();
+  cout << "Allocating memory for pixel maps...                       "; cout.flush();
   nside   = config.readi("NSIDE");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   cout << "done.\n";
   // Generate maps from alm's for each field:
-  cout << "Generating maps from alm's...                    "; cout.flush();
+  cout << "Generating maps from alm's...                             "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
   // Write auxiliary map to file as a table if requested:
@@ -278,7 +278,7 @@ int main (int argc, char *argv[]) {
 
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
-    cout << "LOGNORMAL realizations: exponentiating pixels... "; cout.flush();
+    cout << "LOGNORMAL realizations: exponentiating pixels...          "; cout.flush();
     for (i=0; i<Nfields; i++) {
       gmean = 0; gvar = 0;
       for (j=0; j<npixels; j++) gmean += mapf[i][j];
