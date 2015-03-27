@@ -90,10 +90,10 @@ void PrintGSLMatrix(const gsl_matrix *A, std::ostream *output /*= &std::cout*/) 
   long i, j;
 
   (*output).setf(std::ios_base::showpoint);
-  (*output).precision(14);
+  (*output).precision(17);
   for (i=0; i<(A->size1); i++) {
     for (j=0; j<(A->size2); j++) {
-      (*output).width(20); *output << A->data[i*(A->size1)+j] << " ";
+      (*output).width(22); *output << A->data[i*(A->size1)+j] << " ";
     }
     *output << std::endl;
   }       

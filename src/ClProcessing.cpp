@@ -255,15 +255,16 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     DLTweights = vector<double>(0, 4*Nls-1);
     // Initialize vectors:
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
+    cout << "done.\n";
     // angle theta is only necessary for output:
     if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
-      cout << "Generating table of sampling angles...                "; cout.flush();
+      cout << "Generating table of sampling angles...                    "; cout.flush();
       theta    = vector<double>(0, 2*Nls-1);
       ArcCosEvalPts(2*Nls, theta);
       for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
       cout << "done.\n";
     } 
-    cout << "done.\n";
+    
     // Loads C(l) exponential suppression:
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
@@ -350,11 +351,11 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
   // Output information:
   if (config.reads("XIOUT_PREFIX")!="0") 
-    cout << ">> Correlation function written to "+config.reads("XIOUT_PREFIX")+" prefix.\n";
+    cout << ">> Correlation functions written to prefix "+config.reads("XIOUT_PREFIX")<<endl;
   if (config.reads("GXIOUT_PREFIX")!="0") 
-    cout << ">> Associated Gaussian correlation function written to "+config.reads("GXIOUT_PREFIX")+" prefix.\n";
+    cout << ">> Associated Gaussian correlation functions written to prefix "+config.reads("GXIOUT_PREFIX")<<endl;
   if (config.reads("GCLOUT_PREFIX")!="0") 
-    cout << ">> C(l) for auxiliary Gaussian variables written to "+config.reads("GCLOUT_PREFIX")+" prefix.\n";
+    cout << ">> C(l)s for auxiliary Gaussian variables written to prefix "+config.reads("GCLOUT_PREFIX")<<endl;
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
       config.reads("EXIT_AT")=="GXIOUT_PREFIX" || 
@@ -380,7 +381,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
   // Output covariance matrices for each l if requested:
-  GeneralOutput(CovByl, config, "COVL_PREFIX");
+  GeneralOutput(CovByl, config, "COVL_PREFIX", 0);
+  if (config.reads("COVL_PREFIX")!="0") 
+    cout << ">> Cov. matrices written to prefix "+config.reads("COVL_PREFIX")<<endl;
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="COVL_PREFIX") return 1;
 
@@ -392,8 +395,14 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   double *MaxChange, MMax;
   int lmax, lmin, lMMax;
 
+  // If producing the regularized lognormal C(l)s, all ls must be regularized.
+  // Else, only the cov. matrices for requested ls are regularized.
+  // Note that a very high exponential suppression of C(l)s make difficult to regularize matrices.
+  if (dist==lognormal && config.reads("REG_CL_PREFIX")!="0") { lmin = 0; lmax = Nls-1; }
+  else {
   lmax = config.readi("LMAX");
   lmin = config.readi("LMIN");
+  }
   MaxChange = vector<double>(lmin, lmax);
   
   cout << "Regularizing cov. matrices...                             "; cout.flush();
@@ -423,9 +432,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   }
   cout << "Max. % change (l="<<lMMax<<"): "<<MMax<<endl;  
   free_vector(MaxChange, lmin, lmax);
-
+  // Output regularized matrices if requested:
   if (config.reads("REG_COVL_PREFIX")!="0") 
-    cout << ">> Regularized cov. matrices written to "+config.reads("REG_COVL_PREFIX")+" prefix.\n";
+    cout << ">> Regularized cov. matrices written to prefix "+config.reads("REG_COVL_PREFIX")<<endl;
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="REG_COVL_PREFIX") return 1;
 
@@ -475,10 +484,10 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	  free_vector(workspace, 0, 2*Nls-1);
 	} 
       cout << "done.\n";
-      cout << ">> Regularized lognormal C(l) written to "+config.reads("REG_CL_PREFIX")+" prefix.\n";
+      cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
     
     } // End of if(dist==lognormal)
-    else warning("ClProcess: regularized C(l) asked for GAUSSIAN realizations.");
+    else warning("ClProcess: regularized C(l)s asked for GAUSSIAN realizations.");
   } // End of computing regularized lognormal Cls.
   
 
