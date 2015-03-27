@@ -5,7 +5,7 @@
 #include <math.h>               // exp, log...
 #include "GeneralOutput.hpp"
 #include "RegularizeCov.hpp"
-#include "corrlnfields_aux.hpp" // For n2fz functions, etc.
+#include "corrlnfields_aux.hpp" // For n2fz functions, Maximum, etc..
 
 
 /*** Transforms a correlation function of gaussian variables gXi into a corr. function of corresponding lognormal variables lnXi ***/
@@ -136,7 +136,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
 
   /********************************************/
-  /*** PART 2: Load C(l)s and organize them ***/
+  /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
   const int HWMAXL = 10000000; int lastl = HWMAXL;
   int a1, a2, b1, b2, Nlinput, **fnz, **NentMat;
@@ -241,7 +241,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   cout << "done.\n";
  
   /*****************************************************************/
-  /*** PART 3: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
+  /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
   double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
 
@@ -281,7 +281,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   // LOOP over all C(l)s already set.
   if (dist==lognormal) {cout << "Transforming C(l)s for the auxiliary Gaussian ones...     "; cout.flush();}
   else cout << "Interpolating C(l)s for all l's... "; cout.flush();
-#pragma omp parallel for collapse(2) schedule(dynamic) private(tempCl, xi, workspace)
+#pragma omp parallel for collapse(2) schedule(dynamic) private(tempCl, xi, workspace, filename, l)
   for(i=0; i<Nfields; i++)
     for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==1) {
@@ -348,6 +348,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   free_matrix(NentMat, 0, Nfields-1, 0, Nfields-1);
   if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") free_vector(theta, 0, 2*Nls-1);
 
+  // Output information:
+  if (config.reads("XIOUT_PREFIX")!="0") 
+    cout << ">> Correlation function written to "+config.reads("XIOUT_PREFIX")+" prefix.\n";
+  if (config.reads("GXIOUT_PREFIX")!="0") 
+    cout << ">> Associated Gaussian correlation function written to "+config.reads("GXIOUT_PREFIX")+" prefix.\n";
+  if (config.reads("GCLOUT_PREFIX")!="0") 
+    cout << ">> C(l) for auxiliary Gaussian variables written to "+config.reads("GCLOUT_PREFIX")+" prefix.\n";
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
       config.reads("EXIT_AT")=="GXIOUT_PREFIX" || 
@@ -365,6 +372,10 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
       }
+  for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]!=1) {
+	sprintf(message,"corrlnfields: [%d,%d] was not set.",i,j);
+	error(message);
+      }
   cout << "done.\n";
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
@@ -374,58 +385,103 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (config.reads("EXIT_AT")=="COVL_PREFIX") return 1;
 
 
+  /****************************************************************************/
+  /*** PART 3: Regularize (make them positive definite) covariance matrices ***/
+  /****************************************************************************/
+  gsl_matrix *gslm;
+  double *MaxChange, MMax;
+  int lmax, lmin, lMMax;
+
+  lmax = config.readi("LMAX");
+  lmin = config.readi("LMIN");
+  MaxChange = vector<double>(lmin, lmax);
+  
+  cout << "Regularizing cov. matrices...                             "; cout.flush();
+
+#pragma omp parallel for schedule(dynamic) private(gslm, filename)  
+  for (l=lmin; l<=lmax; l++) {
+
+    // Check pos. defness, regularize if necessary, keep track of changes:
+    gslm = gsl_matrix_alloc(Nfields, Nfields);
+    gsl_matrix_memcpy(gslm, CovByl[l]);
+    RegularizeCov(CovByl[l], config);
+    MaxChange[l] = MaxFracDiff(CovByl[l], gslm);
+    gsl_matrix_free(gslm);
+    // Output regularized matrix if requested:
+    if (config.reads("REG_COVL_PREFIX")!="0") {
+      filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
+      GeneralOutput(CovByl[l], filename, 0);
+    }
+  }
+  cout << "done.\n";
+ 
+  // Dump changes in cov. matrices to the screen:
+  for (l=lmin; l<=lmax; l++) {
+    MMax  = 0.0;
+    lMMax = 0;
+    if (MaxChange[l]>MMax) {MMax = MaxChange[l]; lMMax = l;}
+  }
+  cout << "Max. % change (l="<<lMMax<<"): "<<MMax<<endl;  
+  free_vector(MaxChange, lmin, lmax);
+
+  if (config.reads("REG_COVL_PREFIX")!="0") 
+    cout << ">> Regularized cov. matrices written to "+config.reads("REG_COVL_PREFIX")+" prefix.\n";
+  // Exit if this is the last output requested:
+  if (config.reads("EXIT_AT")=="REG_COVL_PREFIX") return 1;
+
   /***********************************************************/
-  /*** PART 3.5: Obtain regularized input Cls if requested ***/
+  /*** PART 4: Obtain regularized input Cls if requested   ***/
   /***********************************************************/
 
   if (config.reads("REG_CL_PREFIX")!="0") {
-    cout << "** Will compute regularized lognormal Cls:\n";
-    if (dist!=lognormal) warning("corrlnfields: option DIST is not LOGNORMAL. Crashing in 3, 2, 1...");
+    if(dist==lognormal) {
+      cout << "Computing regularized lognormal Cls...                    "; cout.flush();
+      
+      
+      // LOOP over fields:
+#pragma omp parallel for collapse(2) schedule(dynamic) private(tempCl, xi, workspace, filename, l)
+      for(i=0; i<Nfields; i++)
+	for(j=i; j<Nfields; j++) {
+	  //cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 
-    // Regularizing auxiliary gaussian covariance matrices:
-    for (l=1; l<Nls; l++) {
-      cout << "   l: "<<l<<endl;
-      RegularizeCov(CovByl[l], config);
-    }
-    
-    // LOOP over fields:
-    for(i=0; i<Nfields; i++)
-      for(j=i; j<Nfields; j++) {
-	cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+	  // Temporary memory allocation:
+	  tempCl    = vector<double>(0, lastl);
+	  xi        = vector<double>(0, 2*Nls-1);
+	  workspace = vector<double>(0, 2*Nls-1);
 
-	// Temporary memory allocation:
-	tempCl    = vector<double>(0, lastl);
-	xi        = vector<double>(0, 2*Nls-1);
-	workspace = vector<double>(0, 2*Nls-1);
-
-	// Copy the Cl to a vector:
-	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
-	// Compute correlation function Xi(theta):
-	cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
-	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
-	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	cout << "done.\n";
-	// Get Xi(theta) for lognormal variables:
-	cout << "   Getting correlation function for lognormal variables... "; cout.flush();
-	GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	cout << "done.\n";
-	// Compute the Cls:
-	cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
-	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	ApplyClFactors(tempCl, Nls, lsup, supindex);
-	cout << "done.\n";
-	// Output:
-	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
+	  // Copy the Cl to a vector:
+	  for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
+	  // Compute correlation function Xi(theta):
+	  //cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
+	  ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
+	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
+	  //cout << "done.\n";
+	  // Get Xi(theta) for lognormal variables:
+	  //cout << "   Getting correlation function for lognormal variables... "; cout.flush();
+	  GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	  //cout << "done.\n";
+	  // Compute the Cls:
+	  //cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
+	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	  ApplyClFactors(tempCl, Nls, lsup, supindex);
+	  //cout << "done.\n";
+	  // Output:
+	  filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	  //cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
 	
-	// Temporary memory deallocation:
-	free_vector(tempCl, 0, lastl);
-	free_vector(xi, 0, 2*Nls-1);
-	free_vector(workspace, 0, 2*Nls-1);
-      } 
-
+	  // Temporary memory deallocation:
+	  free_vector(tempCl, 0, lastl);
+	  free_vector(xi, 0, 2*Nls-1);
+	  free_vector(workspace, 0, 2*Nls-1);
+	} 
+      cout << "done.\n";
+      cout << ">> Regularized lognormal C(l) written to "+config.reads("REG_CL_PREFIX")+" prefix.\n";
+    
+    } // End of if(dist==lognormal)
+    else warning("ClProcess: regularized C(l) asked for GAUSSIAN realizations.");
   } // End of computing regularized lognormal Cls.
   
+
   // Freeing memory: from now on we only need CovByl, means, shifts.
   if (dist==lognormal) {
     cout << "DLT memory deallocation...                                "; cout.flush();

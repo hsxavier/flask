@@ -153,13 +153,8 @@ int main (int argc, char *argv[]) {
   double **gaus0, **gaus1;
   gsl_rng *rnd;
   Alm<xcomplex <double> > *aflm;
-  
-  // For veryfing how much change was inflicted by regularization:
-  gsl_matrix *gslm;
-  gslm = gsl_matrix_alloc(Nfields, Nfields);
-  
 
-  // Allocate memory:
+  // Allocate for gaussian alm's:
   gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = matrix<double>(0,Nfields-1, 0,1); 
   aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
@@ -168,7 +163,7 @@ int main (int argc, char *argv[]) {
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
   }
   
-  // - Set random number generator
+  // Set random number generator:
   rnd = gsl_rng_alloc(gsl_rng_mt19937);
   if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
   gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
@@ -176,33 +171,24 @@ int main (int argc, char *argv[]) {
   // LOOP over l's:
   j=0; // Will count number of Cholesky failures.
   for (l=lmin; l<=lmax; l++) {
-    cout << "** Working with cov. matrix for l="<<l<<":\n";
+    //cout << "** Working with cov. matrix for l="<<l<<":\n";
     
     // Load triangular matrices if they are already computed:
     if (CholeskyInPrefix != "0") {
       filename = CholeskyInPrefix+"l"+ZeroPad(l,lmax)+".dat";
-      cout << "   Loading "+filename+"... "; cout.flush();
+      //cout << "   Loading "+filename+"... "; cout.flush();
       LoadGSLMatrix(filename, CovByl[l]);
-      cout << "done.\n";
+      //cout << "done.\n";
       status=0;
     } 
 
     // Compute triangular matrices if required:
     else {   
-      // Check if cov. matrix is positive definite and performs regularization if necessary:
-      gsl_matrix_memcpy(gslm, CovByl[l]);
-      RegularizeCov(CovByl[l], config);
-      cout << "   Max. % change: " << MaxFracDiff(CovByl[l], gslm) << endl;
-      // Output regularized matrix if requested:
-      if (config.reads("REG_COVL_PREFIX")!="0") {
-	filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
-	GeneralOutput(CovByl[l], filename); 
-      }
       // Perform a Cholesky decomposition:
-      cout << "   Performing a Cholesky decomposition...              "; cout.flush();
+      //cout << "   Performing a Cholesky decomposition...              "; cout.flush();
       status = gsl_linalg_cholesky_decomp(CovByl[l]);
       if (status==GSL_EDOM) { warning("Cholesky decomposition failed: matrix is not positive-definite."); j++; }
-      cout << "done.\n";
+      //cout << "done.\n";
     }
 
     // Only proceed if Cholesky was successfull:
@@ -212,7 +198,7 @@ int main (int argc, char *argv[]) {
 	filename=config.reads("CHOLESKY_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
 	GeneralOutput(CovByl[l], filename); 
       }
-      cout << "   Generating random auxiliary alm's...                "; cout.flush();
+      //cout << "   Generating random auxiliary alm's...                "; cout.flush();
       // Generate m=0:
       m=0;
       for (i=0; i<Nfields; i++) {
@@ -233,7 +219,7 @@ int main (int argc, char *argv[]) {
 	// Save alm to tensor:
 	for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
       } // End of LOOP over m's.
-      cout << "done.\n";
+      //cout << "done.\n";
     } // End of successfull Cholesky block. 
   } // End of LOOP over l's.
   free_matrix(gaus0,0,Nfields-1,0,1);
@@ -246,9 +232,7 @@ int main (int argc, char *argv[]) {
   GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
 
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX" || 
-      config.reads("EXIT_AT")=="AUXALM_OUT"      ||
-      config.reads("EXIT_AT")=="REG_COVL_PREFIX" ) {
+  if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX" || config.reads("EXIT_AT")=="AUXALM_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;

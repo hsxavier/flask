@@ -188,7 +188,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	gsl_eigen_symmv_workspace *workspaceV;
 	gsl_matrix *evec;
 
-	std::cout << "   Regularizing matrix by minimizing the elements quadratic sum... "; std::cout.flush();
+	//std::cout << "   Regularizing matrix by minimizing the elements quadratic sum... "; std::cout.flush();
 	// Allocate memory (vector for eigenvalues was already allocated):
 	workspaceV = gsl_eigen_symmv_alloc(A->size1);
 	evec       = gsl_matrix_alloc (A->size1, A->size1);
@@ -206,7 +206,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	      A->data[i*A->size1+j] += gsl_matrix_get(evec,i,k) * gsl_vector_get(eval,k) * gsl_matrix_get(evec,j,k);
 	  }
 	gsl_matrix_free(evec);
-	std::cout << "done.\n";
+	//std::cout << "done.\n";
       } // End of minimization of frobenius norm method.
       
       
@@ -217,7 +217,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	bool posdef;
 	gsl_matrix *direction;
 
-	std::cout << "   Regularizing matrix by successive approximations... "; std::cout.flush();
+	//std::cout << "   Regularizing matrix by successive approximations... "; std::cout.flush();
 	step = config.readd("REGULARIZE_STEP");
 	
 	// Allocate memory:
@@ -248,7 +248,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	gsl_matrix_free(testmatrix);
 	gsl_eigen_symm_free(workspace);
 	gsl_matrix_free(direction);
-	std::cout << "done.\n";
+	//std::cout << "done.\n";
       } // End of minimum fractional difference method.
 
 
