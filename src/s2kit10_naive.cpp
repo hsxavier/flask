@@ -377,7 +377,7 @@ void makeweights( int bw,
 
   fudge = M_PI/((double)(4*bw)) ;
   
-
+#pragma omp parallel for private(tmpsum, k)
   for ( j = 0 ; j < 2*bw ; j ++ )
     {
       tmpsum = 0.0 ;

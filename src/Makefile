@@ -75,5 +75,5 @@ $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 	$(COMP) -c $(SRC)/interpol.c -o $@
 
 $(OBJ)/s2kit10_naive.o: $(SRC)/s2kit10_naive.cpp $(SRC)/s2kit10_naive.hpp $(SRC)/interpol.h $(SRC)/Utilities.hpp
-	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@
+	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@ $(CXXOMP)
 
