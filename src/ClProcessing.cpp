@@ -393,22 +393,22 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   /****************************************************************************/
   gsl_matrix *gslm;
   double *MaxChange, MMax;
-  int lmax, lmin, lMMax;
+  int lmax, lmin, lMMax, lstart, lend;
 
-  // If producing the regularized lognormal C(l)s, all ls must be regularized.
-  // Else, only the cov. matrices for requested ls are regularized.
-  // Note that a very high exponential suppression of C(l)s make difficult to regularize matrices.
-  if (dist==lognormal && config.reads("REG_CL_PREFIX")!="0") { lmin = 0; lmax = Nls-1; }
-  else {
   lmax = config.readi("LMAX");
   lmin = config.readi("LMIN");
-  }
-  MaxChange = vector<double>(lmin, lmax);
+
+  // If producing the regularized lognormal C(l)s, all ls must be regularized (skip l=0 because is set to zero).
+  // Else, only the cov. matrices for requested ls are regularized.
+  // Note that a very high exponential suppression of C(l)s make difficult to regularize matrices.
+  if (dist==lognormal && config.reads("REG_CL_PREFIX")!="0") { lstart = 1;  lend = Nls-1; }
+  else { lstart = lmin;  lend = lmax; }
+  MaxChange = vector<double>(lstart, lend);
   
   cout << "Regularizing cov. matrices...                             "; cout.flush();
 
 #pragma omp parallel for schedule(dynamic) private(gslm, filename)  
-  for (l=lmin; l<=lmax; l++) {
+  for (l=lstart; l<=lend; l++) {
 
     // Check pos. defness, regularize if necessary, keep track of changes:
     gslm = gsl_matrix_alloc(Nfields, Nfields);
@@ -418,7 +418,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     gsl_matrix_free(gslm);
     // Output regularized matrix if requested:
     if (config.reads("REG_COVL_PREFIX")!="0") {
-      filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lmax)+".dat";
+      filename=config.reads("REG_COVL_PREFIX")+"l"+ZeroPad(l,lend)+".dat";
       GeneralOutput(CovByl[l], filename, 0);
     }
   }
@@ -430,8 +430,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     lMMax = 0;
     if (MaxChange[l]>MMax) {MMax = MaxChange[l]; lMMax = l;}
   }
-  cout << "Max. % change (l="<<lMMax<<"): "<<MMax<<endl;  
-  free_vector(MaxChange, lmin, lmax);
+  cout << "Max. % change for "<<lmin<<"<=l<="<<lmax<<" at l="<<lMMax<<": "<<MMax<<endl;  
+  free_vector(MaxChange, lstart, lend);
   // Output regularized matrices if requested:
   if (config.reads("REG_COVL_PREFIX")!="0") 
     cout << ">> Regularized cov. matrices written to prefix "+config.reads("REG_COVL_PREFIX")<<endl;
