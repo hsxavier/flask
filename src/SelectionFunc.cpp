@@ -155,7 +155,7 @@ SelectionFunction::~SelectionFunction() {
 // Returns the selection function for the field (or redshift) fz and the angular position pix:
 double SelectionFunction::operator()(int fz, int pix) {
   using namespace definitions;
-  double z0;
+  double z0, zSelInterp;
   // Error checks:
   if (ftype[fz]!=fgalaxies) error("SelectionFunction.operator(): this is only set for fields of type galaxies.");
   else if (pix >= Npixels || pix < 0) error("SelectionFunction.operator(): requested pixel is out of range.");
@@ -168,8 +168,10 @@ double SelectionFunction::operator()(int fz, int pix) {
     // For separable selection functions, multiply radial to angular part:
     else if (Separable==1) {
       // Get mean redshift of the field:
-      z0 = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; 
-      return Interpol(zEntries[fz], NzEntries[fz], zSel[fz], z0) * AngularSel[0][pix];
+      z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; 
+      zSelInterp = Interpol(zEntries[fz], NzEntries[fz], zSel[fz], z0);
+      if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
+      return zSelInterp * AngularSel[0][pix];
     }
   }
 }

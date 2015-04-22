@@ -51,8 +51,8 @@ l = classout[0]
 
 # Precompute basic factor:
 
-fac0 = 2*m.pi/l/(l+1)
-fac1 = l*(l+1)/2
+fac0 = (2.0*m.pi)/l/(l+1)
+fac1 = (-1.0*l*(l+1))/2.0
 
 # LOOP over columns 
 for i in range(1, ncols):

@@ -343,7 +343,9 @@ int main (int argc, char *argv[]) {
 
   /*** Galaxy fields ***/
   
-  double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
+  //double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
+  double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
+  double dwdz;
   SelectionFunction selection;
   int f, z;
   
@@ -359,7 +361,8 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
-	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/);
+	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])*dwdz);
 	cout << "done.\n";
       }
   }
@@ -368,7 +371,8 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Using expected number density for f"<<f<<"z"<<z<<"... "; cout.flush();
-	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/;
+	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
 	cout << "done.\n";
       }
   }

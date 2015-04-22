@@ -121,7 +121,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
   simtype dist;                                         // For specifying simulation type.
-  char message[100];                                    // Writing outputs with sprintf.
+  char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
   int i, j, l, m, status, Nfields, Nls;
@@ -413,8 +413,12 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     // Check pos. defness, regularize if necessary, keep track of changes:
     gslm = gsl_matrix_alloc(Nfields, Nfields);
     gsl_matrix_memcpy(gslm, CovByl[l]);
-    RegularizeCov(CovByl[l], config);
+    status = RegularizeCov(CovByl[l], config);
     MaxChange[l] = MaxFracDiff(CovByl[l], gslm);
+    if (status==9) { 
+      sprintf(message, "ClProcess: RegularizeCov for l=%d reached REG_MAXSTEPS with Max. change of %g.",l,MaxChange[l]); 
+      warning(message);
+    }
     gsl_matrix_free(gslm);
     // Output regularized matrix if requested:
     if (config.reads("REG_COVL_PREFIX")!="0") {

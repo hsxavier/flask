@@ -11,7 +11,8 @@ FixKappa   = 0
 KappaShift = 1.0
 GalType    = 1
 KappaType  = 2
-shiftfile  = "/home/skems/pkphotoz/prog/corrlnfields/data/Hilbert2011_shifts.dat"
+#shiftfile  = "/home/skems/pkphotoz/prog/corrlnfields/data/Hilbert2011_shifts.dat"
+shiftfile  = "/home/skems/pkphotoz/prog/corrlnfields/data/k0_empty_LCDM_Om30.dat"
 
 # Load shift file:
 # ATTENTION!! Values not extrapolated: extremes are used!
@@ -129,7 +130,8 @@ def shift(f, z):
             if FixKappa==1:
                 return KappaShift
             if FixKappa==0:
-                return np.interp(z, fileZ, fileSh)
+                #return np.interp(z, fileZ, fileSh)
+                return HilbertShift(z)
 # Functions for output:
 def ftype(f):
     t = [GalType, KappaType]

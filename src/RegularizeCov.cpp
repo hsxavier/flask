@@ -143,10 +143,10 @@ void GetDirection(gsl_matrix *direction, double step, gsl_matrix *input) {
 
 
 // Turns a symmetric matrix A into a positive definite matrix with the least possible change: 
-void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
+int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
   int method, status, i, j, k;
   double NewEval;
-  const int none=0, frobenius=1, stepper=2;
+  const int none=0, frobenius=1, stepper=2, maxit=9;
   gsl_vector *eval;
   gsl_eigen_symm_workspace *workspace;
   gsl_matrix *testmatrix;
@@ -206,6 +206,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	      A->data[i*A->size1+j] += gsl_matrix_get(evec,i,k) * gsl_vector_get(eval,k) * gsl_matrix_get(evec,j,k);
 	  }
 	gsl_matrix_free(evec);
+	status = 0;
 	//std::cout << "done.\n";
       } // End of minimization of frobenius norm method.
       
@@ -214,6 +215,7 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
       //         with the minimum fractional change in the original matrix:
       if (method==stepper) {
 	double step;
+	int Nsteps, maxSteps;
 	bool posdef;
 	gsl_matrix *direction;
 
@@ -226,8 +228,10 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	testmatrix = gsl_matrix_alloc(A->size1, A->size2);
 
 	// While distorted matrix is not positive-definite, keep on distorting:
-	posdef = 0;
-	while (posdef==0) {
+	// Break if number of steps exceeds maximum.
+	posdef = 0; Nsteps = 0;
+	maxSteps = config.readi("REG_MAXSTEPS");
+	while (posdef==0 && Nsteps<maxSteps) {
 	  // Find direction with most change in eigenvalues:
 	  GetDirection(direction, step, A);
 	  // Distorts matrix 'A' in that direction and magnitude 'step':
@@ -244,15 +248,20 @@ void RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	  // Exit if that is true.
 	  if(i >= eval->size) posdef = 1;
 
+	  Nsteps++;
 	} // End of LOOP while eigenvalues are negative.
 	gsl_matrix_free(testmatrix);
 	gsl_eigen_symm_free(workspace);
 	gsl_matrix_free(direction);
 	//std::cout << "done.\n";
+	if (Nsteps>=maxSteps) status = maxit; 
+	else status = 0;
       } // End of minimum fractional difference method.
 
 
     } // End of "regularization is necessary" block.  
     gsl_vector_free(eval);
   } // End of "regularization YES" block.
+
+  return status;
 }
