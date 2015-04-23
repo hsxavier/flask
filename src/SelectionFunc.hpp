@@ -4,13 +4,15 @@
 #include "ParameterList.hpp"
 #include <healpix_map.h>
 
-// Parameter list interface:
+
+// SelectionFunction class interface:
 class SelectionFunction {
 private:
   Healpix_Map<double> *AngularSel;
   double **zSel, **zEntries, **fieldZrange;
   long *NzEntries;
-  int Separable, Nfields, *ftype, Npixels, N1, N2;
+  int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes;
+  int IndexGalTypes();
 public:
   SelectionFunction();
   void load(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20);
@@ -20,5 +22,9 @@ public:
   double operator()(int fz);
   ~SelectionFunction();
 };
+
+
+// Other functions, not members but related:
+void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20);
 
 #endif

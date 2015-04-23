@@ -114,7 +114,6 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   
   cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
-  
 
   /**************************************************************/
   /*** PART 2: Loads mixing matrices or compute them from Cls ***/
@@ -292,7 +291,7 @@ int main (int argc, char *argv[]) {
   }
   // If GAUSSIAN, only add mean:
   else {
-    cout << "GAUSSIAN realizations: adding the field mean values to the pixels... "; cout.flush();
+    cout << "GAUSSIAN realizations: adding mean values to pixels...    "; cout.flush();
     for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
     cout << "done.\n";
   }
@@ -347,7 +346,7 @@ int main (int argc, char *argv[]) {
   double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
   double dwdz;
   SelectionFunction selection;
-  int f, z;
+  int f, z, counter;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
@@ -361,9 +360,14 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
-	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
-	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])*dwdz);
+	counter = 0;
+	dwdz    = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	for(j=0; j<npixels; j++) {
+	  if (mapf[i][j] < -1.0) { counter++; mapf[i][j]=0.0; } // If density is negative, set it to zero.
+	  mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
+	}
 	cout << "done.\n";
+	cout << "Negative density fraction (that was set to 0): "<< ((double)counter)/npixels*100 <<"%\n";
       }
   }
   // Just generate the expected number density, if requested:

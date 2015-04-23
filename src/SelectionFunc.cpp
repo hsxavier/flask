@@ -16,16 +16,15 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   using namespace definitions;
   std::string tempstr, filename;
   char message[100];
-  int i, j, Nside=-1, scheme=-1, f, z;
+  int i, Nside=-1, scheme=-1, f, z, prevf;
   double *wrapper[2];
-  long Nrows, Ncolumns;
+  long Ncolumns;
 
   // Overall properties of the selection functions and fields:
   N1 = N10;     N2 = N20;
   Nfields     = N1*N2;
   Separable   = config.readi("SELEC_SEPARABLE");
   tempstr     = config.reads("SELEC_PREFIX");
-  //cout << "just read normal stuff - Nfields: "<<Nfields<<" Separable: "<<Separable<<endl;
   if (Separable==0 || Separable==1) {
     fieldZrange = matrix<double>(0, Nfields-1, 0, 1);
     ftype       = vector<int>   (0, Nfields-1);
@@ -34,16 +33,15 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
       fieldZrange[i][1] = fzrange[i][1];
       ftype[i] = ftype0[i];
     }
-    //cout << "Carregou types e ranges.\n";
   }
-
+  
   // Selection function f_i(z,theta,phi) not separable: need one map per redshift z per galaxy type i:  
   if(Separable==0) {
-    //cout << "não é separável!\n";
+
     // Read selection functions from FITS files:
     AngularSel = vector<Healpix_Map<double> >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	//cout << "vai carregar fits para galáxias - field: "<<i<<endl;
+	// Load FITS file:
 	n2fz(i, &f, &z, N1, N2);
 	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
 	filename.assign(message);
@@ -56,42 +54,74 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 	else if (AngularSel[i].Scheme() != scheme) 
 	  error("SelectionFunction.load: selection FITS files have different pixel orderings.");
       }
-    // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
-    if (config.reads("SELEC_TYPE")=="FRACTION") error ("SelectionFunction.load: SELEC_TYPE FRACTION not implemented yet.");
-    else if (config.reads("SELEC_TYPE")!="DENSITY") error ("SelectionFunction.load: unknown SELEC_TYPE option.");
   }
 
   // Selection function f_i(z,theta,phi) = f_i(z) * m(theta,phi):
   else if(Separable==1) {
-    //cout << "é separável!\n";
+
     // Load a fixed angular selection function:
     AngularSel = vector<Healpix_Map<double> >(0,0);
     read_Healpix_map_from_fits(tempstr, AngularSel[0]);
     Nside = AngularSel[0].Nside();
+
     // Prepare for radial selection functions:
-    zSel      = vector<double*>(0, Nfields-1);
-    zEntries  = vector<double*>(0, Nfields-1);
-    NzEntries = vector<long>   (0, Nfields-1);
+    zSelIndex = vector<int>    (0, Nfields-1);
+    NgalTypes = IndexGalTypes();
+    zSel      = vector<double*>(0, NgalTypes-1); 
+    zEntries  = vector<double*>(0, NgalTypes-1);
+    NzEntries = vector<long>   (0, NgalTypes-1);
     tempstr = config.reads("SELEC_Z_PREFIX");
     if (tempstr=="0") error ("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
-    // LOOP over radial selection files:
+
+    // LOOP over fields, look for type of tracer (galaxy):
+    prevf=-1;
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	//cout << "vai carregar z selection para field: "<<i<<endl;
 	n2fz(i, &f, &z, N1, N2);
-	sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
-	filename.assign(message);
-	// Load radial selection functions:
-	LoadVecs(wrapper, filename, &(NzEntries[i]), &Ncolumns,0,1); // This allocates memory for zEntries[i] and zSel[i].
-	zEntries[i] = wrapper[0]; zSel[i] = wrapper[1];
-	if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
-	//for (j=0; j<NzEntries[i]; j++) cout << zEntries[i][j] << " " << zSel[i][j] << endl; 
+	if (f < prevf) error("SelectionFunction.load: n2fz should be monotonic.");
+	else if (f > prevf) {
+	  // Found new type of galaxy: load radial selection function:
+	  sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
+	  filename.assign(message);
+	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0,1); // This allocates memory for zEntries[i] and zSel[i].
+	  zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
+	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
+	  prevf = f;
+	}
       }
-  }
-  
+  }  
+  // Unknown type of selection function:
   else error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
+  
+  // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
+  if (config.reads("SELEC_TYPE")=="FRACTION") error ("SelectionFunction.load: SELEC_TYPE FRACTION not implemented yet.");
+  else if (config.reads("SELEC_TYPE")!="DENSITY") error ("SelectionFunction.load: unknown SELEC_TYPE option.");
 
   // Final settings:
   Npixels = 12*Nside*Nside;
+}
+
+
+// Count types of galaxies and index their radial selection functions:
+// This function assumes zSelIndex is already allocated.
+int SelectionFunction::IndexGalTypes() {
+  using namespace definitions;
+  int i, f, z, prevf, NgalTypes=0;
+
+  prevf = -1;
+  // Loop over all fields
+  for (i=0; i<Nfields; i++) {
+    // If is a galaxy, check if it's a new one and set an index for its selection function:
+    if (ftype[i]==fgalaxies) {
+      n2fz(i, &f, &z, N1, N2);
+      if (f < prevf) error("SelectionFunction.CountGalTypes: n2fz should be monotonic.");
+      else if (f > prevf) { NgalTypes++; prevf = f; }
+      zSelIndex[i] = NgalTypes-1; 
+    }
+    // If not a galaxy, the index is -1:
+    else zSelIndex[i] = -1;
+  }
+
+  return NgalTypes;
 }
 
 
@@ -111,41 +141,31 @@ int SelectionFunction::Scheme() {
 SelectionFunction::~SelectionFunction() {
   using namespace definitions;
   int i;
-
-  //cout << "entrou no destructor\n";
+  
   // Deallocate non-separable selection functions:
   if(Separable==0) {
     free_vector(AngularSel, 0, Nfields-1);
-    //cout << "liberou angulares fits (separavel 0)\n";
   }
   // Deallocate separable selection functions:
   else if(Separable==1) {
-    //cout << "entrou separável 1\n";
     // Free angular part:
     free_vector(AngularSel, 0, 0);
-    //cout << "liberou angular\n";
     // Free radial selection functions:
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	//cout << "vai liberar radial do field: "<<i<<" Num de entradas: "<<NzEntries[i]<<endl;
-	free_vector(zEntries[i], 0, NzEntries[i]-1);
-	//cout << "passou um\n";
-	free_vector(zSel[i],     0, NzEntries[i]-1);
-	//cout << "liberou radial do field: "<<i<<endl;
-      }
+    for (i=0; i<NgalTypes; i++) {
+      free_vector(zEntries[i], 0, NzEntries[i]-1);
+      free_vector(zSel[i],     0, NzEntries[i]-1);
+    }
     // Free pointers to functions and counters:
-    //cout << "vai liberar ponteiros\n";
-    free_vector(zSel,      0, Nfields-1);
-    free_vector(zEntries,  0, Nfields-1);
-    free_vector(NzEntries, 0, Nfields-1);
-    //cout << "liberou ponteiros\n";
+    free_vector(zSelIndex, 0, Nfields-1);
+    free_vector(zSel,      0, NgalTypes-1);
+    free_vector(zEntries,  0, NgalTypes-1);
+    free_vector(NzEntries, 0, NgalTypes-1);
   }
   
   // General deallocation:
   if (Separable==0 || Separable==1) {
-    //cout << "vai liberar type e range\n";
     free_matrix(fieldZrange, 0, Nfields-1, 0, 1);
     free_vector(ftype, 0, Nfields-1);
-    //cout << "liberou type e range\n";
   }
 
   // If Separable not set, no memory was allocated: do nothing.
@@ -168,10 +188,20 @@ double SelectionFunction::operator()(int fz, int pix) {
     // For separable selection functions, multiply radial to angular part:
     else if (Separable==1) {
       // Get mean redshift of the field:
-      z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; 
-      zSelInterp = Interpol(zEntries[fz], NzEntries[fz], zSel[fz], z0);
+      z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0;
+      zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
       if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
       return zSelInterp * AngularSel[0][pix];
     }
   }
+}
+
+
+// Function to test for memory leackage by loading and unloading selection functions:
+void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20) {
+  SelectionFunction test;
+
+  // Load Selection function to allocate memory:
+  test.load(config, ftype0, fzrange, N10, N20);
+  // Destructor should be called when exiting this function.
 }
