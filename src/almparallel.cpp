@@ -24,8 +24,6 @@
 #include "SelectionFunc.hpp"
 #include "RegularizeCov.hpp"
 #include "ClProcessing.hpp"
-#include <omp.h>                // For OpenMP functions, not pragmas.
-#include <limits.h>             // For finding out max. value of INT variables.
 
 /********************/
 /*** Main Program ***/
@@ -40,7 +38,7 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, k, l, m, N1, N2, Nfields, mmax, *ftype, Nls, MaxThreads;
+  int status, i, j, l, m, N1, N2, Nfields, mmax, *ftype, Nls;
   double *means, *shifts, **zrange; 
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
@@ -52,18 +50,9 @@ int main (int argc, char *argv[]) {
 
   // Testing the code:
   cout << "Testing the code... "; cout.flush();
-  // Verify consistency between f&z <-> i conversions:
   test_fzij(3,11); test_fzij(13,4);
-  // Verify that max. value for INT is not smaller than expected:
-  sprintf(message, "%d", INT_MAX); filename.assign(message);
-  if (filename.size() < 10) 
-    warning("corrlnfields: INT_MAX is smaller than expected, may mess parallel random number generator.");
   cout << "done.\n";
-
-  MaxThreads = omp_get_max_threads();
-  cout << "Max. # of threads:  "<<MaxThreads<<endl;
-  if (MaxThreads>210) warning("corrlnfields: # of threads too big, may mess parallel random number generator.");
-
+  
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
   config.load(argv[1]);
@@ -125,7 +114,7 @@ int main (int argc, char *argv[]) {
   cout << "done.\n";
   
   cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
-
+  
 
   /**************************************************************/
   /*** PART 2: Loads mixing matrices or compute them from Cls ***/
@@ -198,24 +187,15 @@ int main (int argc, char *argv[]) {
   const double OneOverSqr2=0.7071067811865475;
   bool almout;
   double **gaus0, **gaus1;
-  gsl_rng **rnd;
+  gsl_rng *rnd;
   Alm<xcomplex <double> > *aflm;
-  int jmax, jmin, rndseed0;
+  int jmax, jmin;
     
-  // Set random number generators for each thread, plus one for serial stuff [0]:
-  // Method is meant to:
-  //                    (1) generate aux. alm's fast (in parallel);
-  //                    (2) give independent samples for different RNDSEED (parallel seeds may never overlap);
-  //                    (3) maintain reproducibility (seeds used in each part of computations must be the same for fixed # of threads).
-  rndseed0 = config.readi("RNDSEED");
-  rnd      = vector<gsl_rng*>(0,MaxThreads+1);
-  if (rndseed0 > 9999999) warning("corrlnfields: RNDSEED exceeds max. of 9999999.");
-  for (i=0; i<=MaxThreads; i++) {
-    rnd[i] = gsl_rng_alloc(gsl_rng_mt19937);
-    if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
-    gsl_rng_set(rnd[i], i*10000000+rndseed0);    // set random seed
-  }
-  
+  // Set random number generator:
+  rnd = gsl_rng_alloc(gsl_rng_mt19937);
+  if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
+  gsl_rng_set(rnd, config.readi("RNDSEED"));    // set random seed
+
   // Allocate memory for gaussian alm's:
   cout << "Allocating memory for auxiliary gaussian alm's...         "; cout.flush();
   aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
@@ -225,33 +205,33 @@ int main (int argc, char *argv[]) {
   }
   cout << "done.\n";
 
-  // LOOP over l's and m's together:
+  // LOOP over l's and m's:
   cout << "Generating auxiliary gaussian alm's...                    "; cout.flush(); 
   jmin = (lmin*(lmin+1))/2;
   jmax = (lmax*(lmax+3))/2;
-#pragma omp parallel for schedule(static) private(l, m, i, gaus0, gaus1, k)
+#pragma omp parallel for ordered schedule(dynamic) private(l, m, i, gaus0, gaus1)
   for(j=jmin; j<=jmax; j++) {
-    
-    // Find out which random generator to use:
-    k = omp_get_thread_num()+1;
-    
+    //for (l=lmin; l<=lmax; l++) for (m=0; m<=l; m++) {
+
     // Allocate temporary memory for random variables:
     gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
     gaus1 = matrix<double>(0,Nfields-1, 0,1); 
-    
+
     l = (int)((sqrt(8.0*j+1.0)-1.0)/2.0);
     m = j-(l*(l+1))/2;
     
     // Generate independent 1sigma complex random variables:
-    if (m==0) for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd[k], 1.0);
-	gaus0[i][1] = 0.0; 
-      }                                                      // m=0 are real, so real part gets all the variance.
-    else      for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
-	gaus0[i][1] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
-      }
-
+#pragma omp ordered
+    {
+      if (m==0) for (i=0; i<Nfields; i++) {
+	  gaus0[i][0] = gsl_ran_gaussian(rnd, 1.0);
+	  gaus0[i][1] = 0.0; 
+	}                                                      // m=0 are real, so real part gets all the variance.
+      else      for (i=0; i<Nfields; i++) {
+	  gaus0[i][0] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	  gaus0[i][1] = gsl_ran_gaussian(rnd, OneOverSqr2);
+	}
+    }
     // Generate correlated complex gaussian variables according to CovMatrix:
     CorrGauss(gaus1, CovByl[l], gaus0);
     
@@ -275,7 +255,6 @@ int main (int argc, char *argv[]) {
       return 0;
   }
 
-
   /******************************/
   /*** Part 5: Map generation ***/
   /******************************/
@@ -287,14 +266,14 @@ int main (int argc, char *argv[]) {
   char opt1[]="-bar", val1[]="1";
 
   // Allocate memory for pixel maps:
-  cout << "Allocating memory for pixel maps...                       "; cout.flush();
+  cout << "Allocating memory for pixel maps...              "; cout.flush();
   nside   = config.readi("NSIDE");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   cout << "done.\n";
   // Generate maps from alm's for each field:
-  cout << "Generating maps from alm's...                             "; cout.flush();
+  cout << "Generating maps from alm's...                    "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
   // Write auxiliary map to file as a table if requested:
@@ -309,7 +288,7 @@ int main (int argc, char *argv[]) {
 
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
-    cout << "LOGNORMAL realizations: exponentiating pixels...          "; cout.flush();
+    cout << "LOGNORMAL realizations: exponentiating pixels... "; cout.flush();
     for (i=0; i<Nfields; i++) {
       gmean = 0; gvar = 0;
       for (j=0; j<npixels; j++) gmean += mapf[i][j];
@@ -323,7 +302,7 @@ int main (int argc, char *argv[]) {
   }
   // If GAUSSIAN, only add mean:
   else {
-    cout << "GAUSSIAN realizations: adding mean values to pixels...    "; cout.flush();
+    cout << "GAUSSIAN realizations: adding the field mean values to the pixels... "; cout.flush();
     for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
     cout << "done.\n";
   }
@@ -374,11 +353,9 @@ int main (int argc, char *argv[]) {
 
   /*** Galaxy fields ***/
   
-  //double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
-  double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
-  double dwdz;
+  double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
   SelectionFunction selection;
-  int f, z, counter;
+  int f, z;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
@@ -392,14 +369,8 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
-	counter = 0;
-	dwdz    = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
-	for(j=0; j<npixels; j++) {
-	  if (mapf[i][j] < -1.0) { counter++; mapf[i][j]=0.0; } // If density is negative, set it to zero.
-	  mapf[i][j] = gsl_ran_poisson(rnd[0], selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
-	}
+	for(j=0; j<npixels; j++) mapf[i][j] = gsl_ran_poisson(rnd, selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/);
 	cout << "done.\n";
-	cout << "Negative density fraction (that was set to 0): "<< ((double)counter)/npixels*100 <<"%\n";
       }
   }
   // Just generate the expected number density, if requested:
@@ -407,8 +378,7 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Using expected number density for f"<<f<<"z"<<z<<"... "; cout.flush();
-	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
-	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
+	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])/**PixelSolidAngle*/;
 	cout << "done.\n";
       }
   }
@@ -491,7 +461,6 @@ int main (int argc, char *argv[]) {
   cout << "Counting galaxies... "; cout.flush();
   Ngalaxies=0; // Find out the total number of galaxies in all fields and redshifts:
   for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) for (j=0; j<npixels; j++) Ngalaxies+=(int)mapf[i][j];
-       
   cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
   
   ncols=10;
@@ -516,12 +485,12 @@ int main (int argc, char *argv[]) {
 	// Add entry of type GALAXY:
 	if (ftype[i]==fgalaxies) 
 	  for(m=0; m<(int)mapf[i][j]; m++) {
-	    ang = RandAngInPix(rnd[0], mapf[i], j);                               // Bookkeeping
-	    catalog[gali][0] = ang.theta;                                         catSet[gali][0]++;
-	    catalog[gali][1] = ang.phi;                                           catSet[gali][1]++;
-	    catalog[gali][2] = RandRedshift0(rnd[0], zrange[i][0], zrange[i][1]); catSet[gali][2]++;
-	    catalog[gali][3] = fiter; /* Field ID (galaxy type) */                catSet[gali][3]++;
-	    catalog[gali][9] = j;                                                 catSet[gali][9]++;
+	    ang = RandAngInPix(rnd, mapf[i], j);                               // Bookkeeping
+	    catalog[gali][0] = ang.theta;                                      catSet[gali][0]++;
+	    catalog[gali][1] = ang.phi;                                        catSet[gali][1]++;
+	    catalog[gali][2] = RandRedshift0(rnd, zrange[i][0], zrange[i][1]); catSet[gali][2]++;
+	    catalog[gali][3] = fiter; /* Field ID (galaxy type) */             catSet[gali][3]++;
+	    catalog[gali][9] = j;                                              catSet[gali][9]++;
 	    gali++;
 	  }
 	// Add entry of type SHEAR:
@@ -529,7 +498,7 @@ int main (int argc, char *argv[]) {
 	    catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
 	    catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
 	    catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
-	    GenEllip(rnd[0], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
+	    GenEllip(rnd, esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
 	    catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
 	  }
       } // End of LOOP over field IDs.
@@ -568,8 +537,7 @@ int main (int argc, char *argv[]) {
   free_vector(mapf,    0, Nfields-1 );
   free_vector(gamma1f, 0, Nfields-1 );
   free_vector(gamma2f, 0, Nfields-1 );
-  for (i=0; i<=MaxThreads; i++) gsl_rng_free(rnd[i]);
-  free_vector(rnd, 0,MaxThreads+1);
+  gsl_rng_free(rnd);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
   return 0;
