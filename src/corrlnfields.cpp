@@ -197,7 +197,7 @@ int main (int argc, char *argv[]) {
   /*************************************************/
   const double OneOverSqr2=0.7071067811865475;
   bool almout;
-  double **gaus0, **gaus1;
+  double ***gaus0, ***gaus1;
   gsl_rng **rnd;
   Alm<xcomplex <double> > *aflm;
   int jmax, jmin, rndseed0;
@@ -218,7 +218,9 @@ int main (int argc, char *argv[]) {
   
   // Allocate memory for gaussian alm's:
   cout << "Allocating memory for auxiliary gaussian alm's...         "; cout.flush();
-  aflm = vector<Alm<xcomplex <double> > >(0,Nfields-1); // Allocate Healpix Alm objects and set their size and initial value.
+  gaus0 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
+  gaus1 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1);  
+  aflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
   for (i=0; i<Nfields; i++) {
     aflm[i].Set(lmax,lmax);
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
@@ -229,42 +231,36 @@ int main (int argc, char *argv[]) {
   cout << "Generating auxiliary gaussian alm's...                    "; cout.flush(); 
   jmin = (lmin*(lmin+1))/2;
   jmax = (lmax*(lmax+3))/2;
-#pragma omp parallel for schedule(static) private(l, m, i, gaus0, gaus1, k)
+#pragma omp parallel for schedule(static) private(l, m, i, k)
   for(j=jmin; j<=jmax; j++) {
     
     // Find out which random generator to use:
     k = omp_get_thread_num()+1;
-    
-    // Allocate temporary memory for random variables:
-    gaus0 = matrix<double>(0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
-    gaus1 = matrix<double>(0,Nfields-1, 0,1); 
-    
+    // Find out which multipole to compute:    
     l = (int)((sqrt(8.0*j+1.0)-1.0)/2.0);
     m = j-(l*(l+1))/2;
     
     // Generate independent 1sigma complex random variables:
     if (m==0) for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd[k], 1.0);
-	gaus0[i][1] = 0.0; 
+	gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], 1.0);
+	gaus0[k][i][1] = 0.0;
       }                                                      // m=0 are real, so real part gets all the variance.
     else      for (i=0; i<Nfields; i++) {
-	gaus0[i][0] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
-	gaus0[i][1] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
+	gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
+	gaus0[k][i][1] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
       }
-
+    
     // Generate correlated complex gaussian variables according to CovMatrix:
-    CorrGauss(gaus1, CovByl[l], gaus0);
-    
+    CorrGauss(gaus1[k], CovByl[l], gaus0[k]);
+  
     // Save alm to tensor:
-    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[i][0], gaus1[i][1]);   
-    
-    // Free temporary memory:
-    free_matrix(gaus0,0,Nfields-1,0,1);
-    free_matrix(gaus1,0,Nfields-1,0,1);
-    
+    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);   
+       
   } // End of LOOP over l's and m's.
   cout << "done.\n";
   free_GSLMatrixArray(CovByl, Nls);
+  free_tensor3(gaus0, 1,MaxThreads, 0,Nfields-1, 0,1);
+  free_tensor3(gaus1, 1,MaxThreads, 0,Nfields-1, 0,1);
   
   // If requested, write alm's to file:
   GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
@@ -378,7 +374,7 @@ int main (int argc, char *argv[]) {
   double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
   double dwdz;
   SelectionFunction selection;
-  int f, z, counter;
+  int f, z, *counter;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   cout << "Reading selection functions from files... "; cout.flush();
@@ -389,19 +385,27 @@ int main (int argc, char *argv[]) {
 
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
+    counter = vector<int>(1, MaxThreads);
+    // LOOP over fields:
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
-	counter = 0;
+	for(k=1; k<=MaxThreads; k++) counter[k]=0;
 	dwdz    = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	// LOOP over pixels of field 'i':
+#pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
-	  if (mapf[i][j] < -1.0) { counter++; mapf[i][j]=0.0; } // If density is negative, set it to zero.
-	  mapf[i][j] = gsl_ran_poisson(rnd[0], selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
+	  k = omp_get_thread_num()+1;
+	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.	  
+	  mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
 	}
 	cout << "done.\n";
-	cout << "Negative density fraction (that was set to 0): "<< ((double)counter)/npixels*100 <<"%\n";
+	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
+	cout << "Negative density fraction (that was set to 0): "<<std::setprecision(2)<< ((double)j)/npixels*100 <<"%\n";
       }
+    free_vector(counter, 1, MaxThreads);
   }
+  
   // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
@@ -437,7 +441,7 @@ int main (int argc, char *argv[]) {
       gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
       for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0); // E-modes will be set below.
       cout << "done.\n";  
- 
+      
       // Get convergence alm's from convergence map:
       cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
       map2alm(mapf[i], Eflm, weight); // Get klm.
