@@ -82,13 +82,6 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
-  /*double *wrapper[2], x1, x2;
-  LoadVecs(wrapper, "test.dat", &long1, &long2); // This allocates memory for zEntries[i] and zSel[i].
-  means = wrapper[0]; shifts = wrapper[1];
-  scanf("%lf %lf", &x1, &x2);
-  MaxInterp(x1, x2, 0.0001, means, long1, shifts);
-  return 0;
-  */
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -532,7 +525,8 @@ int main (int argc, char *argv[]) {
 	    ang = RandAngInPix(rnd[0], mapf[i], j);                               // Bookkeeping
 	    catalog[gali][0] = ang.theta;                                         catSet[gali][0]++;
 	    catalog[gali][1] = ang.phi;                                           catSet[gali][1]++;
-	    catalog[gali][2] = RandRedshift0(rnd[0], zrange[i][0], zrange[i][1]); catSet[gali][2]++;
+	    //catalog[gali][2] = RandRedshift0(rnd[0], zrange[i][0], zrange[i][1]); catSet[gali][2]++;
+	    catalog[gali][2] = selection.RandRedshift(rnd[0],i,j);                catSet[gali][2]++;
 	    catalog[gali][3] = fiter; /* Field ID (galaxy type) */                catSet[gali][3]++;
 	    catalog[gali][9] = j;                                                 catSet[gali][9]++;
 	    gali++;

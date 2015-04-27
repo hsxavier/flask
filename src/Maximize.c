@@ -141,12 +141,8 @@ double MaxInterp(double xmin, double xmax, double tol, double *Xarray,int NX,dou
   double ax, bx, cx, fa, fb, fc, maximum, xmaximum;
   
   ax = xmin; bx = xmax;
-  printf ("will bracket\n");
   mnbrakInterp(&ax, &bx, &cx, &fa, &fb, &fc, Xarray, NX, Yarray);
-  printf("bracket is a-b-c:  %g - %g - %g\n", ax, bx, cx);
-  printf ("will golden\n");
   maximum = goldenInterp(ax, bx, cx, tol, &xmaximum, Xarray, NX, Yarray, xmin, xmax);
-  printf("x = %g, f = %g\n", xmaximum, maximum);
   return -1.0*maximum;
 
 }

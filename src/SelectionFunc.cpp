@@ -3,7 +3,7 @@
 #include "corrlnfields_aux.hpp" // For definitions namespace and n2fz function.
 #include <healpix_map_fitsio.h>
 #include "interpol.h"
-
+#include "Maximize.h"
 
 //using std::cout; using std::endl;
 
@@ -24,6 +24,7 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   // Overall properties of the selection functions and fields:
   N1 = N10;     N2 = N20;
   Nfields     = N1*N2;
+  zSearchTol  = config.readd("ZSEARCH_TOL");
   Separable   = config.readi("SELEC_SEPARABLE");
   tempstr     = config.reads("SELEC_PREFIX");
   if (Separable==0 || Separable==1) {
@@ -137,20 +138,32 @@ int SelectionFunction::Scheme() {
   return (int)(AngularSel[0].Scheme());
 }
 
-/*
-// Returns random redshift for a field-redshift-bin 'fz' and pixel 'pix' according to the selection function:
-double SelectionFunction::RandRedshift(gsl_rng *r, int fz, int pix) {
-  
-  if (Separable==0) {}
 
-  else if (Separable==1) {
-    z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0;
-    zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
-    
+// Returns random redshift for a field-redshift-bin 'fz' and pixel 'pix' according to the selection function:
+// 'zSearchTol' is the tolerance for z position when looking for the Selection function maximum.
+double SelectionFunction::RandRedshift(gsl_rng *r, int fz, int pix) {
+  double ymax, yguess, zguess, zBinSize;
+
+  zBinSize = fieldZrange[fz][1] - fieldZrange[fz][0];
+
+  if (Separable==0) { // We should interpolate between selection function in the same pixel.
+    error("SelectionFunction.RandRedshift: not yet implemented for non-separable selection functions.");
   }
-  return 0
+  
+  else if (Separable==1) {
+    
+    ymax = MaxInterp(fieldZrange[fz][0], fieldZrange[fz][1], zSearchTol, 
+		     zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]]);
+    do {
+    zguess = fieldZrange[fz][0] + gsl_rng_uniform(r)*zBinSize;
+    yguess = gsl_rng_uniform(r)*ymax;
+    } while (yguess > Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], zguess));
+
+  }
+
+  return zguess;
 }
-*/
+
 
 // Destructor:
 SelectionFunction::~SelectionFunction() {

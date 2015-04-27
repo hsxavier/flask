@@ -9,7 +9,7 @@
 class SelectionFunction {
 private:
   Healpix_Map<double> *AngularSel;
-  double **zSel, **zEntries, **fieldZrange;
+  double **zSel, **zEntries, **fieldZrange, zSearchTol;
   long *NzEntries;
   int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes;
   int IndexGalTypes();
@@ -27,5 +27,4 @@ public:
 
 // Other functions, not members but related:
 void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20);
-
 #endif
