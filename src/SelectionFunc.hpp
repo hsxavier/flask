@@ -3,7 +3,7 @@
 
 #include "ParameterList.hpp"
 #include <healpix_map.h>
-
+#include <gsl/gsl_randist.h>    // Random numbers.
 
 // SelectionFunction class interface:
 class SelectionFunction {
@@ -20,6 +20,7 @@ public:
   int Scheme();
   double operator()(int fz, int pix);
   double operator()(int fz);
+  double RandRedshift(gsl_rng *r, int fz, int pix);
   ~SelectionFunction();
 };
 

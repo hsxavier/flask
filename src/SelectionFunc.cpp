@@ -4,6 +4,7 @@
 #include <healpix_map_fitsio.h>
 #include "interpol.h"
 
+
 //using std::cout; using std::endl;
 
 // Default constructor:
@@ -136,6 +137,20 @@ int SelectionFunction::Scheme() {
   return (int)(AngularSel[0].Scheme());
 }
 
+/*
+// Returns random redshift for a field-redshift-bin 'fz' and pixel 'pix' according to the selection function:
+double SelectionFunction::RandRedshift(gsl_rng *r, int fz, int pix) {
+  
+  if (Separable==0) {}
+
+  else if (Separable==1) {
+    z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0;
+    zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
+    
+  }
+  return 0
+}
+*/
 
 // Destructor:
 SelectionFunction::~SelectionFunction() {

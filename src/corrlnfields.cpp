@@ -26,6 +26,8 @@
 #include "ClProcessing.hpp"
 #include <omp.h>                // For OpenMP functions, not pragmas.
 #include <limits.h>             // For finding out max. value of INT variables.
+#include "Maximize.h" // For testing.
+
 
 /********************/
 /*** Main Program ***/
@@ -80,6 +82,13 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
+  /*double *wrapper[2], x1, x2;
+  LoadVecs(wrapper, "test.dat", &long1, &long2); // This allocates memory for zEntries[i] and zSel[i].
+  means = wrapper[0]; shifts = wrapper[1];
+  scanf("%lf %lf", &x1, &x2);
+  MaxInterp(x1, x2, 0.0001, means, long1, shifts);
+  return 0;
+  */
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/

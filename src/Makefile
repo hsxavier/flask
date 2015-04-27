@@ -21,12 +21,12 @@ $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Util
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o
 	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o -o $@ $(LIBS)
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o -o $@ $(LIBS)
 
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
@@ -73,6 +73,9 @@ $(OBJ)/Utilities.o: $(SRC)/Utilities.cpp $(SRC)/Utilities.hpp
 
 $(OBJ)/interpol.o: $(SRC)/interpol.c $(SRC)/interpol.h
 	$(COMP) -c $(SRC)/interpol.c -o $@
+
+$(OBJ)/Maximize.o: $(SRC)/Maximize.c $(SRC)/Maximize.h $(SRC)/interpol.h
+	$(COMP) -c $(SRC)/Maximize.c -o $@
 
 $(OBJ)/s2kit10_naive.o: $(SRC)/s2kit10_naive.cpp $(SRC)/s2kit10_naive.hpp $(SRC)/interpol.h $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@ $(CXXOMP)
