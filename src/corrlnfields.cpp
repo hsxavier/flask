@@ -82,7 +82,14 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
+  /*
+  double **cat, value;
+  int **sety;
+  filename.assign("bla");
+  j = CatalogFill(cat, i, filename, value, sety, config.reads("CATALOG_COLS")); 
+  printf("size: %d\n", j);
   return 0;
+  */
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -490,10 +497,12 @@ int main (int argc, char *argv[]) {
   /*** Part 6: Generate catalog   ***/
   /**********************************/
 
-  double **catalog, esig;
+  double **catalog, esig, ellip1, ellip2;
   int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet, ncols;
   pointing ang;
   int ziter, fiter;
+  std::string CatalogHeader;
+  int theta_pos, phi_pos, z_pos, galtype_pos, kappa_pos, gamma1_pos, gamma2_pos, ellip1_pos, ellip2_pos, pixel_pos;
 
   esig = config.readd("ELLIP_SIGMA");
   cout << "Counting galaxies... "; cout.flush();
@@ -502,11 +511,25 @@ int main (int argc, char *argv[]) {
        
   cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
   
-  ncols=10;
-  catalog = matrix<double>(0,Ngalaxies-1,0,ncols-1);
-  catSet  = matrix<int>(0,Ngalaxies-1,0,ncols-1);
+  CatalogHeader = config.reads("CATALOG_COLS");
+  ncols         = CountWords(CatalogHeader);
+  catalog       = matrix<double>(0,Ngalaxies-1,0,ncols-1);
+  catSet        = matrix<int>(0,Ngalaxies-1,0,ncols-1);
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
   
+  // Find position of entries according to catalog header:
+  theta_pos   = GetSubstrPos("theta"  , CatalogHeader); 
+  phi_pos     = GetSubstrPos("phi"    , CatalogHeader);  
+  z_pos       = GetSubstrPos("z"      , CatalogHeader);  
+  galtype_pos = GetSubstrPos("galtype", CatalogHeader);  
+  kappa_pos   = GetSubstrPos("kappa"  , CatalogHeader);  
+  gamma1_pos  = GetSubstrPos("gamma1" , CatalogHeader);  
+  gamma2_pos  = GetSubstrPos("gamma2" , CatalogHeader);  
+  ellip1_pos  = GetSubstrPos("ellip1" , CatalogHeader);  
+  ellip2_pos  = GetSubstrPos("ellip2" , CatalogHeader);  
+  pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
+
+
   // LOOP over 3D bins (pixels and redshifts):
   cout << "Generating catalog... "; cout.flush();
   gali = 0; PartialNgal = 0;
@@ -524,22 +547,22 @@ int main (int argc, char *argv[]) {
 	// Add entry of type GALAXY:
 	if (ftype[i]==fgalaxies) 
 	  for(m=0; m<(int)mapf[i][j]; m++) {
-	    ang = RandAngInPix(rnd[0], mapf[i], j);                               // Bookkeeping
-	    catalog[gali][0] = ang.theta;                                         catSet[gali][0]++;
-	    catalog[gali][1] = ang.phi;                                           catSet[gali][1]++;
-	    //catalog[gali][2] = RandRedshift0(rnd[0], zrange[i][0], zrange[i][1]); catSet[gali][2]++;
-	    catalog[gali][2] = selection.RandRedshift(rnd[0],i,j);                catSet[gali][2]++;
-	    catalog[gali][3] = fiter; /* Field ID (galaxy type) */                catSet[gali][3]++;
-	    catalog[gali][9] = j;                                                 catSet[gali][9]++;
+	    ang = RandAngInPix(rnd[0], mapf[i], j);
+	    CatalogFill(catalog, gali, theta_pos  , ang.theta                         , catSet);
+	    CatalogFill(catalog, gali, phi_pos    , ang.phi                           , catSet);
+	    CatalogFill(catalog, gali, z_pos      , selection.RandRedshift(rnd[0],i,j), catSet);
+	    CatalogFill(catalog, gali, galtype_pos, fiter                             , catSet);
+	    CatalogFill(catalog, gali, pixel_pos  , j                                 , catSet);
 	    gali++;
 	  }
 	// Add entry of type SHEAR:
 	else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {
-	    catalog[PartialNgal+m][4] = mapf[i][j];    catSet[PartialNgal+m][4]++;
-	    catalog[PartialNgal+m][5] = gamma1f[i][j]; catSet[PartialNgal+m][5]++;
-	    catalog[PartialNgal+m][6] = gamma2f[i][j]; catSet[PartialNgal+m][6]++;
-	    GenEllip(rnd[0], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &(catalog[PartialNgal+m][7]), &(catalog[PartialNgal+m][8]));
-	    catSet[PartialNgal+m][7]++; catSet[PartialNgal+m][8]++;
+	    GenEllip(rnd[0], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
+	    CatalogFill(catalog, PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
+	    CatalogFill(catalog, PartialNgal+m, gamma1_pos, gamma1f[i][j], catSet);
+	    CatalogFill(catalog, PartialNgal+m, gamma2_pos, gamma2f[i][j], catSet);
+	    CatalogFill(catalog, PartialNgal+m, ellip1_pos, ellip1       , catSet);
+	    CatalogFill(catalog, PartialNgal+m, ellip2_pos, ellip2       , catSet);
 	  }
       } // End of LOOP over field IDs.
  
@@ -562,7 +585,7 @@ int main (int argc, char *argv[]) {
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
     else {
-      outfile << "# theta, phi, z, fID, convergence, gamma1, gamma2, ellip1, ellip2, pixelID\n";
+      outfile << "# "<< CatalogHeader <<endl;
       PrintTable(catalog, Ngalaxies, ncols, &outfile); 
       outfile.close();
       cout << ">> Catalog written to " << filename << endl;

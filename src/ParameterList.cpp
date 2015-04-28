@@ -318,6 +318,8 @@ void ParameterList::load (const char *filename) {
 	  break;
 	case ph:
 	  parfile.getline(list[index].value.cvec, STRSIZE);
+	  if (strlen(list[index].value.cvec) == STRSIZE-1) 
+	    warning("ParameterList::load: "+par_name[index]+" too big, increase STRSIZE in code.");
 	  break;
 	default:
 	  error("ParameterList::load: not prepared for type "+typelabel[par_type[index]]);

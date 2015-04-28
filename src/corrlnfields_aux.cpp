@@ -6,6 +6,38 @@
 #include <xcomplex.h>
 
 
+// Count words in phrase:
+int CountWords(const std::string header) {
+  std::string entry;
+  std::stringstream ss(header);
+  int column=0;
+
+  while (ss >> entry) column++;
+  return column;
+}
+
+
+// Return position of word in phrase, return -1 if word is not found:
+int GetSubstrPos(const std::string field, const std::string header) {
+  std::string entry;
+  std::stringstream ss(header);
+  int column=0;
+
+  while (ss >> entry && entry!=field) column++;
+  if (entry!=field) return -1;
+  return column;
+}
+
+
+// Unless column=-1, write value to catalog[row][column] and update catSet:
+void CatalogFill(double **catalog, int row, int column, double value, int **catSet) {  
+  if(column==-1) return;
+  
+  // Write to catalog:            v Count number of updates in cell (for bookkeeping).
+  catalog[row][column] = value;   catSet[row][column]++;
+}
+
+
 // Generates galaxy ellipticity from shear and convergence, including random source ellipticity:
 void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2) {
   xcomplex<double> g, epsSrc, eps, k, one, gamma;
@@ -20,7 +52,7 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
   if (sigma>0.0) {
     epsSrc.re = gsl_ran_gaussian(rnd, sigma);
     epsSrc.im = gsl_ran_gaussian(rnd, sigma);
-  }
+   }
   else {
     epsSrc.re = 0.0;
     epsSrc.im = 0.0;
