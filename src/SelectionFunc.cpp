@@ -226,6 +226,27 @@ SelectionFunction::~SelectionFunction() {
 }
 
 
+int SelectionFunction::MaskBit(int pix) {
+  int bit=0;
+  //         ISSUE            BITS
+  // Removed by selection:     1
+  // Removed by star mask:     2
+  // 0 < Selection < 1:        4
+  // 0 < Star mask < 1:        8
+
+  if        (StarMask[pix]==0.0)      bit+=2;
+  else if   (StarMask[pix]< 1.0)      bit+=8;
+
+  if (Separable==1) {
+    if      (AngularSel[0][pix]==0.0) bit+=1;
+    else if (AngularSel[0][pix]< 1.0) bit+=4;
+  } 
+  else warning("SelectionFunction.MaskBit: not implemented for non-separable selection functions.");
+  
+  return bit;
+}
+
+
 // Returns the selection function for the field (or redshift) fz and the angular position pix:
 double SelectionFunction::operator()(int fz, int pix) {
   using namespace definitions;

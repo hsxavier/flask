@@ -82,14 +82,6 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
-  /*
-  double **cat, value;
-  int **sety;
-  filename.assign("bla");
-  j = CatalogFill(cat, i, filename, value, sety, config.reads("CATALOG_COLS")); 
-  printf("size: %d\n", j);
-  return 0;
-  */
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -502,7 +494,8 @@ int main (int argc, char *argv[]) {
   pointing ang;
   int ziter, fiter;
   std::string CatalogHeader;
-  int theta_pos, phi_pos, z_pos, galtype_pos, kappa_pos, gamma1_pos, gamma2_pos, ellip1_pos, ellip2_pos, pixel_pos;
+  int theta_pos, phi_pos, z_pos, galtype_pos, kappa_pos, gamma1_pos, gamma2_pos, 
+    ellip1_pos, ellip2_pos, pixel_pos, maskbit_pos;
 
   esig = config.readd("ELLIP_SIGMA");
   cout << "Counting galaxies... "; cout.flush();
@@ -528,7 +521,7 @@ int main (int argc, char *argv[]) {
   ellip1_pos  = GetSubstrPos("ellip1" , CatalogHeader);  
   ellip2_pos  = GetSubstrPos("ellip2" , CatalogHeader);  
   pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
-
+  maskbit_pos = GetSubstrPos("maskbit", CatalogHeader);
 
   // LOOP over 3D bins (pixels and redshifts):
   cout << "Generating catalog... "; cout.flush();
@@ -553,6 +546,7 @@ int main (int argc, char *argv[]) {
 	    CatalogFill(catalog, gali, z_pos      , selection.RandRedshift(rnd[0],i,j), catSet);
 	    CatalogFill(catalog, gali, galtype_pos, fiter                             , catSet);
 	    CatalogFill(catalog, gali, pixel_pos  , j                                 , catSet);
+	    CatalogFill(catalog, gali, maskbit_pos, selection.MaskBit(j)              , catSet);
 	    gali++;
 	  }
 	// Add entry of type SHEAR:

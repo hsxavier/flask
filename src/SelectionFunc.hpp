@@ -22,6 +22,7 @@ public:
   double operator()(int fz, int pix);
   double operator()(int fz);
   double RandRedshift(gsl_rng *r, int fz, int pix);
+  int MaskBit(int pix);
   ~SelectionFunction();
 };
 
