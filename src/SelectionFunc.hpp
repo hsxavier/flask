@@ -9,9 +9,10 @@
 class SelectionFunction {
 private:
   Healpix_Map<double> *AngularSel;
-  double **zSel, **zEntries, **fieldZrange, zSearchTol;
+  Healpix_Map<double>  StarMask;
+  double **zSel, **zEntries, **fieldZrange, zSearchTol, Scale;
   long *NzEntries;
-  int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes;
+  int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes, SelectionType;
   int IndexGalTypes();
 public:
   SelectionFunction();

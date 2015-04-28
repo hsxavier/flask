@@ -1,5 +1,4 @@
 # Variable definitions:
-PROGRAM_NAME = corrlnfields
 COMP = g++
 BIN = ../bin
 OBJ = ../obj
@@ -11,13 +10,18 @@ LDHEAL = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # General instructions:
-all: $(BIN)/$(PROGRAM_NAME)
+all: $(BIN)/corrlnfields $(BIN)/GenStarMask
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 
-$(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+# Executables:
+
+$(BIN)/GenStarMask: $(OBJ)/GenStarMask.o
+	$(COMP) $(LDHEAL) $(OBJ)/GenStarMask.o -o $@ $(LIBS)
+
+$(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
@@ -28,6 +32,10 @@ $(BIN)/$(PROGRAM_NAME): $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Util
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o -o $@ $(LIBS)
 
+# Objects:
+
+$(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/GenStarMask.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \

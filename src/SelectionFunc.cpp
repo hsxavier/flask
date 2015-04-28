@@ -15,7 +15,7 @@ SelectionFunction::SelectionFunction () {
 // Load selection functions:
 void SelectionFunction::load(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20) {
   using namespace definitions;
-  std::string tempstr, filename;
+  std::string tempstr, filename, starfile;
   char message[100];
   int i, Nside=-1, scheme=-1, f, z, prevf;
   double *wrapper[2];
@@ -23,20 +23,29 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 
   // Overall properties of the selection functions and fields:
   N1 = N10;     N2 = N20;
-  Nfields     = N1*N2;
-  zSearchTol  = config.readd("ZSEARCH_TOL");
-  Separable   = config.readi("SELEC_SEPARABLE");
-  tempstr     = config.reads("SELEC_PREFIX");
-  if (Separable==0 || Separable==1) {
-    fieldZrange = matrix<double>(0, Nfields-1, 0, 1);
-    ftype       = vector<int>   (0, Nfields-1);
-    for (i=0; i<Nfields; i++) {
-      fieldZrange[i][0] = fzrange[i][0];
-      fieldZrange[i][1] = fzrange[i][1];
-      ftype[i] = ftype0[i];
-    }
+  Nfields       = N1*N2;
+  zSearchTol    = config.readd("ZSEARCH_TOL");
+  SelectionType = config.readi("SELEC_TYPE");
+  Separable     = config.readi("SELEC_SEPARABLE");
+  tempstr       = config.reads("SELEC_PREFIX");
+  starfile      = config.reads("STARMASK");
+  Scale         = config.readd("SELEC_SCALE");
+  fieldZrange   = matrix<double>(0, Nfields-1, 0, 1);
+  ftype         = vector<int>   (0, Nfields-1);
+  for (i=0; i<Nfields; i++) {
+    fieldZrange[i][0] = fzrange[i][0];
+    fieldZrange[i][1] = fzrange[i][1];
+    ftype[i] = ftype0[i];
   }
   
+  // Barriers against unimplemented selection function kinds:
+  if (SelectionType==1 || SelectionType==3) error("SelectionFunction.load: SELEC_TYPE fraction of gals not implemented yet.");
+  if (SelectionType >3 || SelectionType <0) error("SelectionFunction.load: unknown selection function type.");
+  if (Separable     >1 || Separable     <0) error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
+  if (SelectionType==2 && Separable    ==0) error("SelectionFunction.load: bookkeeping for non-separable sel. func. not implemented yet.");
+
+  
+
   // Selection function f_i(z,theta,phi) not separable: need one map per redshift z per galaxy type i:  
   if(Separable==0) {
 
@@ -64,8 +73,9 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
     // Load a fixed angular selection function:
     AngularSel = vector<Healpix_Map<double> >(0,0);
     read_Healpix_map_from_fits(tempstr, AngularSel[0]);
-    Nside = AngularSel[0].Nside();
-
+    Nside  = AngularSel[0].Nside();
+    scheme = AngularSel[0].Scheme(); 
+    
     // Prepare for radial selection functions:
     zSelIndex = vector<int>    (0, Nfields-1);
     NgalTypes = IndexGalTypes();
@@ -94,9 +104,25 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   // Unknown type of selection function:
   else error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
   
-  // If SELEC_TYPE==FRACTION, multiply it by the mean projected density:
-  if (config.reads("SELEC_TYPE")=="FRACTION") error ("SelectionFunction.load: SELEC_TYPE FRACTION not implemented yet.");
-  else if (config.reads("SELEC_TYPE")!="DENSITY") error ("SelectionFunction.load: unknown SELEC_TYPE option.");
+
+  // If SELEC_TYPE==fraction of galaxies, multiply it by the mean projected density:
+  // Not implemented yet.
+  //if (SelectionType==1 || SelectionType==3) {} 
+
+
+  // Load mask over stars:
+  if (starfile!="0") {
+    read_Healpix_map_from_fits(starfile, StarMask);
+    if (StarMask.Nside() != Nside) 
+      error("SelectionFunction.load: STARMASK number of pixels is different from the selection function.");
+    if (StarMask.Scheme() != scheme) 
+      error("SelectionFunction.load: STARMASK and selection function have different pixel orderings.");    
+  }
+  // If there is none, create clean mask:
+  else {
+    StarMask.SetNside(Nside, Healpix_Ordering_Scheme(scheme));
+    StarMask.fill(1);
+  }    
 
   // Final settings:
   Npixels = 12*Nside*Nside;
@@ -203,24 +229,35 @@ SelectionFunction::~SelectionFunction() {
 // Returns the selection function for the field (or redshift) fz and the angular position pix:
 double SelectionFunction::operator()(int fz, int pix) {
   using namespace definitions;
-  double z0, zSelInterp;
+  double z0, zSelInterp, StarValue, AngularValue;
+
   // Error checks:
   if (ftype[fz]!=fgalaxies) error("SelectionFunction.operator(): this is only set for fields of type galaxies.");
   else if (pix >= Npixels || pix < 0) error("SelectionFunction.operator(): requested pixel is out of range.");
   else if (fz  >= Nfields || fz  < 0) error("SelectionFunction.operator(): unknown requested field.");
   else if (Separable!=0 && Separable!=1) error("SelectionFunction.operator(): this object was not initialized (use load first).");
-  // Normal execution:
+  
+  // If Selection if only used for bookkeeping, do not enforce it here:
+  if (SelectionType==2 || SelectionType==3) {
+    StarValue    = 1;
+    AngularValue = 1;                  // << Note below that non-separables are not affected by this.
+  }
   else {
-    // For non-separable selection functions, return the Healpix map value:
-    if (Separable==0) return AngularSel[fz][pix];
-    // For separable selection functions, multiply radial to angular part:
-    else if (Separable==1) {
-      // Get mean redshift of the field:
-      z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0;
-      zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
-      if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
-      return zSelInterp * AngularSel[0][pix];
-    }
+    StarValue    = StarMask[pix];
+    AngularValue = AngularSel[0][pix];
+  }
+  
+  // Normal execution:
+  
+  // For non-separable selection functions, return the Healpix map value:
+  if (Separable==0) return Scale * StarValue * AngularSel[fz][pix];
+  
+  // For separable selection functions, multiply radial to angular part:
+  else if (Separable==1) {
+    z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; // Get mean redshift of the field.
+    zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
+    if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
+    return Scale * zSelInterp * StarValue * AngularValue;
   }
 }
 

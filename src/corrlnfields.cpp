@@ -414,6 +414,7 @@ int main (int argc, char *argv[]) {
 	n2fz(i, &f, &z, N1, N2);
 	cout << "Using expected number density for f"<<f<<"z"<<z<<"... "; cout.flush();
 	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+#pragma omp parallel for
 	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
 	cout << "done.\n";
       }
