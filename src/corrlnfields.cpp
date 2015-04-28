@@ -82,6 +82,7 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
+  return 0;
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/

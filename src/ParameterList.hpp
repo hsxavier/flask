@@ -17,16 +17,18 @@ a 'parameter list file'. These parameters must be listed in the
 #ifndef PARLIST_H    // include guard.
 #define PARLIST_H 1
 
+#define STRSIZE 60
+
 #include <string>
 #include <iostream>
 
 namespace ParDef {
   using std::string;
-  enum datatype {i1, i2, i3, i4, i5, d1, d2, d3, d4, d5, c, s};
-  const string typelabel[12] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s"};
+  enum datatype {i1, i2, i3, i4, i5, d1, d2, d3, d4, d5, c, s, ph};
+  const string typelabel[13] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s", "ph"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=49;
+  const int     npars=50;
   const string  par_name[npars] = {"RNDSEED", "DIST", "LMAX", "CL_PREFIX", "FLIST_OUT", "AUXALM_OUT", 
 				   "SUPPRESS_L", "SUP_INDEX", "XIOUT_PREFIX","FIELDS_INFO", 
 				   "GXIOUT_PREFIX", "GCLOUT_PREFIX", "CHOLESKY_PREFIX","LMIN", "NSIDE", 
@@ -37,15 +39,15 @@ namespace ParDef {
 				   "SHEAR_MAP_OUT", "ELLIP_SIGMA", "EXIT_AT", "COVL_PREFIX", "EXTRAP_DIPOLE",
 				   "REGULARIZE_METHOD", "NEW_EVAL", "REGULARIZE_STEP", "REG_COVL_PREFIX", 
 				   "REG_CL_PREFIX", "CHOL_IN_PREFIX", "REG_MAXSTEPS", "ZSEARCH_TOL",
-				   "STARMASK", "SELEC_SCALE"};
+				   "STARMASK", "SELEC_SCALE", "CATALOG_COLS"};
   const int     par_type[npars] = {i1, s, i1, s, s, s, d1, d1, s, s, s, s, s, i1, i1, s, s, s, i2, i1, s, 
 				   i1, d1, d1, d1, d1, s, i1, i1, s, i1, s, s, s, s, d1, s, s, i1, i1, d1, 
-				   d1, s, s, s, i1, d1, s, d1};
+				   d1, s, s, s, i1, d1, s, d1, ph};
   // END OF PARAMETER SETTINGS.
 }
 
 
-const int MAXPARS=50;    // Maximum number of parameters ParameterList can hold.
+const int MAXPARS=60;    // Maximum number of parameters ParameterList can hold.
 const int MAXPARNAME=20; // Maximum size of parameter name.
 // Type of data a parameter can hold:
 union data {
@@ -53,7 +55,7 @@ union data {
   double dnum;  
   long ivec[5];
   long inum;  
-  char cvec[60];
+  char cvec[STRSIZE];
   char cnum;
 };
 // Properties of a parameter:

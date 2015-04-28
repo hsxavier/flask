@@ -157,6 +157,7 @@ std::string ParameterList::reads(int index) const {
   using namespace ParDef;
   void error (const std::string message);
   if (list[index].type==s) return list[index].value.cvec;
+  if (list[index].type==ph) return list[index].value.cvec;
   else error("ParameterList::reads<id>: not suited for type "+typelabel[list[index].type]);
 }
 std::string ParameterList::reads(std::string name) const {
@@ -315,6 +316,9 @@ void ParameterList::load (const char *filename) {
 	case s: 
 	  parfile >> list[index].value.cvec;
 	  break;
+	case ph:
+	  parfile.getline(list[index].value.cvec, STRSIZE);
+	  break;
 	default:
 	  error("ParameterList::load: not prepared for type "+typelabel[par_type[index]]);
 	}
@@ -450,6 +454,10 @@ void ParameterList::show (std::ostream * output) const {
     case s:
       (*output).width(3*numWidth+2);
       *output << list[i].value.cvec;           (*output).width(typeWidth);        
+      break;
+    case ph:
+      (*output).width(3*numWidth+2);
+      *output << list[i].value.cvec;           (*output).width(typeWidth); 
       break;
     default:
       warning("ParameterList::show: not prepared for type "+typelabel[list[i].type]);
