@@ -29,12 +29,13 @@ int GetSubstrPos(const std::string field, const std::string header) {
 }
 
 
-// Unless column=-1, write value to catalog[row][column] and update catSet:
+// Unless column=-1, write value to catalog[column][row] and update catSet:
+// Note that the catalog is transposed to ease FITS outputting.
 void CatalogFill(double **catalog, int row, int column, double value, int **catSet) {  
   if(column==-1) return;
   
   // Write to catalog:            v Count number of updates in cell (for bookkeeping).
-  catalog[row][column] = value;   catSet[row][column]++;
+  catalog[column][row] = value;   catSet[column][row]++;
 }
 
 

@@ -9,6 +9,7 @@ CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
 LDHEAL = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
+
 # General instructions:
 all: $(BIN)/corrlnfields $(BIN)/GenStarMask
 
@@ -25,12 +26,12 @@ $(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utiliti
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o
 	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o -o $@ $(LIBS)
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o -o $@ $(LIBS)
 
 # Objects:
 
@@ -50,6 +51,9 @@ $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Ut
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
 			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
+
+$(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/fitsfunctions.cpp -o $@
 
 $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp

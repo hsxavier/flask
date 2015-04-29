@@ -34,11 +34,11 @@ void ImportVecs(double **matriz, long length, long nvecs, const char *filename) 
 void PrintVecs(double **table, long nrows, long ncols, std::ostream *output/* = &std::cout*/, int offset/*=0*/) {
   long i, j;
   
-  (*output).setf(std::ios_base::showpoint);
+  //(*output).setf(std::ios_base::showpoint);
   (*output).precision(6);
   for (i=offset; i<nrows+offset; i++) {
     for (j=offset; j<ncols+offset; j++) {
-      (*output).width(10); *output << table[j][i] << " ";
+      (*output).width(12); *output << table[j][i] << " ";
     }
     *output << std::endl;
   }      

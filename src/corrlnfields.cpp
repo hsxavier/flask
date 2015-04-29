@@ -5,29 +5,20 @@
 #include <iostream>
 #include <gsl/gsl_linalg.h>     // Cholesky descomposition.
 #include <gsl/gsl_randist.h>    // Random numbers.
-#include <cstdlib>              // For function 'popen'.
 #include <iomanip>              // For 'setprecision'.
 #include <alm.h>
-#include <xcomplex.h>
 #include <healpix_map.h>
 #include <alm_healpix_tools.h>
-#include <healpix_map_fitsio.h>
-#include <levels_facilities.h>
-#include <vec3.h>
-#include <gsl/gsl_eigen.h>      // debug
+#include <omp.h>                // For OpenMP functions, not pragmas.
+#include <limits.h>             // For finding out max. value of INT variables.
 #include "corrlnfields_aux.hpp" // Auxiliary functions made for this program.
 #include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
-#include "Cosmology.hpp"        // Parameters and formulas.
 #include "SelectionFunc.hpp"
-#include "RegularizeCov.hpp"
 #include "ClProcessing.hpp"
-#include <omp.h>                // For OpenMP functions, not pragmas.
-#include <limits.h>             // For finding out max. value of INT variables.
-#include "Maximize.h" // For testing.
-
+#include "fitsfunctions.hpp"    // For WriteCatalog2Fits function.
 
 /********************/
 /*** Main Program ***/
@@ -504,11 +495,12 @@ int main (int argc, char *argv[]) {
        
   cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
   
+  // Using transposed catalog (catalog[col][row]), better for FITS outputting:
   CatalogHeader = config.reads("CATALOG_COLS");
   ncols         = CountWords(CatalogHeader);
-  catalog       = matrix<double>(0,Ngalaxies-1,0,ncols-1);
-  catSet        = matrix<int>(0,Ngalaxies-1,0,ncols-1);
-  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[i][j]=0;
+  catalog       = matrix<double>(0,ncols-1, 0,Ngalaxies-1); 
+  catSet        = matrix<int>   (0,ncols-1, 0,Ngalaxies-1);
+  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[j][i]=0;
   
   // Find position of entries according to catalog header:
   theta_pos   = GetSubstrPos("theta"  , CatalogHeader); 
@@ -567,25 +559,39 @@ int main (int argc, char *argv[]) {
   if (gali!=Ngalaxies)        error ("corrlnfields: Galaxy counting is weird (gali != Ngalaxies).");
   if (PartialNgal!=Ngalaxies) error ("corrlnfields: Galaxy counting is weird (PartialNgal != Ngalaxies).");
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
-      if (catSet[i][j]<1)     error("corrlnfields: Catalog has missing information.");
-      if (catSet[i][j]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
+      if (catSet[j][i]<1)     error("corrlnfields: Catalog has missing information.");
+      if (catSet[j][i]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
-  free_matrix(catSet, 0,Ngalaxies-1,0,ncols-1);
+  free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   cout << "done.\n";
   
+
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
+    k        = config.readi("CATALOG_FORMAT");
     filename = config.reads("CATALOG_OUT");
-    outfile.open(filename.c_str());
-    if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-    else {
-      outfile << "# "<< CatalogHeader <<endl;
-      PrintTable(catalog, Ngalaxies, ncols, &outfile); 
-      outfile.close();
-      cout << ">> Catalog written to " << filename << endl;
-    }  
-  }
-  free_matrix(catalog, 0, Ngalaxies-1, 0, ncols-1);
+    switch (k) {
+    case 0: // TEXT file:
+      outfile.open(filename.c_str());
+      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+      else {
+	outfile << "# "<< CatalogHeader <<endl;
+	//PrintTable(catalog, Ngalaxies, ncols, &outfile); 
+	PrintVecs(catalog, Ngalaxies, ncols, &outfile); 
+	outfile.close();
+      }
+      break;
+    case 1: // FITS file:
+      WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
+      break;
+    default: // Unknown:
+      warning("corrlnfields: unknown CATALOG_FORMAT, will use FITS.");
+      WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
+      break;
+    }
+    cout << ">> Catalog written to " << filename << endl;
+  }  
+  free_matrix(catalog, 0,ncols-1, 0,Ngalaxies-1);
   
 
   // End of the program
