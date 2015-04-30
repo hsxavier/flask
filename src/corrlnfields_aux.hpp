@@ -9,7 +9,8 @@
 #include <vec3.h>        // For xyz2ang function.
 #include <pointing.h>    // For xyz2ang function.
 #include <healpix_map.h> // For RandAngInPix function.
-
+#include <alm.h>         // For Kappa2ShearEmode function.
+#include <xcomplex.h>    // For Kappa2ShearEmode function.
 
 // Global definitions
 namespace definitions {
@@ -22,6 +23,7 @@ namespace definitions {
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
 void CatalogFill(double **catalog, int row, int column, double value, int **catSet);
+void Kappa2ShearEmode(Alm<xcomplex <double> > &Elm, Alm<xcomplex <double> > &Klm);
 void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax);

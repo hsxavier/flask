@@ -39,6 +39,27 @@ void CatalogFill(double **catalog, int row, int column, double value, int **catS
 }
 
 
+// Get the shear E-mode harmonic coefficients from the convergence harmonic coefficients:
+// (can be done in place)
+void Kappa2ShearEmode(Alm<xcomplex <double> > &Elm, Alm<xcomplex <double> > &Klm) {
+  int l, m, lmax;
+  double coeff;
+
+  if (Elm.Lmax()!=Klm.Lmax()) error("Kappa2ShearEmode: Elm and klm must have the same lmax.");
+  if (Elm.Mmax()!=Klm.Mmax()) error("Kappa2ShearEmode: Elm and klm must have the same mmax.");  
+  lmax = Klm.Lmax();
+  
+  // E mode monopole and dipole are zero:
+  for(l=0; l<2; l++) for (m=0; m<=l; m++) Elm(l,m).Set(0,0);
+
+  // Use Wayne Hu (PRD 62:043007, 2000) to get Elm from klm:
+  for(l=2; l<=lmax; l++) { 
+    coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
+    for (m=0; m<=l; m++) Elm(l,m).Set(coeff*Klm(l,m).re,coeff*Klm(l,m).im);
+  }
+}
+
+
 // Generates galaxy ellipticity from shear and convergence, including random source ellipticity:
 void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2) {
   xcomplex<double> g, epsSrc, eps, k, one, gamma;

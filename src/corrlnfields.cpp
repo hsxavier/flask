@@ -192,7 +192,7 @@ int main (int argc, char *argv[]) {
   bool almout;
   double ***gaus0, ***gaus1;
   gsl_rng **rnd;
-  Alm<xcomplex <double> > *aflm;
+  Alm<xcomplex <double> > *aflm, *bflm;
   int jmax, jmin, rndseed0;
     
   // Set random number generators for each thread, plus one for serial stuff [0]:
@@ -286,6 +286,8 @@ int main (int argc, char *argv[]) {
   cout << "Generating maps from alm's...                             "; cout.flush();
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
   cout << "done.\n";
+  // If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
+  if (dist==lognormal) free_vector(aflm, 0, Nfields-1);
   // Write auxiliary map to file as a table if requested:
   GeneralOutput(mapf, config, "AUXMAP_OUT", N1, N2);
   
@@ -333,21 +335,29 @@ int main (int argc, char *argv[]) {
       return 0;
   }
 
+
   // If requested, compute and write recovered alm's to file:
   if (config.reads("RECOVALM_OUT")!="0") {
-    // Clear variables to receive new alm's:
-    for (i=0; i<Nfields; i++) for(l=0; l<=lmax; l++) for(m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+    // Allocate and clear variables to receive new alm's:
+    bflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);
+    for (i=0; i<Nfields; i++) {
+      bflm[i].Set(lmax,lmax);
+      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
+    }    
     // Compute alm's from map:
     arr<double> weight(2*mapf[0].Nside());
     weight.fill(1);
     cout << "Recovering alm's from map... "; cout.flush();
-    for(i=0; i<Nfields; i++) map2alm(mapf[i],aflm[i],weight);
+    for(i=0; i<Nfields; i++) map2alm(mapf[i],bflm[i],weight);
     cout << "done.\n";
     // Output to file:
-    GeneralOutput(aflm, config, "RECOVALM_OUT", N1, N2);
+    GeneralOutput(bflm, config, "RECOVALM_OUT", N1, N2);
+    // Free memory:
     weight.dealloc();
+    free_vector(bflm, 0, Nfields-1);
   }
-  free_vector(aflm, 0, Nfields-1);
+
+
   // Exit if this is the last output requested:
   if (config.reads("EXIT_AT")=="RECOVALM_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
@@ -433,21 +443,20 @@ int main (int argc, char *argv[]) {
       cout << "   Allocating and cleaning memory...                    "; cout.flush();
       gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
       gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
-      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0); // E-modes will be set below.
       cout << "done.\n";  
       
-      // Get convergence alm's from convergence map:
-      cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
-      map2alm(mapf[i], Eflm, weight); // Get klm.
-      cout << "done.\n";
- 
-      // Calculate shear alm's from convergence alm's:
-      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
-      for(l=0; l<2; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
-      for(l=2; l<=lmax; l++) { // Use Wayne Hu (2000) to get Elm from klm.
-	coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
-	for (m=0; m<=l; m++) Eflm(l,m).Set(coeff*Eflm(l,m).re,coeff*Eflm(l,m).im);
+      // LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
+      if (dist==lognormal) {
+	cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
+	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	map2alm(mapf[i], Eflm, weight); // Get klm.
+	cout << "done.\n";
       }
+ 
+      // Calculate shear E-mode alm's from convergence alm's:
+      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
+      if (dist==lognormal) Kappa2ShearEmode(Eflm, Eflm);
+      else  Kappa2ShearEmode(Eflm, aflm[i]);
       cout << "done.\n";
       n2fz(i, &f, &z, N1, N2);
       GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
@@ -461,6 +470,9 @@ int main (int argc, char *argv[]) {
       GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
 
     } // End of LOOP over convergence fields.
+
+  // Memory deallocation:
+  if (dist==gaussian) free_vector(aflm, 0, Nfields-1);
   weight.dealloc();
   Eflm.Set(0,0); 
   Bflm.Set(0,0);
