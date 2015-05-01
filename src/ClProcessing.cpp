@@ -124,7 +124,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
-  int i, j, l, m, status, Nfields, Nls;
+  int i, j, k, l, m, status, Nfields, Nls;
   std::string filename;
   bool *fnzSet;
   gsl_matrix **CovByl;
@@ -282,65 +282,66 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   // LOOP over all C(l)s already set.
   if (dist==lognormal) {cout << "Transforming C(l)s for the auxiliary Gaussian ones...     "; cout.flush();}
   else cout << "Interpolating C(l)s for all l's... "; cout.flush();
-#pragma omp parallel for collapse(2) schedule(dynamic) private(tempCl, xi, workspace, filename, l)
-  for(i=0; i<Nfields; i++)
-    for(j=0; j<Nfields; j++) 
-      if (IsSet[i][j]==1) {
- 
-	//cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
-	
-       	// Temporary memory allocation:
-	tempCl    = vector<double>(0, lastl);
-	xi        = vector<double>(0, 2*Nls-1);
-	workspace = vector<double>(0, 2*Nls-1);
+#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, i, j)
+  for (k=0; k<Nfields*Nfields; k++) {
+    i=k/Nfields;  j=k%Nfields;
+    if (IsSet[i][j]==1) {
+      
+      //cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+      
+      // Temporary memory allocation:
+      tempCl    = vector<double>(0, lastl);
+      xi        = vector<double>(0, 2*Nls-1);
+      workspace = vector<double>(0, 2*Nls-1);
 
-	// Interpolate C(l) for every l; input C(l) might not be like that:
-	//cout << "   Interpolating input C(l) for all l's...  "; cout.flush();
-	GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl, config.readi("EXTRAP_DIPOLE"));
-	//cout << "              done.\n";
+      // Interpolate C(l) for every l; input C(l) might not be like that:
+      //cout << "   Interpolating input C(l) for all l's...  "; cout.flush();
+      GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl, config.readi("EXTRAP_DIPOLE"));
+      //cout << "              done.\n";
 	
-	if (dist==lognormal) {              /** LOGNORMAL ONLY **/
+      if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 
-	  // Compute correlation function Xi(theta):
-	  //cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
-	  ModCl4DLT(tempCl, lastl, lsup, supindex);
-	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	  //cout << "  done.\n";
-	  if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	    //cout << ">> Correlation function written to "+filename<<endl;
-	  }
+	// Compute correlation function Xi(theta):
+	//cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
+	ModCl4DLT(tempCl, lastl, lsup, supindex);
+	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
+	//cout << "  done.\n";
+	if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
+	  filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
+	  //cout << ">> Correlation function written to "+filename<<endl;
+	}
 
-	  // Transform Xi(theta) to auxiliary gaussian Xi(theta):
-	  //cout << "   Computing associated gaussian correlation function...  "; cout.flush(); 
-	  status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	  //cout << "done.\n";
-	  if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
-	  if (i==j && xi[0]<0) warning("corrlnfields: auxiliary field variance is negative.");
-	  if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	    //cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
-	  }
+	// Transform Xi(theta) to auxiliary gaussian Xi(theta):
+	//cout << "   Computing associated gaussian correlation function...  "; cout.flush(); 
+	status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	//cout << "done.\n";
+	if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
+	if (i==j && xi[0]<0) warning("corrlnfields: auxiliary field variance is negative.");
+	if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
+	  filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
+	  //cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
+	}
 
-	  // Transform Xi(theta) back to C(l):
-	  //cout << "   DLT (forward) to obtain the angular power spectrum...  "; cout.flush(); 
-	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	  ApplyClFactors(tempCl, Nls);
-	  //cout << "done.\n";
-	  if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
-	    filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	    //cout << ">> C(l) for auxiliary Gaussian variables written to "+filename<<endl;
-	  }	  
-	}                                 /** END OF LOGNORMAL ONLY **/ 
+	// Transform Xi(theta) back to C(l):
+	//cout << "   DLT (forward) to obtain the angular power spectrum...  "; cout.flush(); 
+	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	ApplyClFactors(tempCl, Nls);
+	//cout << "done.\n";
+	if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
+	  filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	  //cout << ">> C(l) for auxiliary Gaussian variables written to "+filename<<endl;
+	}	  
+      }                                 /** END OF LOGNORMAL ONLY **/ 
 	
-	// Save auxiliary C(l):
-	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];
+      // Save auxiliary C(l):
+      for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j]=tempCl[l];
 	
-	// Temporary memory deallocation:
-	free_vector(tempCl, 0, lastl);
-	free_vector(xi, 0, 2*Nls-1);
-	free_vector(workspace, 0, 2*Nls-1);
-      } // End of LOOP over C(l)[i,j] that were set.
+      // Temporary memory deallocation:
+      free_vector(tempCl, 0, lastl);
+      free_vector(xi, 0, 2*Nls-1);
+      free_vector(workspace, 0, 2*Nls-1);
+    } // End of IF C(l)[i,j] is set.
+  } // End of LOOP over C(l)[i,j] that were set.
   cout << "done.\n";
   
   // Memory deallocation:
@@ -452,41 +453,42 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       
       
       // LOOP over fields:
-#pragma omp parallel for collapse(2) schedule(dynamic) private(tempCl, xi, workspace, filename, l)
-      for(i=0; i<Nfields; i++)
-	for(j=i; j<Nfields; j++) {
-	  //cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
-
-	  // Temporary memory allocation:
-	  tempCl    = vector<double>(0, lastl);
-	  xi        = vector<double>(0, 2*Nls-1);
-	  workspace = vector<double>(0, 2*Nls-1);
-
-	  // Copy the Cl to a vector:
-	  for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
-	  // Compute correlation function Xi(theta):
-	  //cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
-	  ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
-	  Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	  //cout << "done.\n";
-	  // Get Xi(theta) for lognormal variables:
-	  //cout << "   Getting correlation function for lognormal variables... "; cout.flush();
-	  GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	  //cout << "done.\n";
-	  // Compute the Cls:
-	  //cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
-	  Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	  ApplyClFactors(tempCl, Nls, lsup, supindex);
-	  //cout << "done.\n";
-	  // Output:
-	  filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	  //cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
+#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, i, j)
+      for (k=0; k<Nfields*Nfields; k++) {
+	i=k/Nfields;  j=k%Nfields;
 	
-	  // Temporary memory deallocation:
-	  free_vector(tempCl, 0, lastl);
-	  free_vector(xi, 0, 2*Nls-1);
-	  free_vector(workspace, 0, 2*Nls-1);
-	} 
+	//cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
+
+	// Temporary memory allocation:
+	tempCl    = vector<double>(0, lastl);
+	xi        = vector<double>(0, 2*Nls-1);
+	workspace = vector<double>(0, 2*Nls-1);
+
+	// Copy the Cl to a vector:
+	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
+	// Compute correlation function Xi(theta):
+	//cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
+	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
+	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
+	//cout << "done.\n";
+	// Get Xi(theta) for lognormal variables:
+	//cout << "   Getting correlation function for lognormal variables... "; cout.flush();
+	GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	//cout << "done.\n";
+	// Compute the Cls:
+	//cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
+	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
+	ApplyClFactors(tempCl, Nls, lsup, supindex);
+	//cout << "done.\n";
+	// Output:
+	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	//cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
+	
+	// Temporary memory deallocation:
+	free_vector(tempCl, 0, lastl);
+	free_vector(xi, 0, 2*Nls-1);
+	free_vector(workspace, 0, 2*Nls-1);
+      } 
       cout << "done.\n";
       cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
     
