@@ -448,6 +448,7 @@ int main (int argc, char *argv[]) {
       // LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
       if (dist==lognormal) {
 	cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
+	if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
 	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
 	map2alm(mapf[i], Eflm, weight); // Get klm.
 	cout << "done.\n";

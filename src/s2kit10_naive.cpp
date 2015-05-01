@@ -508,22 +508,6 @@ double suppress(double l, double lsup, double supindex) {
 }
 
 
-/*** Generate C_l coefficients for Discrete Legendre Transform implemented by s2kit10 ***/
-/*** Also interpolates the input Cls to get a C_l for each l                          ***/
-double *GetCl4DLT(double *Clin, double *ll, int Clinsize, double lsup, double supindex, int lmax) {
-  const double sqr2over4pi = 0.1125395395196383;
-  int l;
-  double *Clout;
-
-  Clout = vector<double>(0, lmax);
-  for(l=1; l<=lmax; l++) 
-    Clout[l] = sqr2over4pi*sqrt((double)(2*l+1))*Interpol(ll, Clinsize, Clin, (double)l)*suppress((double)l,lsup,supindex);
-  Clout[0] = 0.0; // Set C_0=0.
-
-  return Clout;
-}
-
-
 /*** Interpolates the input Cls to get a C_l for each l, from 0 to lmax ***/
 void GetAllLs(double *ll, double *Clin, int Clinsize, double *Clout, int lmax, int extrapol) {
   int l;
