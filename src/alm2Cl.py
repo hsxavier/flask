@@ -10,9 +10,9 @@ fRe     = field[::2]
 fIm     = field[1::2]
 Nfields = fRe.shape[0]
 
-nrealiz = 5000*11
+nrealiz = 5000*10
 lmin    = 10
-lmax    = 100
+lmax    = 109
 
 
 

@@ -15,13 +15,13 @@ p=0
 while [ $p -lt $lastp ]; do
     first=`expr $p \* $batchsize + 1 + $offset`
     last=`expr $p \* $batchsize + $batchsize + $offset`
-    echo "p$p: ../bin/serialalm.sh $config $first $last &"
-    ../bin/serialalm.sh $config $first $last &
+    echo "p$p: /home/skems/pkphotoz/prog/corrlnfields/src/serialalm.sh $config $first $last &"
+    /home/skems/pkphotoz/prog/corrlnfields/src/serialalm.sh $config $first $last &
     p=`expr $p + 1`
 done
 
 # Last processor
 first=`expr $p \* $batchsize + 1 + $offset`
 last=`expr $total + $offset`
-echo "p$p: ../bin/serialalm.sh $config $first $last &"
-../bin/serialalm.sh $config $first $last &
+echo "p$p: /home/skems/pkphotoz/prog/corrlnfields/src/serialalm.sh $config $first $last &"
+/home/skems/pkphotoz/prog/corrlnfields/src/serialalm.sh $config $first $last &

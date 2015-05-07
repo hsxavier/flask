@@ -20,6 +20,8 @@
 #include "ClProcessing.hpp"
 #include "fitsfunctions.hpp"    // For WriteCatalog2Fits function.
 
+#define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
+
 /********************/
 /*** Main Program ***/
 /********************/
@@ -90,10 +92,10 @@ int main (int argc, char *argv[]) {
   zrange  = matrix<double>   (0, Nfields-1, 0,1);
   if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
   // Check if some input properties are as expected:
-  if  (Minimum(aux, 0, Nfields)!=1) error("corrlnfields: first field index in FIELDS_INFO should be 1.");
-  if  (Minimum(aux, 1, Nfields)!=1) error("corrlnfields: first redshift index FIELDS_INFO should be 1.");
-  N1 = Maximum(aux, 0, Nfields);
-  N2 = Maximum(aux, 1, Nfields);
+  if  ((int)Minimum(aux, 0, Nfields)!=1) error("corrlnfields: first field index in FIELDS_INFO should be 1.");
+  if  ((int)Minimum(aux, 1, Nfields)!=1) error("corrlnfields: first redshift index FIELDS_INFO should be 1.");
+  N1 = (int)Maximum(aux, 0, Nfields);
+  N2 = (int)Maximum(aux, 1, Nfields);
   if  (N1*N2 != Nfields)            error("corrlnfields: mismatch between number and indexes of fields.");
   // Should introduce other checks here, e.g. if there are no gaps or other issues in field IDs.
   
@@ -200,14 +202,17 @@ int main (int argc, char *argv[]) {
   //                    (1) generate aux. alm's fast (in parallel);
   //                    (2) give independent samples for different RNDSEED (parallel seeds may never overlap);
   //                    (3) maintain reproducibility (seeds used in each part of computations must be the same for fixed # of threads).
+  cout << "Initializing random number generators...                  "; cout.flush();
   rndseed0 = config.readi("RNDSEED");
   rnd      = vector<gsl_rng*>(0,MaxThreads+1);
-  if (rndseed0 > 9999999) warning("corrlnfields: RNDSEED exceeds max. of 9999999.");
+  if (rndseed0 > RAND_OFFSET-1) warning("corrlnfields: RNDSEED exceeds RAND_OFFSET-1 in code.");
   for (i=0; i<=MaxThreads; i++) {
     rnd[i] = gsl_rng_alloc(gsl_rng_mt19937);
     if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
-    gsl_rng_set(rnd[i], i*10000000+rndseed0);    // set random seed
+    gsl_rng_set(rnd[i], i*RAND_OFFSET+rndseed0);    // set random seed
   }
+  cout << "done.\n";
+  cout << "First random numbers: "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<endl;
   
   // Allocate memory for gaussian alm's:
   cout << "Allocating memory for auxiliary gaussian alm's...         "; cout.flush();
