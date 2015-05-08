@@ -552,7 +552,7 @@ int main (int argc, char *argv[]) {
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
   gali = 0; PartialNgal = 0;
-#pragma omp parallel for schedule(static) private(j, ziter, gali, fiter, i, m, ang, ellip1, ellip2)
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2)
   for (k=0; k<npixels*N2; k++) {
     l     = omp_get_thread_num()+1; // Processor number.
     j     = k/N2;                   // pixel.

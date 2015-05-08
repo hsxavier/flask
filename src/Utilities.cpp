@@ -11,22 +11,21 @@
 
 /******  ******/
 void Announce(std::string message) {
-  clock_t diff;
-  static clock_t start=0;
-  int msec, space=58;
+  static time_t start;
+  int space=58;
+  double diff;
 
   // Announce the beginning of a process:
   if (message!="done") {
     //std::cout.width(space);
     std::cout << std::left << std::setw(space) << message << std::right; std::cout.flush();
-    start = clock();
+    start = time(NULL);
   }
 
   // Announce the end of a process: 
   else {
-    diff = clock() - start;
-    msec = diff * 1000 / CLOCKS_PER_SEC;
-    printf("done.  (%3ds %3dms)\n", msec/1000, msec%1000);
+    diff = difftime(time(NULL), start);
+    printf("done.  (%gs)\n", diff);
   }
 }
 
