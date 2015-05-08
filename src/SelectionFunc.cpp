@@ -94,7 +94,7 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 	  // Found new type of galaxy: load radial selection function:
 	  sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
 	  filename.assign(message);
-	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0,1); // This allocates memory for zEntries[i] and zSel[i].
+	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
 	  zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
 	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
 	  prevf = f;

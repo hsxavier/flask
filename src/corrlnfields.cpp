@@ -19,6 +19,7 @@
 #include "SelectionFunc.hpp"
 #include "ClProcessing.hpp"
 #include "fitsfunctions.hpp"    // For WriteCatalog2Fits function.
+#include <unistd.h> // debugging
 
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
 
@@ -46,15 +47,15 @@ int main (int argc, char *argv[]) {
   /**********************************************/
 
   // Testing the code:
-  cout << "Testing the code... "; cout.flush();
+  Announce("Testing the code... "); 
   // Verify consistency between f&z <-> i conversions:
   test_fzij(3,11); test_fzij(13,4);
   // Verify that max. value for INT is not smaller than expected:
   sprintf(message, "%d", INT_MAX); filename.assign(message);
   if (filename.size() < 10) 
     warning("corrlnfields: INT_MAX is smaller than expected, may mess parallel random number generator.");
-  cout << "done.\n";
-
+  Announce();
+  
   MaxThreads = omp_get_max_threads();
   cout << "Max. # of threads:  "<<MaxThreads<<endl;
   if (MaxThreads>210) warning("corrlnfields: # of threads too big, may mess parallel random number generator.");
@@ -83,7 +84,7 @@ int main (int argc, char *argv[]) {
   double **aux;
 
   // Load means, shifts, type and z range data file:
-  cout << "Loading means and shifts from file "+config.reads("FIELDS_INFO")+"... "; cout.flush();
+  Announce("Loading means and shifts from file "+config.reads("FIELDS_INFO")+"... ");
   aux     = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2);
   Nfields = (int)long1;
   fnzSet  = vector<bool>     (0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
@@ -117,7 +118,7 @@ int main (int argc, char *argv[]) {
       }
   free_vector(fnzSet, 0, Nfields-1);
   free_matrix(aux, 0, Nfields-1, 0, long2-1);
-  cout << "done.\n";
+  Announce();
   
   cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
 
@@ -145,7 +146,7 @@ int main (int argc, char *argv[]) {
     cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
     
     // Cholesky decomposition:
-    cout << "Performing Cholesky decompositions of cov. matrices...    "; cout.flush();
+    Announce("Performing Cholesky decompositions of cov. matrices... ");
     j=0; // Will count number of Cholesky failures.
     for (l=lmin; l<=lmax; l++) {
       //cout << "** Working with cov. matrix for l="<<l<<":\n";
@@ -154,9 +155,9 @@ int main (int argc, char *argv[]) {
 	sprintf(message,"Cholesky decomposition failed: cov. matrix for l=%d is not positive-definite.", l); 
 	warning(message); j++; 
       }
-      //cout << "done.\n";
     }
-    cout << "done.\n";
+    Announce();
+    
     // Exit if any Cholesky failed:
     if (j>0) {sprintf(message,"Cholesky decomposition failed %d times.",j); error(message);}
     // Output mixing matrices if requested:
@@ -167,16 +168,16 @@ int main (int argc, char *argv[]) {
 
   // If input triangular matrices are specified, allocate memory for them:
   else {
-    cout << "Allocating memory for mixing matrices (CHOL_IN_PREFIX)... "; cout.flush();
+    Announce("Allocating memory for mixing matrices (CHOL_IN_PREFIX)... ");
     CovByl = GSLMatrixArray(lmax+1, Nfields, Nfields); // Allocation should have offset to avoid unnecessary low ells.
-    cout << "done.\n";                                 // If we are loading the matrices ell by ell, an array is not necessary! 
-    cout << "Loading mixing matrices...                                "; cout.flush();
+    Announce();                                        // If we are loading the matrices ell by ell, an array is not necessary! 
+    Announce("Loading mixing matrices... ");
     for (l=lmin; l<=lmax; l++) {
       filename = CholeskyInPrefix+"l"+ZeroPad(l,lmax)+".dat";
       LoadGSLMatrix(filename, CovByl[l]);
     }
     status=0;
-    cout << "done.\n";    
+    Announce();    
   }
 
   // Exit if dealing with mixing matrices was the last task:
@@ -202,7 +203,7 @@ int main (int argc, char *argv[]) {
   //                    (1) generate aux. alm's fast (in parallel);
   //                    (2) give independent samples for different RNDSEED (parallel seeds may never overlap);
   //                    (3) maintain reproducibility (seeds used in each part of computations must be the same for fixed # of threads).
-  cout << "Initializing random number generators...                  "; cout.flush();
+  Announce("Initializing random number generators... ");
   rndseed0 = config.readi("RNDSEED");
   rnd      = vector<gsl_rng*>(0,MaxThreads+1);
   if (rndseed0 > RAND_OFFSET-1) warning("corrlnfields: RNDSEED exceeds RAND_OFFSET-1 in code.");
@@ -211,11 +212,11 @@ int main (int argc, char *argv[]) {
     if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
     gsl_rng_set(rnd[i], i*RAND_OFFSET+rndseed0);    // set random seed
   }
-  cout << "done.\n";
+  Announce();
   cout << "First random numbers: "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<endl;
   
   // Allocate memory for gaussian alm's:
-  cout << "Allocating memory for auxiliary gaussian alm's...         "; cout.flush();
+  Announce("Allocating memory for auxiliary gaussian alm's... ");
   gaus0 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
   gaus1 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1);  
   aflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
@@ -223,10 +224,10 @@ int main (int argc, char *argv[]) {
     aflm[i].Set(lmax,lmax);
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
   }
-  cout << "done.\n";
+  Announce();
 
   // LOOP over l's and m's together:
-  cout << "Generating auxiliary gaussian alm's...                    "; cout.flush(); 
+  Announce("Generating auxiliary gaussian alm's... ");
   jmin = (lmin*(lmin+1))/2;
   jmax = (lmax*(lmax+3))/2;
 #pragma omp parallel for schedule(static) private(l, m, i, k)
@@ -255,7 +256,7 @@ int main (int argc, char *argv[]) {
     for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);   
        
   } // End of LOOP over l's and m's.
-  cout << "done.\n";
+  Announce();
   free_GSLMatrixArray(CovByl, Nls);
   free_tensor3(gaus0, 1,MaxThreads, 0,Nfields-1, 0,1);
   free_tensor3(gaus1, 1,MaxThreads, 0,Nfields-1, 0,1);
@@ -281,16 +282,16 @@ int main (int argc, char *argv[]) {
   char opt1[]="-bar", val1[]="1";
 
   // Allocate memory for pixel maps:
-  cout << "Allocating memory for pixel maps...                       "; cout.flush();
+  Announce("Allocating memory for pixel maps... "); 
   nside   = config.readi("NSIDE");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
-  cout << "done.\n";
+  Announce();
   // Generate maps from alm's for each field:
-  cout << "Generating maps from alm's...                             "; cout.flush();
+  Announce("Generating maps from alm's... ");
   for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
-  cout << "done.\n";
+  Announce();
   // If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
   if (dist==lognormal) free_vector(aflm, 0, Nfields-1);
   // Write auxiliary map to file as a table if requested:
@@ -305,7 +306,7 @@ int main (int argc, char *argv[]) {
 
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
-    cout << "LOGNORMAL realizations: exponentiating pixels...          "; cout.flush();
+    Announce("LOGNORMAL realizations: exponentiating pixels... ");
     for (i=0; i<Nfields; i++) {
       gmean = 0; gvar = 0;
       for (j=0; j<npixels; j++) gmean += mapf[i][j];
@@ -315,13 +316,13 @@ int main (int argc, char *argv[]) {
       expmu=(means[i]+shifts[i])/exp(gvar/2);
       for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-shifts[i];
     }
-    cout << "done.\n";
+    Announce();
   }
   // If GAUSSIAN, only add mean:
   else {
-    cout << "GAUSSIAN realizations: adding mean values to pixels...    "; cout.flush();
+    Announce("GAUSSIAN realizations: adding mean values to pixels... ");
     for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
-    cout << "done.\n";
+    Announce();
   }
   // Free memory for means and shifts:
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
@@ -352,9 +353,9 @@ int main (int argc, char *argv[]) {
     // Compute alm's from map:
     arr<double> weight(2*mapf[0].Nside());
     weight.fill(1);
-    cout << "Recovering alm's from map... "; cout.flush();
+    Announce("Recovering alm's from map... ");
     for(i=0; i<Nfields; i++) map2alm(mapf[i],bflm[i],weight);
-    cout << "done.\n";
+    Announce();
     // Output to file:
     GeneralOutput(bflm, config, "RECOVALM_OUT", N1, N2);
     // Free memory:
@@ -385,11 +386,11 @@ int main (int argc, char *argv[]) {
   int f, z, *counter;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
-  cout << "Reading selection functions from files... "; cout.flush();
+  Announce("Reading selection functions from files... ");
   selection.load(config, ftype, zrange, N1, N2); 
   if (selection.Nside()!=mapf[0].Nside()) error("corrlnfields: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=mapf[0].Scheme()) error("corrlnfields: Selection function and maps have different pixel ordering schemes.");
-  cout << "done.\n";
+  Announce();
 
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
@@ -397,7 +398,8 @@ int main (int argc, char *argv[]) {
     // LOOP over fields:
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
-	cout << "Poisson sampling f"<<f<<"z"<<z<<"... "; cout.flush();
+	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
+	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
 	dwdz    = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
 	// LOOP over pixels of field 'i':
@@ -407,7 +409,7 @@ int main (int argc, char *argv[]) {
 	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.	  
 	  mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
 	}
-	cout << "done.\n";
+	Announce();
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
 	cout << "Negative density fraction (that was set to 0): "<<std::setprecision(2)<< ((double)j)/npixels*100 <<"%\n";
       }
@@ -418,11 +420,12 @@ int main (int argc, char *argv[]) {
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	n2fz(i, &f, &z, N1, N2);
-	cout << "Using expected number density for f"<<f<<"z"<<z<<"... "; cout.flush();
+	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
+	Announce(message);
 	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
 #pragma omp parallel for
 	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
-	cout << "done.\n";
+	Announce();
       }
   }
   else error ("corrlnfields: unknown POISSON option.");
@@ -445,32 +448,32 @@ int main (int argc, char *argv[]) {
       cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
       
       // Preparing memory:
-      cout << "   Allocating and cleaning memory...                    "; cout.flush();
+      Announce("   Allocating and cleaning memory... ");
       gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
       gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
-      cout << "done.\n";  
+      Announce();
       
       // LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
       if (dist==lognormal) {
-	cout << "   Transforming convergence map to harmonic space...    "; cout.flush();
+	Announce("   Transforming convergence map to harmonic space... ");
 	if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
 	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
 	map2alm(mapf[i], Eflm, weight); // Get klm.
-	cout << "done.\n";
+	Announce();
       }
  
       // Calculate shear E-mode alm's from convergence alm's:
-      cout << "   Computing shear harmonic coefficients from klm...    "; cout.flush();
+      Announce("   Computing shear harmonic coefficients from klm... ");
       if (dist==lognormal) Kappa2ShearEmode(Eflm, Eflm);
       else  Kappa2ShearEmode(Eflm, aflm[i]);
-      cout << "done.\n";
+      Announce();
       n2fz(i, &f, &z, N1, N2);
       GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
 
       // Go from shear E-mode alm's to gamma1 and gamma2 maps:
-      cout << "   Transforming harmonic coefficients into shear map... "; cout.flush();
+      Announce("   Transforming harmonic coefficients into shear map... ");
       alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
-      cout << "done.\n";
+      Announce();
       // Write kappa, gamma1 and gamma2 to FITS file:
       n2fz(i, &f, &z, N1, N2);
       GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
@@ -498,7 +501,7 @@ int main (int argc, char *argv[]) {
   /*** Part 6: Generate catalog   ***/
   /**********************************/
 
-  double **catalog, esig, ellip1, ellip2;
+  double **catalog, esig, ellip1, ellip2, randz;
   int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet, ncols;
   pointing ang;
   int ziter, fiter;
@@ -507,11 +510,11 @@ int main (int argc, char *argv[]) {
     ellip1_pos, ellip2_pos, pixel_pos, maskbit_pos;
 
   esig = config.readd("ELLIP_SIGMA");
-  cout << "Counting galaxies... "; cout.flush();
+  Announce("Counting galaxies... ");
   Ngalaxies=0; // Find out the total number of galaxies in all fields and redshifts:
   for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) for (j=0; j<npixels; j++) Ngalaxies+=(int)mapf[i][j];
-       
-  cout << "done.   # of galaxies: "<<Ngalaxies<<endl;
+  Announce();     
+  cout << "# of galaxies: "<<Ngalaxies<<endl;
   
   // Using transposed catalog (catalog[col][row]), better for FITS outputting:
   CatalogHeader = config.reads("CATALOG_COLS");
@@ -533,8 +536,9 @@ int main (int argc, char *argv[]) {
   pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
   maskbit_pos = GetSubstrPos("maskbit", CatalogHeader);
 
+  
   // LOOP over 3D bins (pixels and redshifts):
-  cout << "Generating catalog... "; cout.flush();
+  Announce("Generating catalog... ");
   gali = 0; PartialNgal = 0;
   for (j=0; j<npixels; j++) for(ziter=1; ziter<=N2; ziter++) {
       // Count total number of galaxies of all types in bin:
@@ -548,17 +552,20 @@ int main (int argc, char *argv[]) {
       for (fiter=1; fiter<=N1; fiter++) {
 	fz2n(fiter, ziter, &i, N1, N2);
 	// Add entry of type GALAXY:
+	
 	if (ftype[i]==fgalaxies) 
 	  for(m=0; m<(int)mapf[i][j]; m++) {
-	    ang = RandAngInPix(rnd[0], mapf[i], j);
-	    CatalogFill(catalog, gali, theta_pos  , ang.theta                         , catSet);
-	    CatalogFill(catalog, gali, phi_pos    , ang.phi                           , catSet);
-	    CatalogFill(catalog, gali, z_pos      , selection.RandRedshift(rnd[0],i,j), catSet);
-	    CatalogFill(catalog, gali, galtype_pos, fiter                             , catSet);
-	    CatalogFill(catalog, gali, pixel_pos  , j                                 , catSet);
-	    CatalogFill(catalog, gali, maskbit_pos, selection.MaskBit(j)              , catSet);
+	    ang   = RandAngInPix(rnd[0], mapf[i], j);
+	    randz = selection.RandRedshift(rnd[0],i,j);
+	    CatalogFill(catalog, gali, theta_pos  , ang.theta            , catSet);
+	    CatalogFill(catalog, gali, phi_pos    , ang.phi              , catSet);
+	    CatalogFill(catalog, gali, z_pos      , randz                , catSet);
+	    CatalogFill(catalog, gali, galtype_pos, fiter                , catSet);	    
+	    CatalogFill(catalog, gali, pixel_pos  , j                    , catSet);
+	    CatalogFill(catalog, gali, maskbit_pos, selection.MaskBit(j) , catSet);
 	    gali++;
 	  }
+       
 	// Add entry of type SHEAR:
 	else if (ftype[i]==fshear) for (m=0; m<pixelNgal; m++) {
 	    GenEllip(rnd[0], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
@@ -573,6 +580,7 @@ int main (int argc, char *argv[]) {
       PartialNgal+=pixelNgal;
     } // End of LOOP over pixels.  
 
+
   // Check if every entry was set once and only once:
   if (gali!=Ngalaxies)        error ("corrlnfields: Galaxy counting is weird (gali != Ngalaxies).");
   if (PartialNgal!=Ngalaxies) error ("corrlnfields: Galaxy counting is weird (PartialNgal != Ngalaxies).");
@@ -581,8 +589,7 @@ int main (int argc, char *argv[]) {
       if (catSet[j][i]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
-  cout << "done.\n";
-  
+  Announce();
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {

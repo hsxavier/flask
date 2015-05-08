@@ -220,9 +220,9 @@ void GeneralOutputFITS(Healpix_Map<double> *mapf, const ParameterList & config, 
       n2fz(i, &f, &z, N1, N2); // Get field and redshift numbers.
       sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
       filename.assign(message);
-      sprintf(message2, "rm -f %s", message);
-      system(message2); // Have to delete previous fits files first.
-      write_Healpix_map_to_fits(filename,mapf[i],planckType<double>());
+      //sprintf(message2, "rm -f %s", message);
+      //system(message2); // Have to delete previous fits files first.
+      write_Healpix_map_to_fits("!"+filename,mapf[i],planckType<double>()); // Filename prefixed by ! to overwrite.
       if(inform==1) std::cout << ">> "<<keyword<< "["<<i<<"] written to "<<filename<<std::endl;
       // Write to TGA if requested:
       if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -363,9 +363,9 @@ void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config
     filename.assign(message1);
 
     // Write to FITS:
-    sprintf(message1, "rm -f %s", filename.c_str());
-    system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits(filename, map, planckType<double>());
+    //sprintf(message1, "rm -f %s", filename.c_str());
+    //system(message1); // Have to delete previous fits files first.
+    write_Healpix_map_to_fits("!"+filename, map, planckType<double>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -398,9 +398,9 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
     filename.assign(message1);
 
     // Write to FITS:
-    sprintf(message1, "rm -f %s", filename.c_str());
-    system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits(filename, kmap, g1map, g2map, planckType<double>());
+    //sprintf(message1, "rm -f %s", filename.c_str());
+    //system(message1); // Have to delete previous fits files first.
+    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<double>());
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -430,10 +430,10 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
   char opt1[]="-bar";
   if (config.reads(keyword)!="0") {
     // Write to FITS:
-    filename=config.reads(keyword);
-    sprintf(message1, "rm -f %s", filename.c_str());
-    system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits(filename, kmap, g1map, g2map, planckType<double>());
+    filename=config.reads(keyword); 
+    //sprintf(message1, "rm -f %s", filename.c_str());
+    //system(message1); // Have to delete previous fits files first.
+    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<double>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -462,10 +462,10 @@ void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config
   char opt1[]="-bar";
   if (config.reads(keyword)!="0") {
     // Write to FITS:
-    filename=config.reads(keyword);
-    sprintf(message1, "rm -f %s", filename.c_str());
-    system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits(filename, map, planckType<double>());
+    filename=config.reads(keyword); 
+    //sprintf(message1, "rm -f %s", filename.c_str());
+    //system(message1); // Have to delete previous fits files first.
+    write_Healpix_map_to_fits("!"+filename, map, planckType<double>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {

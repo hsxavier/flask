@@ -1,14 +1,19 @@
 # Variable definitions:
 COMP = g++
-BIN = ../bin
-OBJ = ../obj
-SRC = ../src
+BIN  = ../bin
+OBJ  = ../obj
+SRC  = ../src
 
-CXXOMP = -fopenmp
+CXXOMP  = -fopenmp
 CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
-LDHEAL = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
-LIBS = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
+LDHEAL  = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
+LIBS    = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
+# Options for Splinter:
+
+#CXXHEAL = -I/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/include
+#LDHEAL  = -L/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/lib
+#CXXFITS = -I/usr/include/cfitsio
 
 # General instructions:
 all: $(BIN)/corrlnfields $(BIN)/GenStarMask
@@ -53,7 +58,7 @@ $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.h
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
 
 $(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/fitsfunctions.cpp -o $@
+	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(SRC)/fitsfunctions.cpp -o $@
 
 $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp
@@ -91,4 +96,3 @@ $(OBJ)/Maximize.o: $(SRC)/Maximize.c $(SRC)/Maximize.h $(SRC)/interpol.h
 
 $(OBJ)/s2kit10_naive.o: $(SRC)/s2kit10_naive.cpp $(SRC)/s2kit10_naive.hpp $(SRC)/interpol.h $(SRC)/Utilities.hpp
 	$(COMP) -c $(SRC)/s2kit10_naive.cpp -o $@ $(CXXOMP)
-

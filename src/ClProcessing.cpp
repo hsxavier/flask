@@ -235,10 +235,10 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
   
   // Allocate gsl_matrices that will receive covariance matrices for each l.
-  cout << "Allocating data-cube needed for Cholesky decomposition... "; cout.flush();
+  Announce("Allocating data-cube needed for Cholesky decomposition... ");
   CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
   (*CovBylAddr) = CovByl;
-  cout << "done.\n";
+  Announce();
  
   /*****************************************************************/
   /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
@@ -248,40 +248,39 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
     // Loads necessary memory:
-    cout << "Allocating memory for DLT...                              "; cout.flush();
+    Announce("Allocating memory for DLT... ");
     lls        = vector<double>(0, lastl);
     workspace  = vector<double>(0, 16*Nls-1);
     LegendreP  = vector<double>(0, 2*Nls*Nls-1);
     DLTweights = vector<double>(0, 4*Nls-1);
     // Initialize vectors:
     for (i=0; i<=lastl; i++) lls[i]=(double)i;
-    cout << "done.\n";
-    // angle theta is only necessary for output:
+    Announce();// angle theta is only necessary for output:
     if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
-      cout << "Generating table of sampling angles...                    "; cout.flush();
+      Announce("Generating table of sampling angles... ");
       theta    = vector<double>(0, 2*Nls-1);
       ArcCosEvalPts(2*Nls, theta);
       for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
-      cout << "done.\n";
+      Announce();
     } 
     
     // Loads C(l) exponential suppression:
     lsup     = config.readd("SUPPRESS_L");
     supindex = config.readd("SUP_INDEX"); 
     // Load s2kit 1.0 Legendre Polynomials:
-    cout << "Generating table of Legendre polynomials...               "; cout.flush();
+    Announce("Generating table of Legendre polynomials... ");
     PmlTableGen(Nls, 0, LegendreP, workspace);
     free_vector(workspace, 0, 16*Nls-1);
-    cout << "done.\n";
+    Announce();
     // Compute s2kit 1.0 Discrete Legendre Transform weights:
-    cout << "Calculating forward DLT weights...                        "; cout.flush();
+    Announce("Calculating forward DLT weights... ");
     makeweights(Nls, DLTweights);
-    cout << "done.\n";
+    Announce();
   }
 
   // LOOP over all C(l)s already set.
-  if (dist==lognormal) {cout << "Transforming C(l)s for the auxiliary Gaussian ones...     "; cout.flush();}
-  else cout << "Interpolating C(l)s for all l's... "; cout.flush();
+  if (dist==lognormal) Announce("Transforming C(l)s for the auxiliary Gaussian ones... ");
+  else Announce("Interpolating C(l)s for all l's... ");
 #pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, i, j)
   for (k=0; k<Nfields*Nfields; k++) {
     i=k/Nfields;  j=k%Nfields;
@@ -342,7 +341,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       free_vector(workspace, 0, 2*Nls-1);
     } // End of IF C(l)[i,j] is set.
   } // End of LOOP over C(l)[i,j] that were set.
-  cout << "done.\n";
+  Announce();
   
   // Memory deallocation:
   free_tensor3(Cov,    0, Nfields-1, 0, Nfields-1, 0, Nlinput); 
@@ -363,7 +362,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       config.reads("EXIT_AT")=="GCLOUT_PREFIX") return 1;
     
   // Set Cov(l)[i,j] = Cov(l)[j,i]
-  cout << "Set remaining cov. matrices elements based on symmetry... "; cout.flush(); 
+  Announce("Set remaining cov. matrices elements based on symmetry... ");
   for(i=0; i<Nfields; i++)
     for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==0) {
@@ -378,7 +377,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	sprintf(message,"corrlnfields: [%d,%d] was not set.",i,j);
 	error(message);
       }
-  cout << "done.\n";
+  Announce();
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
   // Output covariance matrices for each l if requested:
@@ -394,7 +393,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   /****************************************************************************/
   gsl_matrix *gslm;
   double *MaxChange, MMax;
-  int lmax, lmin, lMMax, lstart, lend;
+  int lmax, lmin, lMMax, lstart, lend, FailReg=0;
 
   lmax = config.readi("LMAX");
   lmin = config.readi("LMIN");
@@ -406,8 +405,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   else { lstart = lmin;  lend = lmax; }
   MaxChange = vector<double>(lstart, lend);
   
-  cout << "Regularizing cov. matrices...                             "; cout.flush();
-
+  Announce("Regularizing cov. matrices... ");
+  
 #pragma omp parallel for schedule(dynamic) private(gslm, filename)  
   for (l=lstart; l<=lend; l++) {
 
@@ -419,6 +418,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     if (status==9) { 
       sprintf(message, "ClProcess: RegularizeCov for l=%d reached REG_MAXSTEPS with Max. change of %g.",l,MaxChange[l]); 
       warning(message);
+      FailReg=1;
     }
     gsl_matrix_free(gslm);
     // Output regularized matrix if requested:
@@ -427,8 +427,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       GeneralOutput(CovByl[l], filename, 0);
     }
   }
-  cout << "done.\n";
- 
+  Announce();
+  if (FailReg==1) error("ClProcess: failed to regularize covariance matrices.");
+  
   // Dump changes in cov. matrices to the screen:
   for (l=lmin; l<=lmax; l++) {
     MMax  = 0.0;
@@ -449,9 +450,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
   if (config.reads("REG_CL_PREFIX")!="0") {
     if(dist==lognormal) {
-      cout << "Computing regularized lognormal Cls...                    "; cout.flush();
-      
-      
+      Announce("Computing regularized lognormal Cls... ");
+            
       // LOOP over fields:
 #pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, i, j)
       for (k=0; k<Nfields*Nfields; k++) {
@@ -489,7 +489,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	free_vector(xi, 0, 2*Nls-1);
 	free_vector(workspace, 0, 2*Nls-1);
       } 
-      cout << "done.\n";
+      Announce();
       cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
     
     } // End of if(dist==lognormal)
@@ -499,11 +499,11 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
   // Freeing memory: from now on we only need CovByl, means, shifts.
   if (dist==lognormal) {
-    cout << "DLT memory deallocation...                                "; cout.flush();
+    Announce("DLT memory deallocation... ");
     free_vector(lls, 0, lastl);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(DLTweights, 0, 4*Nls-1); 
-    cout << "done.\n";
+    Announce();
   }
   
   // Exit if this is the last output requested:

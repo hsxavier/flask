@@ -70,9 +70,9 @@ int main (int argc, char *argv[]) {
   } while (covPix < pixGoal);
   
   // Output map to FITS file:
-  sprintf(message, "rm -f %s", filename.c_str());
-  system(message); // Have to delete previous fits files first.
-  write_Healpix_map_to_fits(filename, StarMask, planckType<double>()); 
+  //sprintf(message, "rm -f %s", filename.c_str());
+  //system(message); // Have to delete previous fits files first.
+  write_Healpix_map_to_fits("!"+filename, StarMask, planckType<double>()); // Filename prefixed by ! to overwrite.
   printf("Map written to %s\n", filename.c_str());
   
   return 0;

@@ -6,6 +6,29 @@
 #include <iostream>
 #include <cstdlib>   // to use exit()
 #include <iomanip>   // for setw()
+#include <ctime>
+
+
+/******  ******/
+void Announce(std::string message) {
+  clock_t diff;
+  static clock_t start=0;
+  int msec, space=58;
+
+  // Announce the beginning of a process:
+  if (message!="done") {
+    //std::cout.width(space);
+    std::cout << std::left << std::setw(space) << message << std::right; std::cout.flush();
+    start = clock();
+  }
+
+  // Announce the end of a process: 
+  else {
+    diff = clock() - start;
+    msec = diff * 1000 / CLOCKS_PER_SEC;
+    printf("done.  (%3ds %3dms)\n", msec/1000, msec%1000);
+  }
+}
 
 /****** Import vertical vectors from file ******/
 // No memory allocation is done here. It must be done before.  
