@@ -245,12 +245,14 @@ void GeneralOutputFITS(Healpix_Map<double> *mapf, const ParameterList & config, 
 void GeneralOutputTEXT(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename;
   std::ofstream outfile;
-  int i, j, Nfields, field, z, npixels, *nside, n;
+  int i, j, Nfields, field, z, npixels, *nside, n, coordtype;
   pointing coord;
 
   if (config.reads(keyword)!="0") {
-    Nfields=N1*N2; 
-    
+    Nfields   = N1*N2; 
+    coordtype = config.readi("ANGULAR_COORD");
+    if (coordtype<0 || coordtype>2) warning("GeneralOutputTEXT: unknown ANGULAR_COORD option, keeping Theta & Phi in radians.");
+
     // Check which maps are allocated and avoid different-size maps.
     j=0;
     nside = vector<int>(0,Nfields-1);
@@ -280,6 +282,8 @@ void GeneralOutputTEXT(Healpix_Map<double> *mapf, const ParameterList & config, 
       // LOOP over allocated fields:
       for (j=0; j<npixels; j++) {
 	coord = mapf[n].pix2ang(j);
+	if      (coordtype==1) {coord.theta=rad2deg  (coord.theta); coord.phi=rad2deg(coord.phi);}
+	else if (coordtype==2) {coord.theta=theta2dec(coord.theta); coord.phi=phi2ra (coord.phi);}
 	outfile << coord.theta <<" "<< coord.phi;
 	for (i=0; i<Nfields; i++) if (nside[i]!=0) outfile <<" "<< mapf[i][j];
 	outfile << std::endl;
