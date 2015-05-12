@@ -1,4 +1,5 @@
 #include "interpol.h"
+#include "Utilities.hpp"
 
 /*** Code based on functions from Numerical Recipes mnbrak and golden.             ***/
 /*** Modified by Henrique S. Xavier in 24/apr/2015 to be used with interpolations. ***/
@@ -140,6 +141,9 @@ double goldenInterp(double ax, double bx, double cx, double tol, double *xmin, /
 double MaxInterp(double xmin, double xmax, double tol, double *Xarray,int NX,double *Yarray) {
   double ax, bx, cx, fa, fb, fc, maximum, xmaximum;
   
+  if (xmin<Xarray[0])    warning("MaxInterp: lower boundary beyond tabulated values."); // This requires C++
+  if (xmin>Xarray[NX-1]) warning("MaxInterp: upper boundary beyond tabulated values."); // but is the only thing.
+
   ax = xmin; bx = xmax;
   mnbrakInterp(&ax, &bx, &cx, &fa, &fb, &fc, Xarray, NX, Yarray);
   maximum = goldenInterp(ax, bx, cx, tol, &xmaximum, Xarray, NX, Yarray, xmin, xmax);

@@ -5,6 +5,19 @@
 #include <gsl/gsl_min.h>
 #include <xcomplex.h>
 
+// Transform radians to degrees:
+inline double rad2deg(double rad) {
+  const double OneEightyOverPi = 180.0/M_PI;
+  return OneEightyOverPi * rad;
+}
+
+// Transform Theta Phi (in radians) into RA DEC (in degrees) in place:
+void thph2radec(double *polar, double *azimutal) {
+  const double PiOverTwo = M_PI/2.0;
+  *azimutal = rad2deg(*azimutal         );
+  *polar    = rad2deg(PiOverTwo - *polar);
+}
+
 
 // Count words in phrase:
 int CountWords(const std::string header) {

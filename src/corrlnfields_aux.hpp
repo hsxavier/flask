@@ -20,6 +20,8 @@ namespace definitions {
 
 
 // Auxiliary functions for corrlnfields program:
+inline double rad2deg(double rad);
+void thph2radec(double *polar, double *azimutal);
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
 void CatalogFill(double **catalog, int row, int column, double value, int **catSet);

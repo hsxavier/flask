@@ -558,7 +558,7 @@ int main (int argc, char *argv[]) {
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
   gali = 0; PartialNgal = 0;
-#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2)
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz)
   for (k=0; k<npixels*N2; k++) {
     l     = omp_get_thread_num()+1; // Processor number.
     j     = k/N2;                   // pixel.
@@ -571,19 +571,20 @@ int main (int argc, char *argv[]) {
       
       // Add entry of type GALAXY:      
       if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
-	  ang = RandAngInPix(rnd[l], mapf[i], j);
-	  CatalogFill(catalog, PartialCell[k]+gali, theta_pos  , ang.theta                         , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, phi_pos    , ang.phi                           , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, z_pos      , selection.RandRedshift(rnd[l],i,j), catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, galtype_pos, fiter                             , catSet);	    
-	  CatalogFill(catalog, PartialCell[k]+gali, pixel_pos  , j                                 , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, maskbit_pos, selection.MaskBit(j)              , catSet);
+	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l], mapf[i], j);
+	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l],i,j);
+	  CatalogFill(catalog, PartialCell[k]+gali, theta_pos  , ang.theta           , catSet);
+	  CatalogFill(catalog, PartialCell[k]+gali, phi_pos    , ang.phi             , catSet);
+	  CatalogFill(catalog, PartialCell[k]+gali, z_pos      , randz               , catSet);
+	  CatalogFill(catalog, PartialCell[k]+gali, galtype_pos, fiter               , catSet);	    
+	  CatalogFill(catalog, PartialCell[k]+gali, pixel_pos  , j                   , catSet);
+	  CatalogFill(catalog, PartialCell[k]+gali, maskbit_pos, selection.MaskBit(j), catSet);
 	  gali++;
 	}
       
       // Add entry of type SHEAR:
       else if (ftype[i]==fshear) for (m=PartialCell[k]; m<PartialCell[k+1]; m++) {
-	  GenEllip(rnd[l], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
+	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
 	  CatalogFill(catalog, m, kappa_pos , mapf[i][j]   , catSet);
 	  CatalogFill(catalog, m, gamma1_pos, gamma1f[i][j], catSet);
 	  CatalogFill(catalog, m, gamma2_pos, gamma2f[i][j], catSet);
@@ -592,19 +593,23 @@ int main (int argc, char *argv[]) {
 	}
     } // End of LOOP over field IDs.
     
-    //PartialNgal+=pixelNgal;
   } // End of LOOP over cells.  
   free_vector(PartialCell, 0, npixels*N2);
 
   // Check if every entry was set once and only once:
-  //if (gali!=Ngalaxies)        error ("corrlnfields: Galaxy counting is weird (gali != Ngalaxies).");
-  //if (PartialNgal!=Ngalaxies) error ("corrlnfields: Galaxy counting is weird (PartialNgal != Ngalaxies).");
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
       if (catSet[j][i]<1)     error("corrlnfields: Catalog has missing information.");
       if (catSet[j][i]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   Announce();
+
+  // Change angular coordinates if requested:
+  /*if ()
+  l = config.readi("ANGULAR_COORD");
+  if (l==1) {
+    
+  }*/
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
@@ -646,13 +651,3 @@ int main (int argc, char *argv[]) {
   cout<<endl;
   return 0;
 }
-
-  //for (j=0; j<npixels; j++) for(ziter=1; ziter<=N2; ziter++) {
-
-
-    // Count total number of galaxies of all types in bin:
-    //pixelNgal = 0; 
-    //for (fiter=1; fiter<=N1; fiter++) { 
-    //   fz2n(fiter, ziter, &i, N1, N2);
-    //   if (ftype[i]==fgalaxies) pixelNgal+=(int)mapf[i][j];
-    //}
