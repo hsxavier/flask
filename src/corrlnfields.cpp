@@ -309,11 +309,14 @@ int main (int argc, char *argv[]) {
     Announce("LOGNORMAL realizations: exponentiating pixels... ");
     for (i=0; i<Nfields; i++) {
       gmean = 0; gvar = 0;
+#pragma omp parallel for reduction(+:gmean)
       for (j=0; j<npixels; j++) gmean += mapf[i][j];
       gmean = gmean/npixels;
-      for (j=0; j<npixels; j++) gvar  += pow(mapf[i][j]-gmean, 2);
+#pragma omp parallel for reduction(+:gvar)
+      for (j=0; j<npixels; j++) gvar += pow(mapf[i][j]-gmean, 2);
       gvar = gvar/(npixels-1);
       expmu=(means[i]+shifts[i])/exp(gvar/2);
+#pragma omp parallel for
       for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-shifts[i];
     }
     Announce();
@@ -321,7 +324,10 @@ int main (int argc, char *argv[]) {
   // If GAUSSIAN, only add mean:
   else {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");
-    for (i=0; i<Nfields; i++) for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+    for (i=0; i<Nfields; i++) {
+#pragma omp parallel for 
+      for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+    }
     Announce();
   }
   // Free memory for means and shifts:
