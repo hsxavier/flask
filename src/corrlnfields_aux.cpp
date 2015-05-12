@@ -6,16 +6,20 @@
 #include <xcomplex.h>
 
 // Transform radians to degrees:
-inline double rad2deg(double rad) {
+double rad2deg(double rad) {
   const double OneEightyOverPi = 180.0/M_PI;
   return OneEightyOverPi * rad;
 }
 
-// Transform Theta Phi (in radians) into RA DEC (in degrees) in place:
-void thph2radec(double *polar, double *azimutal) {
+// Transform Theta (in radians) into DEC (in degrees):
+double theta2dec(double theta) {
   const double PiOverTwo = M_PI/2.0;
-  *azimutal = rad2deg(*azimutal         );
-  *polar    = rad2deg(PiOverTwo - *polar);
+  return rad2deg(PiOverTwo - theta);
+}
+
+// Transform Phi (in radians) into RA (in degrees):
+double phi2ra(double phi) {
+  return rad2deg(phi);
 }
 
 

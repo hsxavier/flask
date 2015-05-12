@@ -605,11 +605,30 @@ int main (int argc, char *argv[]) {
   Announce();
 
   // Change angular coordinates if requested:
-  /*if ()
   l = config.readi("ANGULAR_COORD");
-  if (l==1) {
-    
-  }*/
+  if ((theta_pos!=-1 || phi_pos!=-1) && l!=0) {
+    Announce("Changing angular coordinates... ");
+    // Only change units:
+    if (l==1) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (i=0; i<Ngalaxies; i++) catalog[theta_pos][i] = rad2deg(catalog[theta_pos][i]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (i=0; i<Ngalaxies; i++) catalog[  phi_pos][i] = rad2deg(catalog[  phi_pos][i]);    
+    }
+    // Change to RADEC:
+    else if (l==2) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (i=0; i<Ngalaxies; i++) catalog[theta_pos][i] = theta2dec(catalog[theta_pos][i]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (i=0; i<Ngalaxies; i++) catalog[  phi_pos][i] =    phi2ra(catalog[  phi_pos][i]);    
+    }
+    else if (l!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
+    Announce();
+  }
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
