@@ -508,7 +508,7 @@ int main (int argc, char *argv[]) {
   /**********************************/
 
   double **catalog, esig, ellip1, ellip2, randz;
-  int Ngalaxies, gali, pixelNgal, PartialNgal, **catSet, ncols, *PartialCell;
+  int Ngalaxies, gali, cellNgal, PartialNgal, **catSet, ncols, *ThreadNgals;
   pointing ang;
   int ziter, fiter;
   std::string CatalogHeader;
@@ -518,19 +518,22 @@ int main (int argc, char *argv[]) {
   esig = config.readd("ELLIP_SIGMA");
   
   Announce("Counting galaxies... ");
-  PartialCell = vector<int>(0,npixels*N2); // Partial count of galaxies up to the current cell (exclusive).
-  Ngalaxies   = 0; // Find out the total number of galaxies in all fields and redshifts:
-  // LOOP over 3D cells:
+  // Partial count of galaxies for each thread (assuming the threads get the data in order):
+  ThreadNgals = vector<int>(0, MaxThreads);       
+  for(l=0; l<=MaxThreads; l++) ThreadNgals[l] = 0;
+  // Loop over 3D cells:
+#pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
   for (k=0; k<npixels*N2; k++) {
+    l     = omp_get_thread_num();
     j     = k/N2;     // angular pixel.
     ziter = k%N2 + 1; // z slice.
-    PartialCell[k] = Ngalaxies;
     for (fiter=1; fiter<=N1; fiter++) {
       fz2n(fiter, ziter, &i, N1, N2);
-      if (ftype[i]==fgalaxies) Ngalaxies += (int)mapf[i][j];
+      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += (int)mapf[i][j];
     }
   }
-  PartialCell[npixels*N2] = Ngalaxies;
+  for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
+  Ngalaxies = ThreadNgals[MaxThreads];
   Announce();     
   cout << "# of galaxies: "<<Ngalaxies<<endl;
   
@@ -557,34 +560,42 @@ int main (int argc, char *argv[]) {
   
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
-  gali = 0; PartialNgal = 0;
-#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz)
+  PartialNgal=0; // Counter of galaxies inside thread.
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, cellNgal) firstprivate(PartialNgal)
+  // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
   for (k=0; k<npixels*N2; k++) {
-    l     = omp_get_thread_num()+1; // Processor number.
-    j     = k/N2;                   // pixel.
-    ziter = k%N2 + 1;               // z slice.
-    gali  = 0;                      // Galaxy number inside cell.
+    l        = omp_get_thread_num();   // Processor number.
+    j        = k/N2;                   // pixel.
+    ziter    = k%N2 + 1;               // z slice.
+    gali     = 0;                      // Galaxy number inside cell.
+    cellNgal = 0;                      // Total galaxy number inside cell.
 
+    // Count total number of galaxies of all types inside cell:
+    for (fiter=1; fiter<=N1; fiter++) {
+      fz2n(fiter, ziter, &i, N1, N2);
+      if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) cellNgal++;
+    }
+    
     // LOOP over field IDs:
     for (fiter=1; fiter<=N1; fiter++) {
       fz2n(fiter, ziter, &i, N1, N2);
       
       // Add entry of type GALAXY:      
       if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
-	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l], mapf[i], j);
-	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l],i,j);
-	  CatalogFill(catalog, PartialCell[k]+gali, theta_pos  , ang.theta           , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, phi_pos    , ang.phi             , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, z_pos      , randz               , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, galtype_pos, fiter               , catSet);	    
-	  CatalogFill(catalog, PartialCell[k]+gali, pixel_pos  , j                   , catSet);
-	  CatalogFill(catalog, PartialCell[k]+gali, maskbit_pos, selection.MaskBit(j), catSet);
+	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l+1], mapf[i], j);
+	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l+1],i,j);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta           , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi             , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz               , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, fiter               , catSet);	    
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, pixel_pos  , j                   , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, maskbit_pos, selection.MaskBit(j), catSet);
 	  gali++;
 	}
       
       // Add entry of type SHEAR:
-      else if (ftype[i]==fshear) for (m=PartialCell[k]; m<PartialCell[k+1]; m++) {
-	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
+      else if (ftype[i]==fshear) for (m=ThreadNgals[l]+PartialNgal; m<ThreadNgals[l]+PartialNgal+cellNgal; m++) {
+	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
 	  CatalogFill(catalog, m, kappa_pos , mapf[i][j]   , catSet);
 	  CatalogFill(catalog, m, gamma1_pos, gamma1f[i][j], catSet);
 	  CatalogFill(catalog, m, gamma2_pos, gamma2f[i][j], catSet);
@@ -592,9 +603,9 @@ int main (int argc, char *argv[]) {
 	  CatalogFill(catalog, m, ellip2_pos, ellip2       , catSet);
 	}
     } // End of LOOP over field IDs.
-    
+    PartialNgal += cellNgal;
   } // End of LOOP over cells.  
-  free_vector(PartialCell, 0, npixels*N2);
+  free_vector(ThreadNgals, 0, MaxThreads);
 
   // Check if every entry was set once and only once:
   for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
