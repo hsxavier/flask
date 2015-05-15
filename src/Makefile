@@ -9,11 +9,13 @@ CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
 LDHEAL  = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
 LIBS    = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
-# Options for Splinter:
 
-#CXXHEAL = -I/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/include
-#LDHEAL  = -L/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/lib
-#CXXFITS = -I/usr/include/cfitsio
+# Options for Splinter:
+ifeq ($(HOSTNAME), splinter-login.local)
+CXXHEAL = -I/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/include
+LDHEAL  = -L/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/lib
+CXXFITS = -I/usr/include/cfitsio
+endif
 
 # General instructions:
 all: $(BIN)/corrlnfields $(BIN)/GenStarMask

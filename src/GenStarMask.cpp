@@ -20,6 +20,9 @@ int main (int argc, char *argv[]) {
   rangeset<int> pixSet;
   std::vector<int> starPixels;
   char message[200];
+  // Constants:
+  const double StarValue  = 0;
+  const double EmptyValue = 1;
 
   // Check number of input parameters:
   if (argc<=6) {
@@ -41,15 +44,15 @@ int main (int argc, char *argv[]) {
   rand = gsl_rng_alloc(gsl_rng_mt19937);
   gsl_rng_set(rand, rnseed);
 
-  // Initializing mask:
-  StarMask.SetNside(Nside, RING);
-  StarMask.fill(1);
-  
   // Initializing constants:
   LNrmin  = log(rmin * (M_PI/180.0/60.0)); // Convert arcmin to radians.
   LNrmax  = log(rmax * (M_PI/180.0/60.0)); // Convert arcmin to radians.
   DLNr    = LNrmax - LNrmin;
   Npixels = 12*Nside*Nside;
+
+  // Initializing mask:
+  StarMask.SetNside(Nside, RING);
+  StarMask.fill(EmptyValue); 
  
   covPix  = 0;
   pixGoal = (int)(Npixels*fracGoal+0.5);
@@ -63,15 +66,14 @@ int main (int argc, char *argv[]) {
     StarMask.query_disc(cang, r, pixSet);
     pixSet.toVector(starPixels);
     // Set selected pixels to zero and count zeroed pixels:
-    for (i=0; i<starPixels.size(); i++) if (StarMask[starPixels[i]]>0.0) {
+    for (i=0; i<starPixels.size(); i++) 
+      if (StarMask[starPixels[i]]!=StarValue) {
 	covPix++;
-	StarMask[starPixels[i]] = 0.0;
+	StarMask[starPixels[i]] = StarValue;
       }   
   } while (covPix < pixGoal);
   
   // Output map to FITS file:
-  //sprintf(message, "rm -f %s", filename.c_str());
-  //system(message); // Have to delete previous fits files first.
   write_Healpix_map_to_fits("!"+filename, StarMask, planckType<double>()); // Filename prefixed by ! to overwrite.
   printf("Map written to %s\n", filename.c_str());
   
