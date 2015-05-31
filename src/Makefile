@@ -18,13 +18,16 @@ CXXFITS = -I/usr/include/cfitsio
 endif
 
 # General instructions:
-all: $(BIN)/corrlnfields $(BIN)/GenStarMask
+all: $(BIN)/corrlnfields $(BIN)/GenStarMask $(BIN)/XiCalculator
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 
 # Executables:
+
+$(BIN)/XiCalculator: $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o 
+	$(COMP) $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o -o $@ -lgomp
 
 $(BIN)/GenStarMask: $(OBJ)/GenStarMask.o
 	$(COMP) $(LDHEAL) $(OBJ)/GenStarMask.o -o $@ $(LIBS)
@@ -41,6 +44,9 @@ $(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utiliti
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o -o $@ $(LIBS)
 
 # Objects:
+
+$(OBJ)/XiCalculator.o: $(SRC)/XiCalculator.cpp Utilities.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/XiCalculator.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GenStarMask.cpp -o $@ $(CXXOMP)
