@@ -22,6 +22,7 @@ void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
 void PrintVecs(double **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0);
 // Formatting:
 std::string ZeroPad(int num, int max);
+bool StrReplace(std::string& str, const std::string& from, const std::string& to);
 // Timing processes:
 void Announce(std::string message = "done");
 

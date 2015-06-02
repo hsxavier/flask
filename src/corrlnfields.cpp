@@ -32,7 +32,7 @@ int main (int argc, char *argv[]) {
   using namespace ParDef; ParameterList config;         // Easy configuration file use.
   Cosmology cosmo;                                      // Cosmological parameters.
   char message[100];                                    // Handling warnings and errors.
-  std::string filename;
+  std::string filename, ExitAt;
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
@@ -70,10 +70,12 @@ int main (int argc, char *argv[]) {
   config.show();
   cout << endl;
   cosmo.load(&config);
-  if (config.reads("EXIT_AT")!="0") config.findpar(config.reads("EXIT_AT")+":"); // Produce warning if last output is unknown.
+  ExitAt = config.reads("EXIT_AT");
+  if (ExitAt!="0") config.findpar(ExitAt+":"); // Produce warning if last output is unknown.
   // - Lognormal or Gausian realizations:
-  if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
-  else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
+  if (config.reads("DIST")=="LOGNORMAL")        dist=lognormal;
+  else if (config.reads("DIST")=="GAUSSIAN")    dist=gaussian;
+  else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
   
 
@@ -133,61 +135,66 @@ int main (int argc, char *argv[]) {
   lmax             = config.readi("LMAX");
   lmin             = config.readi("LMIN");
 
-  // If input triangular mixing matrices unspecified, compute them from input Cls:
-  if (CholeskyInPrefix=="0") {
-    // Load C(l)s and compute auxiliary Gaussian cov. matrices:
-    status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
-    if (status==1) { // Exit if fast output was inside ClProcess.
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0; 
-    }
-    cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
-    cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
-    
-    // Cholesky decomposition:
-    Announce("Performing Cholesky decompositions of cov. matrices... ");
-    j=0; // Will count number of Cholesky failures.
-    for (l=lmin; l<=lmax; l++) {
-      //cout << "** Working with cov. matrix for l="<<l<<":\n";
-      status = gsl_linalg_cholesky_decomp(CovByl[l]);
-      if (status==GSL_EDOM) { 
-	sprintf(message,"Cholesky decomposition failed: cov. matrix for l=%d is not positive-definite.", l); 
-	warning(message); j++; 
+  // Skip mixing matrices if generating homogeneous uncorrelated fields: matrices would be zero:
+  if (dist!=homogeneous) {
+  
+    // If input triangular mixing matrices unspecified, compute them from input Cls:
+    if (CholeskyInPrefix=="0") {
+      // Load C(l)s and compute auxiliary Gaussian cov. matrices:
+      status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
+      if (status==1) { // Exit if fast output was inside ClProcess.
+	cout << "\nTotal number of warnings: " << warning("count") << endl;
+	cout<<endl;
+	return 0; 
       }
-    }
-    Announce();
+      cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
+      cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
     
-    // Exit if any Cholesky failed:
-    if (j>0) {sprintf(message,"Cholesky decomposition failed %d times.",j); error(message);}
-    // Output mixing matrices if requested:
-    GeneralOutput(CovByl, config, "CHOLESKY_PREFIX", 0);
-    if (config.reads("CHOLESKY_PREFIX")!="0") 
-      cout << ">> Mixing matrices written to prefix "+config.reads("CHOLESKY_PREFIX")<<endl;
-  }
-
-  // If input triangular matrices are specified, allocate memory for them:
-  else {
-    Announce("Allocating memory for mixing matrices (CHOL_IN_PREFIX)... ");
-    CovByl = GSLMatrixArray(lmax+1, Nfields, Nfields); // Allocation should have offset to avoid unnecessary low ells.
-    Announce();                                        // If we are loading the matrices ell by ell, an array is not necessary! 
-    Announce("Loading mixing matrices... ");
-    for (l=lmin; l<=lmax; l++) {
-      filename = CholeskyInPrefix+"l"+ZeroPad(l,lmax)+".dat";
-      LoadGSLMatrix(filename, CovByl[l]);
+      // Cholesky decomposition:
+      Announce("Performing Cholesky decompositions of cov. matrices... ");
+      j=0; // Will count number of Cholesky failures.
+      for (l=lmin; l<=lmax; l++) {
+	//cout << "** Working with cov. matrix for l="<<l<<":\n";
+	status = gsl_linalg_cholesky_decomp(CovByl[l]);
+	if (status==GSL_EDOM) { 
+	  sprintf(message,"Cholesky decomposition failed: cov. matrix for l=%d is not positive-definite.", l); 
+	  warning(message); j++; 
+	}
+      }
+      Announce();
+    
+      // Exit if any Cholesky failed:
+      if (j>0) {sprintf(message,"Cholesky decomposition failed %d times.",j); error(message);}
+      // Output mixing matrices if requested:
+      GeneralOutput(CovByl, config, "CHOLESKY_PREFIX", 0);
+      if (config.reads("CHOLESKY_PREFIX")!="0") 
+	cout << ">> Mixing matrices written to prefix "+config.reads("CHOLESKY_PREFIX")<<endl;
     }
-    status=0;
-    Announce();    
-  }
 
+    // If input triangular matrices are specified, allocate memory for them:
+    else {
+      Announce("Allocating memory for mixing matrices (CHOL_IN_PREFIX)... ");
+      CovByl = GSLMatrixArray(lmax+1, Nfields, Nfields); // Allocation should have offset to avoid unnecessary low ells.
+      Announce();                                        // If we are loading the matrices ell by ell, an array is not necessary! 
+      Announce("Loading mixing matrices... ");
+      for (l=lmin; l<=lmax; l++) {
+	filename = CholeskyInPrefix+"l"+ZeroPad(l,lmax)+".dat";
+	LoadGSLMatrix(filename, CovByl[l]);
+      }
+      status=0;
+      Announce();    
+    }
+  } // End of IF not homogeneous.
+  else cout << "HOMOGENEOUS realizations: skipped mixing matrix preparation.\n";
+ 
   // Exit if dealing with mixing matrices was the last task:
-  if (config.reads("EXIT_AT")=="CHOLESKY_PREFIX") {
+  if (ExitAt=="CHOLESKY_PREFIX") {
     cout << "\nTotal number of warnings: " << warning("count") << endl;
     cout<<endl;
     return 0;
   }
-
-
+  
+  
   /*************************************************/
   /*** PART 4: Auxiliary Gaussian alm generation ***/
   /*************************************************/
@@ -214,62 +221,68 @@ int main (int argc, char *argv[]) {
   }
   Announce();
   cout << "First random numbers: "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<endl;
-  
-  // Allocate memory for gaussian alm's:
-  Announce("Allocating memory for auxiliary gaussian alm's... ");
-  gaus0 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
-  gaus1 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1);  
-  aflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
-  for (i=0; i<Nfields; i++) {
-    aflm[i].Set(lmax,lmax);
-    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
-  }
-  Announce();
 
-  // LOOP over l's and m's together:
-  Announce("Generating auxiliary gaussian alm's... ");
-  jmin = (lmin*(lmin+1))/2;
-  jmax = (lmax*(lmax+3))/2;
+  // Skip alm generation if creating homogeneous uncorrelated fields: all would be zero:
+  if (dist!=homogeneous) {
+  
+    // Allocate memory for gaussian alm's:
+    Announce("Allocating memory for auxiliary gaussian alm's... ");
+    gaus0 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
+    gaus1 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1);  
+    aflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
+    for (i=0; i<Nfields; i++) {
+      aflm[i].Set(lmax,lmax);
+      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+    }
+    Announce();
+
+    // LOOP over l's and m's together:
+    Announce("Generating auxiliary gaussian alm's... ");
+    jmin = (lmin*(lmin+1))/2;
+    jmax = (lmax*(lmax+3))/2;
 #pragma omp parallel for schedule(static) private(l, m, i, k)
-  for(j=jmin; j<=jmax; j++) {
+    for(j=jmin; j<=jmax; j++) {
     
-    // Find out which random generator to use:
-    k = omp_get_thread_num()+1;
-    // Find out which multipole to compute:    
-    l = (int)((sqrt(8.0*j+1.0)-1.0)/2.0);
-    m = j-(l*(l+1))/2;
+      // Find out which random generator to use:
+      k = omp_get_thread_num()+1;
+      // Find out which multipole to compute:    
+      l = (int)((sqrt(8.0*j+1.0)-1.0)/2.0);
+      m = j-(l*(l+1))/2;
     
-    // Generate independent 1sigma complex random variables:
-    if (m==0) for (i=0; i<Nfields; i++) {
-	gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], 1.0);
-	gaus0[k][i][1] = 0.0;
-      }                                                      // m=0 are real, so real part gets all the variance.
-    else      for (i=0; i<Nfields; i++) {
-	gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
-	gaus0[k][i][1] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
-      }
+      // Generate independent 1sigma complex random variables:
+      if (m==0) for (i=0; i<Nfields; i++) {
+	  gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], 1.0);
+	  gaus0[k][i][1] = 0.0;
+	}                                                      // m=0 are real, so real part gets all the variance.
+      else      for (i=0; i<Nfields; i++) {
+	  gaus0[k][i][0] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
+	  gaus0[k][i][1] = gsl_ran_gaussian(rnd[k], OneOverSqr2);
+	}
     
-    // Generate correlated complex gaussian variables according to CovMatrix:
-    CorrGauss(gaus1[k], CovByl[l], gaus0[k]);
+      // Generate correlated complex gaussian variables according to CovMatrix:
+      CorrGauss(gaus1[k], CovByl[l], gaus0[k]);
   
-    // Save alm to tensor:
-    for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);   
+      // Save alm to tensor:
+      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);   
        
-  } // End of LOOP over l's and m's.
-  Announce();
-  free_GSLMatrixArray(CovByl, Nls);
-  free_tensor3(gaus0, 1,MaxThreads, 0,Nfields-1, 0,1);
-  free_tensor3(gaus1, 1,MaxThreads, 0,Nfields-1, 0,1);
-  
-  // If requested, write alm's to file:
-  GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
-  // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="AUXALM_OUT") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
-  }
+    } // End of LOOP over l's and m's.
+    Announce();
+    free_GSLMatrixArray(CovByl, Nls);
+    free_tensor3(gaus0, 1,MaxThreads, 0,Nfields-1, 0,1);
+    free_tensor3(gaus1, 1,MaxThreads, 0,Nfields-1, 0,1);
+    // If requested, write alm's to file:
+    GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
+  } // End of IF not homogeneous.
 
+  else cout << "HOMOGENEOUS realizations: skipped alm generation.\n";
+
+  // Exit if this is the last output requested:
+  if (ExitAt=="AUXALM_OUT") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
+  
 
   /******************************/
   /*** Part 5: Map generation ***/
@@ -288,17 +301,27 @@ int main (int argc, char *argv[]) {
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   Announce();
-  // Generate maps from alm's for each field:
-  Announce("Generating maps from alm's... ");
-  for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
-  Announce();
+
+  // Generate maps from alm's for each field if not creating homogeneous uncorrelated fields:
+  if (dist!=homogeneous) {
+    Announce("Generating maps from alm's... ");
+    for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
+    Announce();
+  }
+  // Generate mean maps if creating homogeneous fields:
+  else {
+    Announce("HOMOGENEOUS realizations: filing maps with mean values... ");
+    for(i=0; i<Nfields; i++) mapf[i].fill(means[i]);
+    Announce();
+  }
+  
   // If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
   if (dist==lognormal) free_vector(aflm, 0, Nfields-1);
   // Write auxiliary map to file as a table if requested:
   GeneralOutput(mapf, config, "AUXMAP_OUT", N1, N2);
   
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="AUXMAP_OUT") {
+  if (ExitAt=="AUXMAP_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -322,7 +345,7 @@ int main (int argc, char *argv[]) {
     Announce();
   }
   // If GAUSSIAN, only add mean:
-  else {
+  else if (dist==gaussian) {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");
     for (i=0; i<Nfields; i++) {
 #pragma omp parallel for 
@@ -340,8 +363,8 @@ int main (int argc, char *argv[]) {
   GeneralOutput(mapf, config, "MAPFITS_PREFIX", N1, N2, 1);
   
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="MAP_OUT" ||
-      config.reads("EXIT_AT")=="MAPFITS_PREFIX") {
+  if (ExitAt=="MAP_OUT" ||
+      ExitAt=="MAPFITS_PREFIX") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -371,7 +394,7 @@ int main (int argc, char *argv[]) {
 
 
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="RECOVALM_OUT") {
+  if (ExitAt=="RECOVALM_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -468,11 +491,18 @@ int main (int argc, char *argv[]) {
 	Announce();
       }
  
-      // Calculate shear E-mode alm's from convergence alm's:
-      Announce("   Computing shear harmonic coefficients from klm... ");
-      if (dist==lognormal) Kappa2ShearEmode(Eflm, Eflm);
-      else  Kappa2ShearEmode(Eflm, aflm[i]);
-      Announce();
+      if (dist!=homogeneous) {
+	// Calculate shear E-mode alm's from convergence alm's:
+	Announce("   Computing shear harmonic coefficients from klm... ");
+	if (dist==lognormal)     Kappa2ShearEmode(Eflm, Eflm);
+	else if (dist==gaussian) Kappa2ShearEmode(Eflm, aflm[i]);
+	Announce();
+      }
+      else {
+	Announce("HOMOGENEOUS realizations: setting shear E-mode to zero... ");
+	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	Announce();
+      }
       n2fz(i, &f, &z, N1, N2);
       GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
 
@@ -495,9 +525,9 @@ int main (int argc, char *argv[]) {
   GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", N1, N2);
 
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="SHEAR_ALM_PREFIX"  ||
-      config.reads("EXIT_AT")=="SHEAR_FITS_PREFIX" || 
-      config.reads("EXIT_AT")=="SHEAR_MAP_OUT") {
+  if (ExitAt=="SHEAR_ALM_PREFIX"  ||
+      ExitAt=="SHEAR_FITS_PREFIX" || 
+      ExitAt=="SHEAR_MAP_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -556,8 +586,12 @@ int main (int argc, char *argv[]) {
   ellip2_pos  = GetSubstrPos("ellip2" , CatalogHeader);  
   pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
   maskbit_pos = GetSubstrPos("maskbit", CatalogHeader);
+  // Reaname 'theta' and 'phi' to 'dec' and 'ra' if change of coords. was requested:
+  if (config.readi("ANGULAR_COORD")==2) {
+    StrReplace(CatalogHeader, "theta", "dec");
+    StrReplace(CatalogHeader, "phi", "ra");
+  }
 
-  
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
   PartialNgal=0; // Counter of galaxies inside thread.

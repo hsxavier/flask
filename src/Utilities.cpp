@@ -8,8 +8,16 @@
 #include <iomanip>   // for setw()
 #include <ctime>
 
+/****** Replace substring 'from' to 'to' in string 'str' ******/
+bool StrReplace(std::string& str, const std::string& from, const std::string& to) {
+    size_t start_pos = str.find(from);
+    if(start_pos == std::string::npos) return false;
+    str.replace(start_pos, from.length(), to);
+    return true;
+}
 
-/******  ******/
+
+/****** Print message and measure time elapsed from message printing to next function call with empty parameters ******/
 void Announce(std::string message) {
   static time_t start;
   int space=58;
@@ -57,10 +65,10 @@ void PrintVecs(double **table, long nrows, long ncols, std::ostream *output/* = 
   long i, j;
   
   //(*output).setf(std::ios_base::showpoint);
-  (*output).precision(6);
+  (*output).precision(8);
   for (i=offset; i<nrows+offset; i++) {
     for (j=offset; j<ncols+offset; j++) {
-      (*output).width(12); *output << table[j][i] << " ";
+      (*output).width(14); *output << table[j][i] << " ";
     }
     *output << std::endl;
   }      

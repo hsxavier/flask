@@ -125,7 +125,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
   int i, j, k, l, m, status, Nfields, Nls;
-  std::string filename;
+  std::string filename, ExitAt;
   bool *fnzSet;
   gsl_matrix **CovByl;
 
@@ -133,7 +133,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   Nfields=N1*N2;
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
-
+  ExitAt = config.reads("EXIT_AT");
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
@@ -222,7 +222,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   }
   free_matrix(fnz, 0, Nfields-1, 0,1);
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="FLIST_OUT") return 1;
+  if (ExitAt=="FLIST_OUT") return 1;
  
 
   // Look for the maximum l value described by all C(l)s:
@@ -357,9 +357,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (config.reads("GCLOUT_PREFIX")!="0") 
     cout << ">> C(l)s for auxiliary Gaussian variables written to prefix "+config.reads("GCLOUT_PREFIX")<<endl;
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="XIOUT_PREFIX"  || 
-      config.reads("EXIT_AT")=="GXIOUT_PREFIX" || 
-      config.reads("EXIT_AT")=="GCLOUT_PREFIX") return 1;
+  if (ExitAt=="XIOUT_PREFIX"  || 
+      ExitAt=="GXIOUT_PREFIX" || 
+      ExitAt=="GCLOUT_PREFIX") return 1;
     
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   Announce("Set remaining cov. matrices elements based on symmetry... ");
@@ -385,7 +385,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (config.reads("COVL_PREFIX")!="0") 
     cout << ">> Cov. matrices written to prefix "+config.reads("COVL_PREFIX")<<endl;
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="COVL_PREFIX") return 1;
+  if (ExitAt=="COVL_PREFIX") return 1;
 
 
   /****************************************************************************/
@@ -442,7 +442,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (config.reads("REG_COVL_PREFIX")!="0") 
     cout << ">> Regularized cov. matrices written to prefix "+config.reads("REG_COVL_PREFIX")<<endl;
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="REG_COVL_PREFIX") return 1;
+  if (ExitAt=="REG_COVL_PREFIX") return 1;
 
   /***********************************************************/
   /*** PART 4: Obtain regularized input Cls if requested   ***/
@@ -507,7 +507,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   }
   
   // Exit if this is the last output requested:
-  if (config.reads("EXIT_AT")=="REG_CL_PREFIX") return 1;
+  if (ExitAt=="REG_CL_PREFIX") return 1;
 
   return 0; // Any return in the middle of this function returns 1.
 }

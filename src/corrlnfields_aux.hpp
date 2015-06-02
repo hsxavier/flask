@@ -15,7 +15,7 @@
 // Global definitions
 namespace definitions {
   const int fgalaxies=1, fshear=2;                      // Field type identification.
-  enum simtype {gaussian, lognormal};                   // Type of simulation.
+  enum simtype {gaussian, lognormal, homogeneous};      // Type of simulation.
 }
 
 
