@@ -6,7 +6,7 @@
 
 int main (int argc, char *argv[]) {
   const double Degrees=M_PI/180.0;
-  const int RAcol=1, DECcol=0;
+  const int RAcol=0, DECcol=1;
   const double MinAng=0, MaxAng=M_PI;
   std::string datafile, randfile, outfile;
   std::ofstream output;
@@ -24,9 +24,9 @@ int main (int argc, char *argv[]) {
   // Get input from command line:
   if (argc<=5) {
     printf("USAGE: XiCalculator <DATA FILE> <FIELD COL> <RAND FILE> <DELTA_ANG (DEG)> <OUTPUT FILE>\n");
-    printf("                                  1          2               N                         \n");
-    printf("<DATA FILE> columns must be: DEC [deg], RA [deg], ..., FIELD VALUE, ...                \n");
-    printf("<RAND FILE> columns must be: DEC [deg], RA [deg].                                      \n");
+    printf("                                 %d        %d               N                          \n", RAcol, DECcol);
+    printf("<DATA FILE> columns must be: RA [deg], DEC [deg], ..., FIELD VALUE, ...                \n");
+    printf("<RAND FILE> columns must be: RA [deg], DEC [deg].                                      \n");
     return 0;
   }
   datafile.assign(argv[1]);
@@ -34,7 +34,7 @@ int main (int argc, char *argv[]) {
   randfile.assign(argv[3]);
   sscanf(argv[4],"%lf", &DeltaAng);
   outfile.assign(argv[5]);
-  printf("                                            [0] [1]        [%d]\n", VARcol);
+  printf("                                             [%d] [%d]       [%d]\n", DECcol, RAcol, VARcol);
   printf("Will compute Xi with resolution %g deg for (DEC, RA, ..., FIELD) in file %s using %s as random sample:\n", 
 	 DeltaAng, datafile.c_str(), randfile.c_str());
   
