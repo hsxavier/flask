@@ -67,6 +67,51 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
 }
 
 
+/*******************/
+/*** Cl's output ***/
+/*******************/
+
+
+// Prints all Cl's to a TEXT file:
+void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & config, std::string keyword, bool inform) {
+  std::string filename;
+  std::ofstream outfile; 
+  int k, l, m, i, j, fi, zi, fj, zj, lminout, lmaxout, NCls;
+  
+  filename  = config.reads(keyword);
+  // If requested, write Cl's to the file:
+  if (filename!="0") {
+    outfile.open(filename.c_str());
+    if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
+    NCls  = N1*N2*(N1*N2+1)/2;
+
+    // Write header to file:
+    outfile << "# l ";
+    for (k=0; k<NCls; k++) {
+      l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
+      m = NCls-1-k-(l*(l+1))/2;
+      i = N1*N2-1-l;
+      j = N1*N2-1-m;
+      n2fz(i, &fi, &zi, N1, N2);
+      n2fz(j, &fj, &zj, N1, N2);
+      outfile << "Cl-f"<<fi<<"z"<<zi<<"f"<<fj<<"z"<<zj<<" ";
+    }
+    outfile << std::endl;
+    
+    // Write Cls to file:
+    for (l=lminout; l<=lmaxout; l++) {
+      outfile<<l<<" "; for (k=0; k<NCls; k++) outfile << recovCl[k][l] << " ";
+      outfile << std::endl;      
+    }
+    
+    outfile.close();
+    if(inform==1) std::cout << ">> "+keyword+" written to "+filename<<std::endl; 
+  }
+}
+
+
 /********************/
 /*** Alm's output ***/
 /********************/

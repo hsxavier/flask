@@ -36,7 +36,7 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, k, l, m, N1, N2, Nfields, mmax, *ftype, Nls, MaxThreads;
+  int status, i, j, k, l, m, N1, N2, Nfields, *ftype, Nls, MaxThreads;
   double *means, *shifts, **zrange; 
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
@@ -371,8 +371,8 @@ int main (int argc, char *argv[]) {
   }
 
 
-  // If requested, compute and write recovered alm's to file:
-  if (config.reads("RECOVALM_OUT")!="0") {
+  // If requested, compute and write recovered alm's and/or Cl's to files:
+  if (config.reads("RECOVALM_OUT")!="0" || config.reads("RECOVCLS_OUT")!="0") {
     // Allocate and clear variables to receive new alm's:
     bflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);
     for (i=0; i<Nfields; i++) {
@@ -385,16 +385,46 @@ int main (int argc, char *argv[]) {
     Announce("Recovering alm's from map... ");
     for(i=0; i<Nfields; i++) map2alm(mapf[i],bflm[i],weight);
     Announce();
+    weight.dealloc();
     // Output to file:
     GeneralOutput(bflm, config, "RECOVALM_OUT", N1, N2);
+
+    // Compute Cl's if requested:
+    if (config.reads("RECOVCLS_OUT")!="0") {
+      double **recovCl;
+      int lminout, lmaxout, mmax;
+      Announce("Recovering Cl's from maps... ");
+      lminout = config.readi("LRANGE_OUT", 0);
+      lmaxout = config.readi("LRANGE_OUT", 1);
+      mmax    = config.readi("MMAX_OUT");
+      if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
+      status  = Nfields*(Nfields+1)/2;
+      recovCl = matrix<double>(0, status-1, lminout, lmaxout);
+      for (k=0; k<status; k++) {
+	l = (int)((sqrt(8.0*(status-1-k)+1.0)-1.0)/2.0);
+	m = status-1-k-(l*(l+1))/2;
+	i = Nfields-1-l;
+	j = Nfields-1-m;
+	for(l=lminout; l<=lmaxout; l++) {
+	  recovCl[k][l] = 0;
+	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	  recovCl[k][l] = recovCl[k][l]/((double)(l+1));
+	}
+      } // End of Cl computing.
+      Announce();
+      GeneralOutput(recovCl, N1, N2, config, "RECOVCLS_OUT");
+      free_matrix(recovCl, 0, status-1, lminout, lmaxout); 
+    }
+    
     // Free memory:
-    weight.dealloc();
     free_vector(bflm, 0, Nfields-1);
   }
 
 
   // Exit if this is the last output requested:
-  if (ExitAt=="RECOVALM_OUT") {
+  if (ExitAt=="RECOVALM_OUT" || 
+      ExitAt=="RECOVCLS_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -459,8 +489,7 @@ int main (int argc, char *argv[]) {
   }
   else error ("corrlnfields: unknown POISSON option.");
   
-  //GeneralOutput(mapf, config, "MAPFITS_PREFIX", fnz, Nfields);
-
+  
   /*** Lensing fields ***/
 
   double coeff;
@@ -521,13 +550,31 @@ int main (int argc, char *argv[]) {
   weight.dealloc();
   Eflm.Set(0,0); 
   Bflm.Set(0,0);
-  // Output shear maps to TEXT tables:
-  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", N1, N2);
 
   // Exit if this is the last output requested:
   if (ExitAt=="SHEAR_ALM_PREFIX"  ||
-      ExitAt=="SHEAR_FITS_PREFIX" || 
-      ExitAt=="SHEAR_MAP_OUT") {
+      ExitAt=="SHEAR_FITS_PREFIX") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+  }
+
+  // Write final map to file as a table if requested:
+  GeneralOutput(mapf, config, "MAPWER_OUT", N1, N2);
+  // Map output to fits and/or tga files:
+  GeneralOutput(mapf, config, "MAPWERFITS_PREFIX", N1, N2, 1);  
+  // Exit if this is the last output requested:
+  if (ExitAt=="MAPWER_OUT" ||
+      ExitAt=="MAPWERFITS_PREFIX") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
+
+  // Output shear maps to TEXT tables:
+  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", N1, N2);
+  // Exit if this is the last output requested:
+  if (ExitAt=="SHEAR_MAP_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;

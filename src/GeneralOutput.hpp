@@ -16,6 +16,12 @@ void GeneralOutput(const gsl_matrix *Cov, std::string filename, bool inform = 1)
 void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::string keyword, bool inform = 1);
 
 
+/*** Cl's output ***/
+
+// Prints all Cl's to a TEXT file:
+void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & config, std::string keyword, bool inform = 1);
+
+
 /*** Alm's output ***/
 
 // Many alm's in one single table:
