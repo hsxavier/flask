@@ -287,7 +287,10 @@ double SelectionFunction::operator()(int fz, int pix) {
   // Normal execution:
   
   // For non-separable selection functions, return the Healpix map value:
-  if (Separable==0) return Scale * StarValue * AngularSel[fz][pix];
+  if (Separable==0) {
+    if (UseAngularMask==1) return Scale * StarValue * AngularSel[fz][pix];
+    else                   return Scale * StarValue;
+  }
   
   // For separable selection functions, multiply radial to angular part:
   else if (Separable==1) {
