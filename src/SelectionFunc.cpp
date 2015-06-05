@@ -10,6 +10,7 @@
 // Default constructor:
 SelectionFunction::SelectionFunction () {
   Separable=-1; // Kind of selection function not set yet.
+  NoMap=-2;     // Interval constant.
 }
 
 // Load selection functions:
@@ -37,7 +38,10 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
     fieldZrange[i][1] = fzrange[i][1];
     ftype[i] = ftype0[i];
   }
-  
+  // No selection options:
+  if (tempstr =="0") UseAngularMask=0; else UseAngularMask=1;
+  if (starfile=="0") UseStarMask   =0; else UseStarMask   =1;
+
   // Barriers against unimplemented selection function kinds:
   if (SelectionType==1 || SelectionType==3) error("SelectionFunction.load: SELEC_TYPE fraction of gals not implemented yet.");
   if (SelectionType >3 || SelectionType <0) error("SelectionFunction.load: unknown selection function type.");
@@ -45,37 +49,40 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   if (SelectionType==2 && Separable    ==0) error("SelectionFunction.load: bookkeeping for non-separable sel. func. not implemented yet.");
 
   
-
   // Selection function f_i(z,theta,phi) not separable: need one map per redshift z per galaxy type i:  
   if(Separable==0) {
-
-    // Read selection functions from FITS files:
-    AngularSel = vector<Healpix_Map<double> >(0,Nfields-1);
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	// Load FITS file:
-	n2fz(i, &f, &z, N1, N2);
-	sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
-	filename.assign(message);
-	read_Healpix_map_from_fits(filename, AngularSel[i]);
-	// Check if all selection functions have same Nside and Scheme:
-	if (Nside==-1) Nside=AngularSel[i].Nside();
-	else if (AngularSel[i].Nside() != Nside) 
-	  error("SelectionFunction.load: selection FITS files have different number of pixels.");
-	if (scheme==-1) scheme=AngularSel[i].Scheme();
-	else if (AngularSel[i].Scheme() != scheme) 
-	  error("SelectionFunction.load: selection FITS files have different pixel orderings.");
-      }
+    if (UseAngularMask==1) {
+      // Read selection functions from FITS files:
+      AngularSel = vector<Healpix_Map<double> >(0,Nfields-1);
+      for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+	  // Load FITS file:
+	  n2fz(i, &f, &z, N1, N2);
+	  sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
+	  filename.assign(message);
+	  read_Healpix_map_from_fits(filename, AngularSel[i]);
+	  // Check if all selection functions have same Nside and Scheme:
+	  if (Nside==-1) Nside=AngularSel[i].Nside();
+	  else if (AngularSel[i].Nside() != Nside) 
+	    error("SelectionFunction.load: selection FITS files have different number of pixels.");
+	  if (scheme==-1) scheme=AngularSel[i].Scheme();
+	  else if (AngularSel[i].Scheme() != scheme) 
+	    error("SelectionFunction.load: selection FITS files have different pixel orderings.");
+	}
+    }
   }
-
+  
+  
   // Selection function f_i(z,theta,phi) = f_i(z) * m(theta,phi):
   else if(Separable==1) {
-
-    // Load a fixed angular selection function:
-    AngularSel = vector<Healpix_Map<double> >(0,0);
-    read_Healpix_map_from_fits(tempstr, AngularSel[0]);
-    Nside  = AngularSel[0].Nside();
-    scheme = AngularSel[0].Scheme(); 
     
+    if(UseAngularMask==1) {
+      // Load a fixed angular selection function:
+      AngularSel = vector<Healpix_Map<double> >(0,0);
+      read_Healpix_map_from_fits(tempstr, AngularSel[0]);
+      Nside  = AngularSel[0].Nside();
+      scheme = AngularSel[0].Scheme(); 
+    }
+
     // Prepare for radial selection functions:
     zSelIndex = vector<int>    (0, Nfields-1);
     NgalTypes = IndexGalTypes();
@@ -111,18 +118,15 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 
 
   // Load mask over stars:
-  if (starfile!="0") {
-    read_Healpix_map_from_fits(starfile, StarMask);
-    if (StarMask.Nside() != Nside) 
-      error("SelectionFunction.load: STARMASK number of pixels is different from the selection function.");
-    if (StarMask.Scheme() != scheme) 
-      error("SelectionFunction.load: STARMASK and selection function have different pixel orderings.");    
-  }
-  // If there is none, create clean mask:
-  else {
-    StarMask.SetNside(Nside, Healpix_Ordering_Scheme(scheme));
-    StarMask.fill(1);
-  }    
+  if (UseStarMask==1) {
+    read_Healpix_map_from_fits(starfile, StarMask);   
+    if (UseAngularMask==1) {
+      if (StarMask.Nside() != Nside) 
+	error("SelectionFunction.load: STARMASK number of pixels is different from the selection function.");
+      if (StarMask.Scheme() != scheme) 
+	error("SelectionFunction.load: STARMASK and selection function have different pixel orderings.");
+    }
+  }   
 
   // Final settings:
   Npixels = 12*Nside*Nside;
@@ -155,13 +159,17 @@ int SelectionFunction::IndexGalTypes() {
 
 // Returns Nside (Healpix) of the angular part of the selection function.
 int SelectionFunction::Nside() {
-  return AngularSel[0].Nside();
+  if  (UseAngularMask==1) return AngularSel[0].Nside();
+  else if(UseStarMask==1) return StarMask.Nside();
+  else return NoMap;
 }
 
 
 // Returns Scheme (Healpix) of the angular part of the selection function.
 int SelectionFunction::Scheme() {
-  return (int)(AngularSel[0].Scheme());
+  if  (UseAngularMask==1) return (int)(AngularSel[0].Scheme());
+  else if(UseStarMask==1) return (int)(StarMask.Scheme());
+  else return NoMap;
 }
 
 
@@ -198,12 +206,14 @@ SelectionFunction::~SelectionFunction() {
   
   // Deallocate non-separable selection functions:
   if(Separable==0) {
-    free_vector(AngularSel, 0, Nfields-1);
+    if (UseAngularMask==1) {
+      free_vector(AngularSel, 0, Nfields-1);
+    }
   }
   // Deallocate separable selection functions:
   else if(Separable==1) {
     // Free angular part:
-    free_vector(AngularSel, 0, 0);
+    if (UseAngularMask==1) free_vector(AngularSel, 0, 0);
     // Free radial selection functions:
     for (i=0; i<NgalTypes; i++) {
       free_vector(zEntries[i], 0, NzEntries[i]-1);
@@ -233,16 +243,20 @@ int SelectionFunction::MaskBit(int pix) {
   // Removed by star mask:     2
   // 0 < Selection < 1:        4
   // 0 < Star mask < 1:        8
-
-  if        (StarMask[pix]==0.0)      bit+=2;
-  else if   (StarMask[pix]< 1.0)      bit+=8;
-
-  if (Separable==1) {
-    if      (AngularSel[0][pix]==0.0) bit+=1;
-    else if (AngularSel[0][pix]< 1.0) bit+=4;
-  } 
-  else warning("SelectionFunction.MaskBit: not implemented for non-separable selection functions.");
   
+  if (UseStarMask==1) {
+    if        (StarMask[pix]==0.0)      bit+=2;
+    else if   (StarMask[pix]< 1.0)      bit+=8;
+  }
+  
+  if (UseAngularMask) {
+    if (Separable==1) {
+      if      (AngularSel[0][pix]==0.0) bit+=1;
+      else if (AngularSel[0][pix]< 1.0) bit+=4;
+    } 
+    else warning("SelectionFunction.MaskBit: not implemented for non-separable selection functions.");
+  }
+
   return bit;
 }
 
@@ -254,7 +268,7 @@ double SelectionFunction::operator()(int fz, int pix) {
 
   // Error checks:
   if (ftype[fz]!=fgalaxies) error("SelectionFunction.operator(): this is only set for fields of type galaxies.");
-  else if (pix >= Npixels || pix < 0) error("SelectionFunction.operator(): requested pixel is out of range.");
+  else if (this->Nside()!=NoMap && (pix >= Npixels || pix < 0)) error("SelectionFunction.operator(): requested pixel is out of range.");
   else if (fz  >= Nfields || fz  < 0) error("SelectionFunction.operator(): unknown requested field.");
   else if (Separable!=0 && Separable!=1) error("SelectionFunction.operator(): this object was not initialized (use load first).");
   
@@ -264,8 +278,10 @@ double SelectionFunction::operator()(int fz, int pix) {
     AngularValue = 1;                  // << Note below that non-separables are not affected by this.
   }
   else {
-    StarValue    = StarMask[pix];
-    AngularValue = AngularSel[0][pix];
+    if (UseStarMask==1)    StarValue    = StarMask[pix];
+    else                   StarValue    = 1; 
+    if (UseAngularMask==1) AngularValue = AngularSel[0][pix];
+    else                   AngularValue = 1;
   }
   
   // Normal execution:
