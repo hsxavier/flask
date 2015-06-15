@@ -124,17 +124,20 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
-  int i, j, k, l, m, status, Nfields, Nls;
+  int i, j, k, l, m, status, Nfields, Nls, lmin, lmax;
   std::string filename, ExitAt;
   bool *fnzSet;
   gsl_matrix **CovByl;
-
+  
 
   // Getting general information:
   Nfields=N1*N2;
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   ExitAt = config.reads("EXIT_AT");
+  lmax   = config.readi("LMAX");
+  lmin   = config.readi("LMIN");
+
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
@@ -384,7 +387,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   
   // Verify basic properties of auxiliary cov. matrices:
   Announce("Verifying aux. Cov. matrices properties... ");
-  for (l=1; l<Nls; l++) // Skipping l=0 since matrix should be zero. 
+  for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero. 
     for (i=0; i<Nfields; i++) {
       // Verify that diagonal elements are positive:
       if (CovByl[l]->data[i*Nfields+i]<0.0) {
@@ -418,10 +421,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   /****************************************************************************/
   gsl_matrix *gslm;
   double *MaxChange, MMax;
-  int lmax, lmin, lMMax, lstart, lend, FailReg=0;
-
-  lmax = config.readi("LMAX");
-  lmin = config.readi("LMIN");
+  int lMMax, lstart, lend, FailReg=0;
 
   // If producing the regularized lognormal C(l)s, all ls must be regularized (skip l=0 because is set to zero).
   // Else, only the cov. matrices for requested ls are regularized.
@@ -456,11 +456,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   if (FailReg==1) error("ClProcess: failed to regularize covariance matrices.");
   
   // Dump changes in cov. matrices to the screen:
-  for (l=lmin; l<=lmax; l++) {
-    MMax  = 0.0;
-    lMMax = 0;
-    if (MaxChange[l]>MMax) {MMax = MaxChange[l]; lMMax = l;}
-  }
+  MMax  = 0.0; lMMax = 0;
+  for (l=lmin; l<=lmax; l++) if (MaxChange[l]>MMax) {MMax = MaxChange[l]; lMMax = l;}
   cout << "Max. % change for "<<lmin<<"<=l<="<<lmax<<" at l="<<lMMax<<": "<<MMax<<endl;  
   free_vector(MaxChange, lstart, lend);
   // Output regularized matrices if requested:
