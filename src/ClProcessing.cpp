@@ -127,7 +127,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   int i, j, k, l, m, status, Nfields, Nls;
   std::string filename, ExitAt;
   bool *fnzSet;
-  gsl_matrix **CovByl, **OrigByl; // (SIGNAL TEST)
+  gsl_matrix **CovByl;
 
 
   // Getting general information:
@@ -241,12 +241,6 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   (*CovBylAddr) = CovByl;
   Announce();
  
-  // Allocate gsl_matrices to compare Cov. matrices signals (SIGNAL TEST):
-  if (dist==lognormal) {
-    Announce("Allocating data-cube for testing cov. matrices signals... ");
-    OrigByl = GSLMatrixArray(Nls, Nfields, Nfields);
-    Announce();
-  }
 
   /*****************************************************************/
   /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
@@ -307,9 +301,6 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       //cout << "              done.\n";
 	
       if (dist==lognormal) {              /** LOGNORMAL ONLY **/
-
-	// Record input Cov. matrices original values (SIGNAL TEST):
-	for (l=0; l<=lastl; l++) { OrigByl[l]->data[i*Nfields+j]=tempCl[l]; OrigByl[l]->data[j*Nfields+i]=tempCl[l]; } 
 	
 	// Compute correlation function Xi(theta):
 	//cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
@@ -412,21 +403,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	}
       }
     }      
-  // I guess cov. matrices signals should not change when going from lognormal to gaussian (SIGNAL TEST).
-  if (dist==lognormal) {
-    for (l=0; l<Nls; l++) 
-      for (i=0; i<Nfields; i++) 
-	for (j=i+1; j<Nfields; j++) {
-	  if (CovByl[l]->data[i*Nfields+j]*OrigByl[l]->data[i*Nfields+j]<0.0) {
-	    sprintf(message, "ClProcess: change of sign in Cov. matrix (l=%d) element [%d,%d]", l, i, j);
-	    warning(message);
-	  } 
-	}
-    // End of original cov. matrices use (SIGNAL TEST):
-    free_GSLMatrixArray(OrigByl, Nls);
-  }  
   Announce();
-
+  
   // Output covariance matrices for each l if requested:
   GeneralOutput(CovByl, config, "COVL_PREFIX", 0);
   if (config.reads("COVL_PREFIX")!="0") 
