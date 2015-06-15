@@ -127,7 +127,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   int i, j, k, l, m, status, Nfields, Nls;
   std::string filename, ExitAt;
   bool *fnzSet;
-  gsl_matrix **CovByl;
+  gsl_matrix **CovByl, **OrigByl; // (SIGNAL TEST)
+
 
   // Getting general information:
   Nfields=N1*N2;
@@ -149,12 +150,12 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   cout << "Will load input C(l)s:\n";
   sprintf(message, "ls %s* | wc -l", config.reads("CL_PREFIX").c_str()); 
   stream = popen(message, "r");
-  if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot 'ls | wc' output");
+  if ((stream=popen(message, "r")) == NULL) error("ClProcess: cannot 'ls | wc' output");
   fscanf(stream, "%d", &NinputCls); pclose(stream);
   // Get list of input C(l) files:
   filelist = vector<std::string>(0,NinputCls-1);
   sprintf(message, "ls %s*", config.reads("CL_PREFIX").c_str());
-  if ((stream=popen(message, "r")) == NULL) error("corrlnfields: cannot pipe 'ls' output");
+  if ((stream=popen(message, "r")) == NULL) error("ClProcess: cannot pipe 'ls' output");
   for (i=0; i<NinputCls; i++) {
     fscanf(stream, "%s", message);
     filelist[i].assign(message);
@@ -169,11 +170,11 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     if (a1>N1) N1=a1; if (b1>N1) N1=b1;                // Get number of fields.
     if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
     CountEntries(filelist[i], &(Nentries[i]), &ncols); // Get number of Nls.
-    if (ncols!=2) error("corrlnfields: wrong number of columns in file "+filename);
+    if (ncols!=2) error("ClProcess: wrong number of columns in file "+filename);
     if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
   }
   //Check if number of fields in INFO is the same as in the Cls:
-  if (Nfields != N1*N2) error("corrlnfields: number of means and shifts do not match number of C(l)s.");
+  if (Nfields != N1*N2) error("ClProcess: number of means and shifts do not match number of C(l)s.");
   
 
   // Allocate memory to store C(l)s:
@@ -196,9 +197,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     cout << filelist[m] << " goes to ["<<i<<", "<<j<<"]" << endl;
     // Record the order of the fields in CovMatrix:
     if (fnzSet[i]==0) { fnz[i][0] = a1; fnz[i][1] = a2; fnzSet[i] = 1; }
-    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("corrlnfields: field order in CovMatrix is messed up!"); 
+    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("ClProcess: field order in CovMatrix is messed up!"); 
     if (fnzSet[j]==0) { fnz[j][0] = b1; fnz[j][1] = b2; fnzSet[j] = 1; }
-    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("corrlnfields: field order in CovMatrix is messed up!");
+    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("ClProcess: field order in CovMatrix is messed up!");
     // Import data:
     wrapper[0] = &(ll[i][j][0]);
     wrapper[1] = &(Cov[i][j][0]);
@@ -210,12 +211,12 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   free_vector(filelist, 0, NinputCls-1);
 
   // Check if every field was assigned a position in the CovMatrix:
-  for (i=0; i<Nfields; i++) if (fnzSet[i]==0) error("corrlnfields: some position in CovMatrix is unclaimed.");
+  for (i=0; i<Nfields; i++) if (fnzSet[i]==0) error("ClProcess: some position in CovMatrix is unclaimed.");
   free_vector(fnzSet, 0, Nfields-1);
   // If positions are OK and output required, print them out:
   if (config.reads("FLIST_OUT")!="0") {
     outfile.open(config.reads("FLIST_OUT").c_str());
-    if (!outfile.is_open()) error("corrlnfields: cannot open FLIST_OUT file.");
+    if (!outfile.is_open()) error("ClProcess: cannot open FLIST_OUT file.");
     PrintTable(fnz, Nfields, 2, &outfile);
     outfile.close();
     cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
@@ -227,7 +228,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 
   // Look for the maximum l value described by all C(l)s:
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
-	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("corrlnfields: too high l in C(l)s: increase HWMAXL.");
+	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("ClProcess: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
@@ -240,6 +241,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   (*CovBylAddr) = CovByl;
   Announce();
  
+  // Allocate gsl_matrices to compare Cov. matrices signals (SIGNAL TEST):
+  if (dist==lognormal) {
+    Announce("Allocating data-cube for testing cov. matrices signals... ");
+    OrigByl = GSLMatrixArray(Nls, Nfields, Nfields);
+    Announce();
+  }
+
   /*****************************************************************/
   /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
@@ -300,6 +308,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	
       if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 
+	// Record input Cov. matrices original values (SIGNAL TEST):
+	for (l=0; l<=lastl; l++) { OrigByl[l]->data[i*Nfields+j]=tempCl[l]; OrigByl[l]->data[j*Nfields+i]=tempCl[l]; } 
+	
 	// Compute correlation function Xi(theta):
 	//cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
 	ModCl4DLT(tempCl, lastl, lsup, supindex);
@@ -314,8 +325,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	//cout << "   Computing associated gaussian correlation function...  "; cout.flush(); 
 	status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
 	//cout << "done.\n";
-	if (status==EDOM) error("corrlnfields: GetGaussCorr found bad log arguments.");
-	if (i==j && xi[0]<0) warning("corrlnfields: auxiliary field variance is negative.");
+	if (status==EDOM) error("ClProcess: GetGaussCorr found bad log arguments.");
+	if (i==j && xi[0]<0) warning("ClProcess: auxiliary field variance is negative.");
 	if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
 	  filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
 	  //cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
@@ -367,19 +378,55 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     for(j=0; j<Nfields; j++) 
       if (IsSet[i][j]==0) {
 	if (IsSet[j][i]==0) {
-	  sprintf(message,"corrlnfields: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
+	  sprintf(message,"ClProcess: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
 	  error(message);
 	}
 	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
       }
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]!=1) {
-	sprintf(message,"corrlnfields: [%d,%d] was not set.",i,j);
+	sprintf(message,"ClProcess: [%d,%d] was not set.",i,j);
 	error(message);
       }
   Announce();
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   
+  // Verify basic properties of auxiliary cov. matrices:
+  Announce("Verifying aux. Cov. matrices properties... ");
+  for (l=1; l<Nls; l++) // Skipping l=0 since matrix should be zero. 
+    for (i=0; i<Nfields; i++) {
+      // Verify that diagonal elements are positive:
+      if (CovByl[l]->data[i*Nfields+i]<0.0) {
+	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d,%d] is negative", l, i, i);
+	warning(message);
+      }
+      for (j=i+1; j<Nfields; j++) {
+	// Correlations c should be limited to -1<c<1.
+	if (CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j])>1.0) {
+	  sprintf(message, "ClProcess: aux. Cov. matrix (l=%d) element [%d,%d] results in correlation greater than 1", l, i, j);
+	  warning(message); 
+	}
+	else if (CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j])<-1.0) {
+	  sprintf(message, "ClProcess: aux. Cov. matrix (l=%d) element [%d,%d] results in correlation smaller than -1", l, i, j);
+	  warning(message);   
+	}
+      }
+    }      
+  // I guess cov. matrices signals should not change when going from lognormal to gaussian (SIGNAL TEST).
+  if (dist==lognormal) {
+    for (l=0; l<Nls; l++) 
+      for (i=0; i<Nfields; i++) 
+	for (j=i+1; j<Nfields; j++) {
+	  if (CovByl[l]->data[i*Nfields+j]*OrigByl[l]->data[i*Nfields+j]<0.0) {
+	    sprintf(message, "ClProcess: change of sign in Cov. matrix (l=%d) element [%d,%d]", l, i, j);
+	    warning(message);
+	  } 
+	}
+    // End of original cov. matrices use (SIGNAL TEST):
+    free_GSLMatrixArray(OrigByl, Nls);
+  }  
+  Announce();
+
   // Output covariance matrices for each l if requested:
   GeneralOutput(CovByl, config, "COVL_PREFIX", 0);
   if (config.reads("COVL_PREFIX")!="0") 
