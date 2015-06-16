@@ -3,13 +3,14 @@
 #include "Utilities.hpp"
 #include "corrlnfields_aux.hpp"
 
-int WriteCatalog2Fits(std::string filename, double **table, int Nentries, const ParameterList & config) {
+int WriteCatalog2Fits(std::string filename, double **table, long Nentries, const ParameterList & config) {
   const int COLNAMELENGTH=20;
   fitsfile *fpointer;
   std::stringstream ss;
   std::string header, word;
   char **columnNames, **columnTypes, **columnUnits;
-  int status=0, Ncols, i, j, datatype, *integer;
+  int status=0, Ncols, i, datatype, *integer;
+  long j;
   char TableName[]  ="GALAXY_CAT"; 
 
   // Allocate auxiliary integer vector:

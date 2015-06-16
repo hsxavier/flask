@@ -297,6 +297,7 @@ int main (int argc, char *argv[]) {
   // Allocate memory for pixel maps:
   Announce("Allocating memory for pixel maps... "); 
   nside   = config.readi("NSIDE");
+  if (nside>sqrt(INT_MAX/12)) warning("corrlnfields: NSIDE too large, number of pixels will overflow INT variables");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<double> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
@@ -587,7 +588,8 @@ int main (int argc, char *argv[]) {
   /**********************************/
 
   double **catalog, esig, ellip1, ellip2, randz;
-  int Ngalaxies, gali, cellNgal, PartialNgal, **catSet, ncols, *ThreadNgals;
+  int gali, cellNgal, **catSet, ncols;
+  long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal;  
   pointing ang;
   int ziter, fiter;
   std::string CatalogHeader;
@@ -598,17 +600,18 @@ int main (int argc, char *argv[]) {
   
   Announce("Counting galaxies... ");
   // Partial count of galaxies for each thread (assuming the threads get the data in order):
-  ThreadNgals = vector<int>(0, MaxThreads);       
+  ThreadNgals = vector<long>(0, MaxThreads);       
   for(l=0; l<=MaxThreads; l++) ThreadNgals[l] = 0;
   // Loop over 3D cells:
+  Ncells  = ((long)npixels)*((long)N2); // Number of 3D cells.
 #pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
-  for (k=0; k<npixels*N2; k++) {
+  for (kl=0; kl<Ncells; kl++) {
     l     = omp_get_thread_num();
-    j     = k/N2;     // angular pixel.
-    ziter = k%N2 + 1; // z slice.
+    j     = kl/N2;     // angular pixel.
+    ziter = kl%N2 + 1; // z slice.
     for (fiter=1; fiter<=N1; fiter++) {
       fz2n(fiter, ziter, &i, N1, N2);
-      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += (int)mapf[i][j];
+      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += (long)mapf[i][j];
     }
   }
   for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
@@ -621,7 +624,7 @@ int main (int argc, char *argv[]) {
   ncols         = CountWords(CatalogHeader);
   catalog       = matrix<double>(0,ncols-1, 0,Ngalaxies-1); 
   catSet        = matrix<int>   (0,ncols-1, 0,Ngalaxies-1);
-  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) catSet[j][i]=0;
+  for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) catSet[j][kl]=0;
   
   // Find position of entries according to catalog header:
   theta_pos   = GetSubstrPos("theta"  , CatalogHeader); 
@@ -643,13 +646,13 @@ int main (int argc, char *argv[]) {
 
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
-  PartialNgal=0; // Counter of galaxies inside thread.
+  PartialNgal=0;                       // Counter of galaxies inside thread.
 #pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, cellNgal) firstprivate(PartialNgal)
   // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
-  for (k=0; k<npixels*N2; k++) {
+  for (kl=0; kl<Ncells; kl++) {
     l        = omp_get_thread_num();   // Processor number.
-    j        = k/N2;                   // pixel.
-    ziter    = k%N2 + 1;               // z slice.
+    j        = kl/N2;                   // pixel.
+    ziter    = kl%N2 + 1;               // z slice.
     gali     = 0;                      // Galaxy number inside cell.
     cellNgal = 0;                      // Total galaxy number inside cell.
 
@@ -677,23 +680,23 @@ int main (int argc, char *argv[]) {
 	}
       
       // Add entry of type SHEAR:
-      else if (ftype[i]==fshear) for (m=ThreadNgals[l]+PartialNgal; m<ThreadNgals[l]+PartialNgal+cellNgal; m++) {
+      else if (ftype[i]==fshear) for (m=0; m<cellNgal; m++) {
 	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
-	  CatalogFill(catalog, m, kappa_pos , mapf[i][j]   , catSet);
-	  CatalogFill(catalog, m, gamma1_pos, gamma1f[i][j], catSet);
-	  CatalogFill(catalog, m, gamma2_pos, gamma2f[i][j], catSet);
-	  CatalogFill(catalog, m, ellip1_pos, ellip1       , catSet);
-	  CatalogFill(catalog, m, ellip2_pos, ellip2       , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma1_pos, gamma1f[i][j], catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma2_pos, gamma2f[i][j], catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip1_pos, ellip1       , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip2_pos, ellip2       , catSet);
 	}
     } // End of LOOP over field IDs.
-    PartialNgal += cellNgal;
+    PartialNgal += (long)cellNgal;
   } // End of LOOP over cells.  
   free_vector(ThreadNgals, 0, MaxThreads);
 
   // Check if every entry was set once and only once:
-  for (i=0; i<Ngalaxies; i++) for (j=0; j<ncols; j++) {
-      if (catSet[j][i]<1)     error("corrlnfields: Catalog has missing information.");
-      if (catSet[j][i]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
+  for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) {
+      if (catSet[j][kl]<1)     error("corrlnfields: Catalog has missing information.");
+      if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   Announce();
@@ -706,19 +709,19 @@ int main (int argc, char *argv[]) {
     if (l==1) {
       if (theta_pos!=-1) // Theta:
 #pragma omp parallel for
-	for (i=0; i<Ngalaxies; i++) catalog[theta_pos][i] = rad2deg(catalog[theta_pos][i]);
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = rad2deg(catalog[theta_pos][kl]);
       if (phi_pos  !=-1) // Phi:
 #pragma omp parallel for
-	for (i=0; i<Ngalaxies; i++) catalog[  phi_pos][i] = rad2deg(catalog[  phi_pos][i]);    
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] = rad2deg(catalog[  phi_pos][kl]);    
     }
     // Change to RADEC:
     else if (l==2) {
       if (theta_pos!=-1) // Theta:
 #pragma omp parallel for
-	for (i=0; i<Ngalaxies; i++) catalog[theta_pos][i] = theta2dec(catalog[theta_pos][i]);
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = theta2dec(catalog[theta_pos][kl]);
       if (phi_pos  !=-1) // Phi:
 #pragma omp parallel for
-	for (i=0; i<Ngalaxies; i++) catalog[  phi_pos][i] =    phi2ra(catalog[  phi_pos][i]);    
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] =    phi2ra(catalog[  phi_pos][kl]);    
     }
     else if (l!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
     Announce();

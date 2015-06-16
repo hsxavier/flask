@@ -25,7 +25,7 @@ double theta2dec(double theta);
 double phi2ra(double phi);
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
-void CatalogFill(double **catalog, int row, int column, double value, int **catSet);
+void CatalogFill(double **catalog, long row, int column, double value, int **catSet);
 void Kappa2ShearEmode(Alm<xcomplex <double> > &Elm, Alm<xcomplex <double> > &Klm);
 void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);

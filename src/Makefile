@@ -53,7 +53,7 @@ $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
-			$(SRC)/GeneralOutput.hpp
+			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
