@@ -11,6 +11,7 @@
 #include <alm_healpix_tools.h>
 #include <omp.h>                // For OpenMP functions, not pragmas.
 #include <limits.h>             // For finding out max. value of INT variables.
+#include "definitions.hpp"      // Global variables and #defines.
 #include "corrlnfields_aux.hpp" // Auxiliary functions made for this program.
 #include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
@@ -22,6 +23,7 @@
 #include <unistd.h> // debugging
 
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
+
 
 /********************/
 /*** Main Program ***/
@@ -41,6 +43,7 @@ int main (int argc, char *argv[]) {
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
   
+
 
   /**********************************************/
   /*** PART 0: Test code and load config file ***/
@@ -202,7 +205,7 @@ int main (int argc, char *argv[]) {
   bool almout;
   double ***gaus0, ***gaus1;
   gsl_rng **rnd;
-  Alm<xcomplex <double> > *aflm, *bflm;
+  Alm<xcomplex <ALM_PRECISION> > *aflm, *bflm;
   int jmax, jmin, rndseed0;
     
   // Set random number generators for each thread, plus one for serial stuff [0]:
@@ -229,7 +232,7 @@ int main (int argc, char *argv[]) {
     Announce("Allocating memory for auxiliary gaussian alm's... ");
     gaus0 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1); // Complex random variables, [0] is real, [1] is imaginary part.
     gaus1 = tensor3<double>(1,MaxThreads, 0,Nfields-1, 0,1);  
-    aflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
+    aflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
     for (i=0; i<Nfields; i++) {
       aflm[i].Set(lmax,lmax);
       for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
@@ -288,7 +291,7 @@ int main (int argc, char *argv[]) {
   /*** Part 5: Map generation ***/
   /******************************/
   int nside, npixels;
-  Healpix_Map<double> *mapf;
+  Healpix_Map<MAP_PRECISION> *mapf;
   double expmu, gmean, gvar;
   pointing coord;
   char *arg[5];
@@ -299,7 +302,7 @@ int main (int argc, char *argv[]) {
   nside   = config.readi("NSIDE");
   if (nside>sqrt(INT_MAX/12)) warning("corrlnfields: NSIDE too large, number of pixels will overflow INT variables");
   npixels = 12*nside*nside;
-  mapf=vector<Healpix_Map<double> >(0,Nfields-1);
+  mapf=vector<Healpix_Map<MAP_PRECISION> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
   Announce();
 
@@ -375,7 +378,7 @@ int main (int argc, char *argv[]) {
   // If requested, compute and write recovered alm's and/or Cl's to files:
   if (config.reads("RECOVALM_OUT")!="0" || config.reads("RECOVCLS_OUT")!="0") {
     // Allocate and clear variables to receive new alm's:
-    bflm  = vector<Alm<xcomplex <double> > >(0,Nfields-1);
+    bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
     for (i=0; i<Nfields; i++) {
       bflm[i].Set(lmax,lmax);
       for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
@@ -496,12 +499,12 @@ int main (int argc, char *argv[]) {
   /*** Lensing fields ***/
 
   double coeff;
-  Healpix_Map<double> *gamma1f, *gamma2f;
-  gamma1f = vector<Healpix_Map <double> >(0,Nfields-1);
-  gamma2f = vector<Healpix_Map <double> >(0,Nfields-1);
-  Alm<xcomplex <double> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
-  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);    // Temp memory
-  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);     // B-modes are zero for weak lensing.
+  Healpix_Map<MAP_PRECISION> *gamma1f, *gamma2f;
+  gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+  gamma2f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+  Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
+  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);           // Temp memory
+  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
   
   // LOOP over convergence fields:
   for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
@@ -587,8 +590,10 @@ int main (int argc, char *argv[]) {
   /*** Part 6: Generate catalog   ***/
   /**********************************/
 
-  double **catalog, esig, ellip1, ellip2, randz;
-  int gali, cellNgal, **catSet, ncols;
+  CAT_PRECISION **catalog;
+  char **catSet;
+  double esig, ellip1, ellip2, randz;
+  int gali, cellNgal, ncols;
   long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal;  
   pointing ang;
   int ziter, fiter;
@@ -611,19 +616,20 @@ int main (int argc, char *argv[]) {
     ziter = kl%N2 + 1; // z slice.
     for (fiter=1; fiter<=N1; fiter++) {
       fz2n(fiter, ziter, &i, N1, N2);
-      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += (long)mapf[i][j];
+      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
     }
   }
   for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
   Ngalaxies = ThreadNgals[MaxThreads];
   Announce();     
   cout << "# of galaxies: "<<Ngalaxies<<endl;
+  if (Ngalaxies>INT_MAX) warning("corrlnfields: catalogue generation not tested for this amount of galaxies");
   
   // Using transposed catalog (catalog[col][row]), better for FITS outputting:
   CatalogHeader = config.reads("CATALOG_COLS");
   ncols         = CountWords(CatalogHeader);
-  catalog       = matrix<double>(0,ncols-1, 0,Ngalaxies-1); 
-  catSet        = matrix<int>   (0,ncols-1, 0,Ngalaxies-1);
+  catalog       = matrix<CAT_PRECISION>(0,ncols-1, 0,Ngalaxies-1); 
+  catSet        = matrix<char>         (0,ncols-1, 0,Ngalaxies-1);
   for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) catSet[j][kl]=0;
   
   // Find position of entries according to catalog header:

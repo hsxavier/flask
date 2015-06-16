@@ -1,6 +1,7 @@
 #ifndef SELECTIONFUNC_H    // include guard.
 #define SELECTIONFUNC_H 1
 
+#include "definitions.hpp"
 #include "ParameterList.hpp"
 #include <healpix_map.h>
 #include <gsl/gsl_randist.h>    // Random numbers.
@@ -9,8 +10,8 @@
 class SelectionFunction {
 private:
   int NoMap;
-  Healpix_Map<double> *AngularSel;
-  Healpix_Map<double>  StarMask;
+  Healpix_Map<MAP_PRECISION> *AngularSel;
+  Healpix_Map<MAP_PRECISION>  StarMask;
   double **zSel, **zEntries, **fieldZrange, zSearchTol, Scale;
   long *NzEntries;
   int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes, SelectionType, UseStarMask, UseAngularMask;

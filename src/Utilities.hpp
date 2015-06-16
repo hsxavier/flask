@@ -19,7 +19,6 @@ double random(long *idum);
 double gasdev(long *idum);
 // Importing & Exporting data:
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
-void PrintVecs(double **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0);
 // Formatting:
 std::string ZeroPad(int num, int max);
 bool StrReplace(std::string& str, const std::string& from, const std::string& to);
@@ -28,6 +27,7 @@ void Announce(std::string message = "done");
 
 
 /*** TEMPLATES ***/
+
 
 const int NR_END=1;
 // NR functions for creating and destroying arrays and matrices:
@@ -243,6 +243,22 @@ void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &st
   for (i=offset; i<nrows+offset; i++) {
     for (j=offset; j<ncols+offset; j++) {
       (*output).width(12); *output << table[i][j] << " ";
+    }
+    *output << std::endl;
+  }      
+}
+
+
+// Print table:
+template <typename type>
+void PrintVecs(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {
+  long i, j;
+  
+  //(*output).setf(std::ios_base::showpoint);
+  (*output).precision(8);
+  for (i=offset; i<nrows+offset; i++) {
+    for (j=offset; j<ncols+offset; j++) {
+      (*output).width(14); *output << table[j][i] << " ";
     }
     *output << std::endl;
   }      

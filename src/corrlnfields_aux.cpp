@@ -48,7 +48,7 @@ int GetSubstrPos(const std::string field, const std::string header) {
 
 // Unless column=-1, write value to catalog[column][row] and update catSet:
 // Note that the catalog is transposed to ease FITS outputting.
-void CatalogFill(double **catalog, long row, int column, double value, int **catSet) {  
+void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value, char **catSet) {  
   if(column==-1) return;
   
   // Write to catalog:            v Count number of updates in cell (for bookkeeping).
@@ -58,7 +58,7 @@ void CatalogFill(double **catalog, long row, int column, double value, int **cat
 
 // Get the shear E-mode harmonic coefficients from the convergence harmonic coefficients:
 // (can be done in place)
-void Kappa2ShearEmode(Alm<xcomplex <double> > &Elm, Alm<xcomplex <double> > &Klm) {
+void Kappa2ShearEmode(Alm<xcomplex <ALM_PRECISION> > &Elm, Alm<xcomplex <ALM_PRECISION> > &Klm) {
   int l, m, lmax;
   double coeff;
 
@@ -110,7 +110,7 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
 
 
 // Uniformly randomly selects an angular position inside a pixel.
-pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel) {
+pointing RandAngInPix(gsl_rng *r, const Healpix_Map<MAP_PRECISION> & map, int pixel) {
   const double twopi=6.283185307179586;
   std::vector<vec3> corner;
   double thetamin, thetamax, phimin, phimax;

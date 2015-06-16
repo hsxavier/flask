@@ -53,7 +53,7 @@ $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
-			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp
+			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
@@ -62,10 +62,10 @@ $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Ut
 	$(COMP)  $(CXXHEAL) -c $(SRC)/ClProcessing.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
-			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp
+			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp $(SRC)/definitions.hpp 
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
 
-$(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp
+$(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(SRC)/fitsfunctions.cpp -o $@
 
 $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)/ParameterList.hpp \
@@ -73,11 +73,11 @@ $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)
 	$(COMP) -c $(SRC)/RegularizeCov.cpp -o $@
 
 $(OBJ)/SelectionFunc.o: $(SRC)/SelectionFunc.cpp $(SRC)/SelectionFunc.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/Utilities.hpp $(SRC)/corrlnfields_aux.hpp
+			$(SRC)/Utilities.hpp $(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/SelectionFunc.cpp -o $@
 
 $(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/corrlnfields_aux.hpp
+			$(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \

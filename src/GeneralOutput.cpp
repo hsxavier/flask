@@ -118,7 +118,7 @@ void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & confi
 
 
 // Prints ALL fields alm's to a TEXT file labeled by their FIELD IDs.
-void GeneralOutput(Alm<xcomplex <double> > *af, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename;
   std::ofstream outfile; 
   int lminout, lmaxout, mmax, l, m, i, Nfields;
@@ -160,7 +160,7 @@ void GeneralOutput(Alm<xcomplex <double> > *af, const ParameterList & config, st
 
 
 // Prints one single alm table to a TEXT file using a PREFIX and a FIELD ID.
-void GeneralOutput(const Alm<xcomplex <double> > & a, const ParameterList & config, std::string keyword, int f, int z, bool inform) {
+void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList & config, std::string keyword, int f, int z, bool inform) {
   std::string filename;
   std::ofstream outfile; 
   char message[100];
@@ -204,7 +204,7 @@ void GeneralOutput(const Alm<xcomplex <double> > & a, const ParameterList & conf
 
 
 // Prints one single alm table to a TEXT file.
-void GeneralOutput(const Alm<xcomplex <double> > & a, const ParameterList & config, std::string keyword, bool inform) {
+void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList & config, std::string keyword, bool inform) {
   std::string filename;
   std::ofstream outfile; 
   int lminout, lmaxout, mmax, l, m;
@@ -250,7 +250,7 @@ void GeneralOutput(const Alm<xcomplex <double> > & a, const ParameterList & conf
 
 
 // Prints a list of maps to a many FITS files:
-void GeneralOutputFITS(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename, tempstr;
   char message[100], message2[100], *arg[4];
   char opt1[]="-bar";
@@ -267,7 +267,7 @@ void GeneralOutputFITS(Healpix_Map<double> *mapf, const ParameterList & config, 
       filename.assign(message);
       //sprintf(message2, "rm -f %s", message);
       //system(message2); // Have to delete previous fits files first.
-      write_Healpix_map_to_fits("!"+filename,mapf[i],planckType<double>()); // Filename prefixed by ! to overwrite.
+      write_Healpix_map_to_fits("!"+filename,mapf[i],planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
       if(inform==1) std::cout << ">> "<<keyword<< "["<<i<<"] written to "<<filename<<std::endl;
       // Write to TGA if requested:
       if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -287,7 +287,7 @@ void GeneralOutputFITS(Healpix_Map<double> *mapf, const ParameterList & config, 
 
 
 // Prints a list of maps to a single TEXT file.
-void GeneralOutputTEXT(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutputTEXT(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename;
   std::ofstream outfile;
   int i, j, Nfields, field, z, npixels, *nside, n, coordtype;
@@ -342,14 +342,15 @@ void GeneralOutputTEXT(Healpix_Map<double> *mapf, const ParameterList & config, 
 
 
 // Prints array of Healpix maps to either a single TEXT (if fits=0 or unespecified) or many FITS (if fits=1) files.
-void GeneralOutput(Healpix_Map<double> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool fits, bool inform) {
+void GeneralOutput(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, 
+		   std::string keyword, int N1, int N2, bool fits, bool inform) {
   if (fits==1) GeneralOutputFITS(mapf, config, keyword, N1, N2, inform);
   else GeneralOutputTEXT(mapf, config, keyword, N1, N2, inform);
 }
 
 
 // Prints two lists of maps to a single TEXT file.
-void GeneralOutput(Healpix_Map<double> *gamma1, Healpix_Map<double> *gamma2, 
+void GeneralOutput(Healpix_Map<MAP_PRECISION> *gamma1, Healpix_Map<MAP_PRECISION> *gamma2, 
 		   const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename;
   std::ofstream outfile;
@@ -402,7 +403,7 @@ void GeneralOutput(Healpix_Map<double> *gamma1, Healpix_Map<double> *gamma2,
 
 
 // Prints one single map to FITS file based on a PREFIX and a FIELD ID:
-void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config, std::string keyword, int *fnz, bool inform) {
+void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList & config, std::string keyword, int *fnz, bool inform) {
   std::string filename, tgafile;
   char *arg[4];
   char message1[100], message2[100];
@@ -414,7 +415,7 @@ void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config
     // Write to FITS:
     //sprintf(message1, "rm -f %s", filename.c_str());
     //system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits("!"+filename, map, planckType<double>()); // Filename prefixed by ! to overwrite.
+    write_Healpix_map_to_fits("!"+filename, map, planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -436,8 +437,8 @@ void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config
 
 
 // Prints one single combination of kappa, gamma1 and gamma2 maps to FITS file based on a PREFIX and a FIELD ID:
-void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> & g1map, 
-		   const Healpix_Map<double> & g2map, const ParameterList & config, std::string keyword, int f, int z, bool inform) {
+void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MAP_PRECISION> & g1map, 
+		   const Healpix_Map<MAP_PRECISION> & g2map, const ParameterList & config, std::string keyword, int f, int z, bool inform) {
   std::string filename, tgafile;
   char *arg[4];
   char message1[100], message2[100];
@@ -449,7 +450,7 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
     // Write to FITS:
     //sprintf(message1, "rm -f %s", filename.c_str());
     //system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<double>());
+    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<MAP_PRECISION>());
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -471,8 +472,8 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
 
 
 // Prints one single combination of kappa, gamma1 and gamma2 maps to FITS file.
-void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> & g1map, 
-		   const Healpix_Map<double> & g2map, const ParameterList & config, std::string keyword, bool inform) {
+void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MAP_PRECISION> & g1map, 
+		   const Healpix_Map<MAP_PRECISION> & g2map, const ParameterList & config, std::string keyword, bool inform) {
   std::string filename, tgafile;
   char *arg[4];
   char message1[100], message2[100];
@@ -482,7 +483,7 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
     filename=config.reads(keyword); 
     //sprintf(message1, "rm -f %s", filename.c_str());
     //system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<double>()); // Filename prefixed by ! to overwrite.
+    write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
@@ -504,7 +505,7 @@ void GeneralOutput(const Healpix_Map<double> & kmap, const Healpix_Map<double> &
 
 
 // Prints one single map to FITS and/or TGA file.
-void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config, std::string keyword, bool inform) {
+void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList & config, std::string keyword, bool inform) {
   std::string filename, tgafile;
   char *arg[4];
   char message1[100], message2[100];
@@ -514,7 +515,7 @@ void GeneralOutput(const Healpix_Map<double> & map, const ParameterList & config
     filename=config.reads(keyword); 
     //sprintf(message1, "rm -f %s", filename.c_str());
     //system(message1); // Have to delete previous fits files first.
-    write_Healpix_map_to_fits("!"+filename, map, planckType<double>()); // Filename prefixed by ! to overwrite.
+    write_Healpix_map_to_fits("!"+filename, map, planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {

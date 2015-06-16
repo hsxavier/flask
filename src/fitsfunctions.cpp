@@ -1,9 +1,10 @@
 #include <cstring>
 #include <fitsio.h>
+#include "definitions.hpp"
 #include "Utilities.hpp"
 #include "corrlnfields_aux.hpp"
 
-int WriteCatalog2Fits(std::string filename, double **table, long Nentries, const ParameterList & config) {
+int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries, const ParameterList & config) {
   const int COLNAMELENGTH=20;
   fitsfile *fpointer;
   std::stringstream ss;

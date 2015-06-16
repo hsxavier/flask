@@ -1,6 +1,7 @@
 #ifndef CORRLNFIELDS_AUX     // include guard.
 #define CORRLNFIELDS_AUX 1
 
+#include "definitions.hpp"
 #include "gsl_aux.hpp"          // Using and reading GSL matrices.
 #include "Utilities.hpp"
 #include <math.h>
@@ -12,12 +13,6 @@
 #include <alm.h>         // For Kappa2ShearEmode function.
 #include <xcomplex.h>    // For Kappa2ShearEmode function.
 
-// Global definitions
-namespace definitions {
-  const int fgalaxies=1, fshear=2;                      // Field type identification.
-  enum simtype {gaussian, lognormal, homogeneous};      // Type of simulation.
-}
-
 
 // Auxiliary functions for corrlnfields program:
 double rad2deg(double rad);
@@ -25,10 +20,10 @@ double theta2dec(double theta);
 double phi2ra(double phi);
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
-void CatalogFill(double **catalog, long row, int column, double value, int **catSet);
-void Kappa2ShearEmode(Alm<xcomplex <double> > &Elm, Alm<xcomplex <double> > &Klm);
+void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value, char **catSet);
+void Kappa2ShearEmode(Alm<xcomplex <ALM_PRECISION> > &Elm, Alm<xcomplex <ALM_PRECISION> > &Klm);
 void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
-pointing RandAngInPix(gsl_rng *r, const Healpix_Map<double> & map, int pixel);
+pointing RandAngInPix(gsl_rng *r, const Healpix_Map<MAP_PRECISION> & map, int pixel);
 pointing randang(gsl_rng *r, double thetamin, double thetamax, double phimin, double phimax);
 pointing xyz2ang(const vec3 & cartesian);
 vec3 VecInRotBasis(const pointing & ang, const vec3 & orig);

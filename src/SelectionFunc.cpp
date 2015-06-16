@@ -53,7 +53,7 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   if(Separable==0) {
     if (UseAngularMask==1) {
       // Read selection functions from FITS files:
-      AngularSel = vector<Healpix_Map<double> >(0,Nfields-1);
+      AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,Nfields-1);
       for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	  // Load FITS file:
 	  n2fz(i, &f, &z, N1, N2);
@@ -77,7 +77,7 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
     
     if(UseAngularMask==1) {
       // Load a fixed angular selection function:
-      AngularSel = vector<Healpix_Map<double> >(0,0);
+      AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,0);
       read_Healpix_map_from_fits(tempstr, AngularSel[0]);
       Nside  = AngularSel[0].Nside();
       scheme = AngularSel[0].Scheme(); 
