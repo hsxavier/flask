@@ -85,6 +85,15 @@ void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & confi
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > config.readi("LMAX")) { 
+      lmaxout = config.readi("LMAX"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+    }
+    if (lminout < config.readi("LMIN")) { 
+      lminout = config.readi("LMIN"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+    }
+      
     NCls  = N1*N2*(N1*N2+1)/2;
 
     // Write header to file:
@@ -133,6 +142,14 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     outfile << SampleHeader(N1, N2) <<std::endl<<std::endl;
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > config.readi("LMAX")) { 
+      lmaxout = config.readi("LMAX"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+    }
+    if (lminout < config.readi("LMIN")) { 
+      lminout = config.readi("LMIN"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+    }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
     // Output all alm's:
@@ -176,6 +193,14 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > config.readi("LMAX")) { 
+      lmaxout = config.readi("LMAX"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+    }
+    if (lminout < config.readi("LMIN")) { 
+      lminout = config.readi("LMIN"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+    }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
     // Output all alm's:
@@ -217,6 +242,14 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > config.readi("LMAX")) { 
+      lmaxout = config.readi("LMAX"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+    }
+    if (lminout < config.readi("LMIN")) { 
+      lminout = config.readi("LMIN"); 
+      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+    }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
     // Output all alm's:

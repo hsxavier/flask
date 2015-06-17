@@ -28,7 +28,7 @@ namespace ParDef {
   const string typelabel[13] = {"i1", "i2", "i3", "i4", "i5", "d1", "d2", "d3", "d4", "d5", "c", "s", "ph"};
 
   // SET HERE THE PARAMETERS OF THE PROGRAM:
-  const int     npars=55;
+  const int     npars=54;
   const string  par_name[npars] = {"RNDSEED", "DIST", "LMAX", "CL_PREFIX", "FLIST_OUT", "AUXALM_OUT", 
 				   "SUPPRESS_L", "SUP_INDEX", "XIOUT_PREFIX","FIELDS_INFO", 
 				   "GXIOUT_PREFIX", "GCLOUT_PREFIX", "CHOLESKY_PREFIX","LMIN", "NSIDE", 
@@ -39,11 +39,11 @@ namespace ParDef {
 				   "SHEAR_MAP_OUT", "ELLIP_SIGMA", "EXIT_AT", "COVL_PREFIX", "EXTRAP_DIPOLE",
 				   "REGULARIZE_METHOD", "NEW_EVAL", "REGULARIZE_STEP", "REG_COVL_PREFIX", 
 				   "REG_CL_PREFIX", "CHOL_IN_PREFIX", "REG_MAXSTEPS", "ZSEARCH_TOL",
-				   "STARMASK", "SELEC_SCALE", "CATALOG_FORMAT", "ANGULAR_COORD", "MAPWER_OUT", 
+				   "STARMASK", "SELEC_SCALE", "ANGULAR_COORD", "MAPWER_OUT", 
 				   "MAPWERFITS_PREFIX", "RECOVCLS_OUT", "CATALOG_COLS"};
   const int     par_type[npars] = {i1, s, i1, s, s, s, d1, d1, s, s, s, s, s, i1, i1, s, s, s, i2, i1, s, 
 				   i1, d1, d1, d1, d1, s, i1, i1, s, i1, s, s, s, s, d1, s, s, i1, i1, d1, 
-				   d1, s, s, s, i1, d1, s, d1, i1, i1, s, s, s, ph};
+				   d1, s, s, s, i1, d1, s, d1, i1, s, s, s, ph};
   // END OF PARAMETER SETTINGS.
 }
 

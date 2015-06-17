@@ -42,7 +42,7 @@ int main (int argc, char *argv[]) {
   double *means, *shifts, **zrange; 
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
-  
+
 
   /**********************************************/
   /*** PART 0: Test code and load config file ***/
@@ -401,6 +401,8 @@ int main (int argc, char *argv[]) {
       Announce("Recovering Cl's from maps... ");
       lminout = config.readi("LRANGE_OUT", 0);
       lmaxout = config.readi("LRANGE_OUT", 1);
+      if (lmaxout > lmax) { lmaxout=lmax; warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
+      if (lminout < lmin) { lminout=lmin; warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
       mmax    = config.readi("MMAX_OUT");
       if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
       status  = Nfields*(Nfields+1)/2;
@@ -736,28 +738,34 @@ int main (int argc, char *argv[]) {
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
-    k        = config.readi("CATALOG_FORMAT");
     filename = config.reads("CATALOG_OUT");
+    k        = FileFormat(filename);
     switch (k) {
-    case 0: // TEXT file:
+      // TEXT file:
+    case ascii_format: 
       outfile.open(filename.c_str());
       if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
       else {
 	outfile << "# "<< CatalogHeader <<endl;
-	//PrintTable(catalog, Ngalaxies, ncols, &outfile); 
 	PrintVecs(catalog, Ngalaxies, ncols, &outfile); 
 	outfile.close();
+	cout << ">> Catalog written to " << filename << endl;
       }
       break;
-    case 1: // FITS file:
+      // FITS file:
+    case fits_format: 
       WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
+      cout << ">> Catalog written to " << filename << endl;
       break;
-    default: // Unknown:
-      warning("corrlnfields: unknown CATALOG_FORMAT, will use FITS.");
-      WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
+      // Unknown: 
+    case unknown_format: 
+      warning("corrlnfields: unknown catalogue file format, no output performed");
+      break;
+      // Weird: 
+    default:
+      warning("corrlnfields: uninplemented catalogue file format, check code");
       break;
     }
-    cout << ">> Catalog written to " << filename << endl;
   }  
   free_matrix(catalog, 0,ncols-1, 0,Ngalaxies-1);
   

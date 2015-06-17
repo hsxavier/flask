@@ -23,6 +23,24 @@ double phi2ra(double phi) {
 }
 
 
+// Get file format from filename extension: .dat, .fits, .fits.gz
+int FileFormat(std::string filename) {
+  using namespace definitions;
+  int pos;
+  
+  // Possible file extensions:
+  pos = filename.rfind(".fits.gz");
+  if (pos>0 && pos+8==filename.size()) return fits_format;
+  pos = filename.rfind(".fits");
+  if (pos>0 && pos+5==filename.size()) return fits_format;
+  pos = filename.rfind(".dat");
+  if (pos>0 && pos+4==filename.size()) return ascii_format;
+  
+  // Unidentified format:
+  return unknown_format;
+}
+
+
 // Count words in phrase:
 int CountWords(const std::string header) {
   std::string entry;

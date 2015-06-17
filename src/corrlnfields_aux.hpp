@@ -18,6 +18,7 @@
 double rad2deg(double rad);
 double theta2dec(double theta);
 double phi2ra(double phi);
+int FileFormat(std::string);
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
 void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value, char **catSet);
