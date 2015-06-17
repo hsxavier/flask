@@ -1,12 +1,12 @@
 #ifndef DEFINITIONS
 #define DEFINITIONS 1
 
-// Precision parameters
-
-#define ALM_PRECISION double // Precision for Healpix alm's, float or double. 
-#define MAP_PRECISION double // Precision for Healpix maps, float or double.
-#define SEL_PRECISION double // Precision for Healpix maps used as mask and selection function.
-#define CAT_PRECISION double // Presition for the catalog (matrix), float or double.
+// Precision parameters: Healpix alm's, Healpix maps, Healpix selection function map, catalog (matrix).
+#define ALM_PRECISION float
+#define MAP_PRECISION float
+#define SEL_PRECISION float
+#define CAT_PRECISION float
+#define FIT_PRECISION TFLOAT
 
 // Global definitions
 

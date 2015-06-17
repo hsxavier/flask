@@ -44,7 +44,6 @@ int main (int argc, char *argv[]) {
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
   
 
-
   /**********************************************/
   /*** PART 0: Test code and load config file ***/
   /**********************************************/
@@ -352,8 +351,10 @@ int main (int argc, char *argv[]) {
   else if (dist==gaussian) {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");
     for (i=0; i<Nfields; i++) {
+      if (means[i]!=0.0) {
 #pragma omp parallel for 
-      for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+	for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+      }
     }
     Announce();
   }

@@ -4,13 +4,14 @@
 #include "Utilities.hpp"
 #include "corrlnfields_aux.hpp"
 
+
 int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries, const ParameterList & config) {
   const int COLNAMELENGTH=20;
   fitsfile *fpointer;
   std::stringstream ss;
   std::string header, word;
   char **columnNames, **columnTypes, **columnUnits;
-  int status=0, Ncols, i, datatype, *integer;
+  int status=0, Ncols, i, datatype, *integer, fits_precision;
   long j;
   char TableName[]  ="GALAXY_CAT"; 
 
@@ -20,6 +21,11 @@ int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries
   // Get number of columns:
   header      = config.reads("CATALOG_COLS");
   Ncols       = CountWords(header);
+  // Reaname 'theta' and 'phi' to 'dec' and 'ra' if change of coords. was requested:
+  if (config.readi("ANGULAR_COORD")==2) {
+    StrReplace(header, "theta", "dec");
+    StrReplace(header, "phi", "ra");
+  }
   // Get column names:
   columnNames = matrix<char>(0,Ncols, 0,COLNAMELENGTH);
   ss << header;
@@ -30,8 +36,10 @@ int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries
   columnUnits = matrix<char>(0,Ncols, 0,COLNAMELENGTH);
   for(i=0; i<Ncols; i++) { 
     // theta phi z galtype kappa gamma1 gamma2 ellip1 ellip2 pixel maskbit
-    if      (strcmp(columnNames[i],"theta"  )==0) {sprintf(columnTypes[i],"%s", "F8.6" ); sprintf(columnUnits[i],"%s", "Radians");}
-    else if (strcmp(columnNames[i],"phi"    )==0) {sprintf(columnTypes[i],"%s", "F9.6" ); sprintf(columnUnits[i],"%s", "Radians");}
+    if      (strcmp(columnNames[i],"theta"  )==0) {sprintf(columnTypes[i],"%s", "F9.5" ); sprintf(columnUnits[i],"%s", "Radians");}
+    else if (strcmp(columnNames[i],"phi"    )==0) {sprintf(columnTypes[i],"%s", "F9.5" ); sprintf(columnUnits[i],"%s", "Radians");}
+    else if (strcmp(columnNames[i],"ra"     )==0) {sprintf(columnTypes[i],"%s", "F9.5" ); sprintf(columnUnits[i],"%s", "Degrees");}
+    else if (strcmp(columnNames[i],"dec"    )==0) {sprintf(columnTypes[i],"%s", "F9.5" ); sprintf(columnUnits[i],"%s", "Degrees");}
     else if (strcmp(columnNames[i],"z"      )==0) {sprintf(columnTypes[i],"%s", "F8.5" ); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"galtype")==0) {sprintf(columnTypes[i],"%s", "I3"   ); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"kappa"  )==0) {sprintf(columnTypes[i],"%s", "E11.5"); sprintf(columnUnits[i],"%s", "\0");}
@@ -51,11 +59,12 @@ int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries
   fits_create_tbl(fpointer, ASCII_TBL, Nentries, Ncols, columnNames, columnTypes, columnUnits, TableName, &status);
   fits_report_error(stderr, status);
   
+
   // Write columns to FITS file ASCII table:
   for(i=0; i<Ncols; i++) {
     // Write double variable:
     if (columnTypes[i][0] == 'F' || columnTypes[i][0] == 'E' || columnTypes[i][0] == 'D') {
-      fits_write_col(fpointer, TDOUBLE, i+1, 1, 0, Nentries, table[i], &status);
+      fits_write_col(fpointer, FIT_PRECISION, i+1, 1, 0, Nentries, table[i], &status);
     }
     // Write int variable:
     else if (columnTypes[i][0] == 'I') {
