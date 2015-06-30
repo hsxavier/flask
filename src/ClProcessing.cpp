@@ -390,8 +390,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero. 
     for (i=0; i<Nfields; i++) {
       // Verify that diagonal elements are positive:
-      if (CovByl[l]->data[i*Nfields+i]<0.0) {
-	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d,%d] is negative", l, i, i);
+      if (CovByl[l]->data[i*Nfields+i]<=0.0) {
+	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d,%d] is negative or zero", l, i, i);
 	warning(message);
       }
       for (j=i+1; j<Nfields; j++) {
@@ -432,14 +432,14 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   
   Announce("Regularizing cov. matrices... ");
   
-#pragma omp parallel for schedule(dynamic) private(gslm, filename)  
+  #pragma omp parallel for schedule(dynamic) private(gslm, filename)  
   for (l=lstart; l<=lend; l++) {
 
     // Check pos. defness, regularize if necessary, keep track of changes:
     gslm = gsl_matrix_alloc(Nfields, Nfields);
     gsl_matrix_memcpy(gslm, CovByl[l]);
-    status = RegularizeCov(CovByl[l], config);
-    MaxChange[l] = MaxFracDiff(CovByl[l], gslm);
+    status       = RegularizeCov(CovByl[l], config);
+    MaxChange[l] =   MaxFracDiff(CovByl[l], gslm);
     if (status==9) { 
       sprintf(message, "ClProcess: RegularizeCov for l=%d reached REG_MAXSTEPS with Max. change of %g.",l,MaxChange[l]); 
       warning(message);

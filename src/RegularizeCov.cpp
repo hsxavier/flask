@@ -2,8 +2,9 @@
 #include <gsl/gsl_eigen.h>
 #include <gsl/gsl_vector.h>
 #include "Utilities.hpp"
-#include "gsl_aux.hpp" // For PrintGSLMatrix.
-#include <cmath>       // For sqrt.
+#include "gsl_aux.hpp"      // For PrintGSLMatrix.
+#include <cmath>            // For sqrt and abs.
+#include <gsl/gsl_linalg.h> // Cholesky descomposition.
 
 
 
@@ -144,36 +145,38 @@ void GetDirection(gsl_matrix *direction, double step, gsl_matrix *input) {
 
 // Turns a symmetric matrix A into a positive definite matrix with the least possible change: 
 int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
+  char message[100];
   int method, status, i, j, k;
-  double NewEval;
+  double minDiag, addFrac;
   const int none=0, frobenius=1, stepper=2, maxit=9;
   gsl_vector *eval;
   gsl_eigen_symm_workspace *workspace;
   gsl_matrix *testmatrix;
   
-  method  = config.readi("REGULARIZE_METHOD");
-  NewEval = config.readd("NEW_EVAL"); 
+  method     = config.readi("REGULARIZE_METHOD");
+  addFrac    = config.readd("ADD_FRAC");
+
+  testmatrix = gsl_matrix_alloc (A->size1, A->size2);
   if (method>2 || method<0) error("RegularizeCov: unkown method.");
+    
 
   // Run regularization if asked for:
   if (method != none) {
-    testmatrix = gsl_matrix_alloc (A->size1, A->size2);
-    status     = gsl_matrix_memcpy(testmatrix, A);
+    status    = gsl_matrix_memcpy(testmatrix, A);
     
     // Test if matrix is positive definite and only proceed with regularization if otherwise:
     workspace = gsl_eigen_symm_alloc(testmatrix->size1);
     eval      = gsl_vector_alloc(testmatrix->size1);
     status    = gsl_eigen_symm(testmatrix, eval, workspace); // This DESTROYS input matrix !!!
     gsl_eigen_symm_free(workspace);
-    gsl_matrix_free(testmatrix);
     if (status != GSL_SUCCESS) error("RegularizeCov: cannot get matrix eigenvalues.");
     // Look for negative eigenvalue:
     status=0;
     for (i=0; i<eval->size && status!=1; i++) if (gsl_vector_get(eval,i)<0) status=1;
-    
+
     // Regularization is necessary and will be performed:
     if (status==1) {
-      
+     
       // Verify if input matrix has the necessary properties:
       if (A->size1 != A->size2) error("RegularizeCov: matrix is not square.");
       for(i=0; i<A->size1; i++) 
@@ -187,7 +190,9 @@ int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
       if (method==frobenius) {
 	gsl_eigen_symmv_workspace *workspaceV;
 	gsl_matrix *evec;
-
+	double NewEval;
+	NewEval    = config.readd("NEW_EVAL");
+	
 	//std::cout << "   Regularizing matrix by minimizing the elements quadratic sum... "; std::cout.flush();
 	// Allocate memory (vector for eigenvalues was already allocated):
 	workspaceV = gsl_eigen_symmv_alloc(A->size1);
@@ -225,8 +230,7 @@ int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 	// Allocate memory:
 	workspace  = gsl_eigen_symm_alloc(A->size1);
 	direction  = gsl_matrix_alloc(A->size1, A->size2);
-	testmatrix = gsl_matrix_alloc(A->size1, A->size2);
-
+	
 	// While distorted matrix is not positive-definite, keep on distorting:
 	// Break if number of steps exceeds maximum.
 	posdef = 0; Nsteps = 0;
@@ -250,7 +254,6 @@ int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
 
 	  Nsteps++;
 	} // End of LOOP while eigenvalues are negative.
-	gsl_matrix_free(testmatrix);
 	gsl_eigen_symm_free(workspace);
 	gsl_matrix_free(direction);
 	//std::cout << "done.\n";
@@ -263,5 +266,18 @@ int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
     gsl_vector_free(eval);
   } // End of "regularization YES" block.
 
+  // Cholesky decomposition might still fail due to numerical precision problems.
+  // If that is the case, we try to avoid it by adding a small value to the matrix diagonals:
+  gsl_matrix_memcpy(testmatrix, A);
+  k = gsl_linalg_cholesky_decomp(testmatrix);
+  if (k==GSL_EDOM) {
+    minDiag = 1.0/0.0;
+    for(i=0; i<A->size1; i++) if(fabs(A->data[i*A->size1+i])<minDiag) minDiag=fabs(A->data[i*A->size1+i]);
+    sprintf(message, "RegularizeCov: matrix will fail Cholesky, adding %g*%g=%g to diagonals", addFrac, minDiag, addFrac*minDiag);
+    warning(message);
+    for(i=0; i<A->size1; i++) A->data[i*A->size1+i] += addFrac*minDiag;
+  }
+
+  gsl_matrix_free(testmatrix);
   return status;
 }
