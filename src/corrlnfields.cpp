@@ -38,10 +38,11 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, k, l, m, N1, N2, Nfields, *ftype, Nls, MaxThreads;
+  int status, i, j, k, l, m, N1, N2, f, z, Nfields, *ftype, Nls, MaxThreads;
   double *means, *shifts, **zrange; 
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
+
 
 
   /**********************************************/
@@ -79,7 +80,8 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="GAUSSIAN")    dist=gaussian;
   else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
-  
+ 
+
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -376,6 +378,65 @@ int main (int argc, char *argv[]) {
   }
 
 
+  // If requested, integrate density along the line of sight to get convergence:
+  if(config.reads("DENS2KAPPA_OUT")!="0") {
+    double *KappaWeightTable, zsource=0.0;
+    Healpix_Map<MAP_PRECISION> *IntDens;
+
+    cout << "Will compute the convergence by density line of sight integration:\n";
+    // Error checking (density fields must have continuous redshift coverage):
+    k=0;
+    for (f=1; f<=N1; f++) {
+      fz2n(f, 1, &i, N1, N2); if (ftype[i]==fgalaxies) k++; // Count density fields.
+      if (zrange[i][1]>zsource) zsource=zrange[i][1];       // Get zmax of first bin.
+      for (z=2; z<=N2; z++) {
+	fz2n(f, z-1, &i, N1, N2); fz2n(f, z, &j, N1, N2);   
+	if (ftype[i]==fgalaxies) {
+	  if (zrange[j][1]>zsource) zsource=zrange[j][1];   // Get maximum of zmax.
+	  if (zrange[i][1] != zrange[j][0])                 // Check if z bins are sequential and contiguous.
+	    warning("corrlnfields: expecting sequential AND contiguous redshift slices for galaxies");
+	}
+      }
+    }
+    cout << "   Found "<<k<<" density fields and set sources redshift at "<<zsource<<endl;
+    if (k==0) error("corrlnfields: no density field found for integrating");
+    
+    // Compute Kernel:
+    Announce("   Tabulating integration kernel... ");
+    KappaWeightTable = vector<double>(0, Nfields-1);    
+    for (i=0; i<Nfields; i++) 
+      KappaWeightTable[i] = KappaWeightByZ(&cosmo, (zrange[i][0]+zrange[i][1])/2.0, zsource) * (zrange[i][1]-zrange[i][0]);
+    Announce();
+
+    // Do the integration:
+    Announce("   Integrating densities... ");
+    IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    for (f=1; f<=N1; f++) {
+      fz2n(f, 1, &i, N1, N2); 
+      if (ftype[i]==fgalaxies) {                               // LOOP over galaxy fields.
+	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);  // Allocate map at intdens(f,z=1) to receive delta(f,z). 
+#pragma omp parallel for private(z, m)
+	for (j=0; j<npixels; j++) {                            // LOOP over pixels (lines of sight).
+	  for (z=1; z<=N2; z++) {                              // LOOP over redshift z.
+	    fz2n(f, z, &m, N1, N2); 
+	    IntDens[i][j] += KappaWeightTable[m]*mapf[m][j];   // Sum contributions in the same pixel. 
+	  }
+	}
+      }
+    }
+    free_vector(KappaWeightTable, 0, Nfields-1);
+    Announce();
+    // Output to file:
+    GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", N1, N2);
+    free_vector(IntDens, 0,Nfields-1);  
+  }
+  if (ExitAt=="DENS2KAPPA_OUT") {
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
+  }
+  
+  
   // If requested, compute and write recovered alm's and/or Cl's to files:
   if (config.reads("RECOVALM_OUT")!="0" || config.reads("RECOVCLS_OUT")!="0") {
     // Allocate and clear variables to receive new alm's:
@@ -449,7 +510,7 @@ int main (int argc, char *argv[]) {
   double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
   double dwdz;
   SelectionFunction selection;
-  int f, z, *counter;
+  int *counter;
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   Announce("Reading selection functions from files... ");

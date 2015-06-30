@@ -117,20 +117,29 @@ void Cosmology::show (std::ostream * output) {
 
 /*** Separate cosmological functions ***/
 
+
+// Sub-functions of ComDist and dChidz.
 double Eh(Cosmology *p, double z) {
   return sqrt(p->Om*pow(1+z,3) + p->Ok*pow(1+z,2) + p->Ode*pow(1+z,3*(1+p->wde)));
 }
 double ComDistIntegrand(Cosmology *p, double z) {
   return 1.0/Eh(p, z);
 }
-// Returns the comoving distance along the line of sight in h^-1 Mpc:
+
+// Returns the radial comoving distance along the line of sight in h^-1 Mpc:
 double ComDist(Cosmology *p, double z) {
+  char message[200];
   const int ngrid=500;
   const double zmin=0.0, zmax=8.0, maxerr=0.1;
   static bool init=0;
   static double zgrid[ngrid+1], dgrid[ngrid+1];
   int i;
   double dist;
+
+  // Check for errors:
+  if (z>zmax) { sprintf(message,"ComDist: z=%g is beyond hard-coded zmax=%g",z,zmax); error(message); }
+  if (z<zmin) { sprintf(message,"ComDist: z=%g is beyond hard-coded zmin=%g",z,zmin); error(message); }
+
   // Initialize:
   if (init==0) {
     for (i=0; i<=ngrid; i++) {
@@ -144,20 +153,43 @@ double ComDist(Cosmology *p, double z) {
   return dist;  
 }
 
-// Derivative of Comoving distance with respect to redshift:
-double dXidz(Cosmology *p, double z) {
+
+// Transverse comoving distance in n^-1 Mpc, Chi is the radial comoving distance:
+double TransverseDist (Cosmology *p, double Chi) {
+  double curvFactor = p->c / p->H100 / sqrt(p->Ok);
+
+  if     (p->Ok == 0.0) return Chi;
+  else if (p->Ok > 0.0) return curvFactor * sinh(Chi/curvFactor);
+  else if (p->Ok < 0.0) return curvFactor * sin(Chi/curvFactor);
+  
+  error("TransverseDist: no return options left, this is crazy");
+}
+
+
+// Derivative of Radial Comoving distance with respect to redshift:
+double dChidz(Cosmology *p, double z) {
   return p->c/p->H100*ComDistIntegrand(p, z);
 }
+
+
+// Weak lensing (convergence kappa) weights (kernel) when line-of-sight integrating contrast density in redshift:
+double KappaWeightByZ(Cosmology *p, double z, double zsource) {
+  
+  return 3.0/2.0*p->H100*p->H100/p->c/p->c*p->Om * (1+z) 
+    * TransverseDist(p,ComDist(p,z)) * TransverseDist(p,ComDist(p,zsource)-ComDist(p,z)) 
+    / TransverseDist(p,ComDist(p,zsource)) * dChidz(p, z); 
+}
+
 
 // Redshift selection function for projection:
 double zSelection(double z, double z0) {
   return 1.0;
 }
 double ProjDensityIntegrand(double z, double z0, Cosmology *p) {
-  return zSelection(z,z0) * pow(ComDist(p,z),2) * dXidz(p,z);
+  return zSelection(z,z0) * pow(ComDist(p,z),2) * dChidz(p,z);
 }
 double ProjDensityIntegrand(double z, Cosmology *p) {
-  return pow(ComDist(p,z),2) * dXidz(p,z);
+  return pow(ComDist(p,z),2) * dChidz(p,z);
 }
 double ProjDensity(double z0, double zmin, double zmax, Cosmology *p) {
   return p->galdens * qromb(ProjDensityIntegrand, zmin, zmax, z0, p);
