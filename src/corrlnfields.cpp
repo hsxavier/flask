@@ -44,7 +44,6 @@ int main (int argc, char *argv[]) {
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
 
-
   /**********************************************/
   /*** PART 0: Test code and load config file ***/
   /**********************************************/
@@ -81,7 +80,6 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
  
-
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -379,7 +377,9 @@ int main (int argc, char *argv[]) {
 
 
   // If requested, integrate density along the line of sight to get convergence:
-  if(config.reads("DENS2KAPPA_OUT")!="0") {
+  if(config.reads("DENS2KAPPA_OUT")!="0" || 
+     config.reads("DENS2KAPPA_ALM")!="0" || 
+     config.reads("DENS2KAPPA_CLS")!="0") {
     double *KappaWeightTable, zsource=0.0;
     Healpix_Map<MAP_PRECISION> *IntDens;
 
@@ -426,73 +426,30 @@ int main (int argc, char *argv[]) {
     }
     free_vector(KappaWeightTable, 0, Nfields-1);
     Announce();
+    
     // Output to file:
     GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", N1, N2);
-    free_vector(IntDens, 0,Nfields-1);  
-  }
-  if (ExitAt=="DENS2KAPPA_OUT") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
-  }
-  
-  
-  // If requested, compute and write recovered alm's and/or Cl's to files:
-  if (config.reads("RECOVALM_OUT")!="0" || config.reads("RECOVCLS_OUT")!="0") {
-    // Allocate and clear variables to receive new alm's:
-    bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
-    for (i=0; i<Nfields; i++) {
-      bflm[i].Set(lmax,lmax);
-      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
-    }    
-    // Compute alm's from map:
-    arr<double> weight(2*mapf[0].Nside());
-    weight.fill(1);
-    Announce("Recovering alm's from map... ");
-    for(i=0; i<Nfields; i++) map2alm(mapf[i],bflm[i],weight);
-    Announce();
-    weight.dealloc();
-    // Output to file:
-    GeneralOutput(bflm, config, "RECOVALM_OUT", N1, N2);
-
-    // Compute Cl's if requested:
-    if (config.reads("RECOVCLS_OUT")!="0") {
-      double **recovCl;
-      int lminout, lmaxout, mmax;
-      Announce("Recovering Cl's from maps... ");
-      lminout = config.readi("LRANGE_OUT", 0);
-      lmaxout = config.readi("LRANGE_OUT", 1);
-      if (lmaxout > lmax) { lmaxout=lmax; warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
-      if (lminout < lmin) { lminout=lmin; warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
-      mmax    = config.readi("MMAX_OUT");
-      if (mmax>lminout) error ("corrlnfields: current code only allows MMAX_OUT <= LMIN_OUT.");
-      status  = Nfields*(Nfields+1)/2;
-      recovCl = matrix<double>(0, status-1, lminout, lmaxout);
-      for (k=0; k<status; k++) {
-	l = (int)((sqrt(8.0*(status-1-k)+1.0)-1.0)/2.0);
-	m = status-1-k-(l*(l+1))/2;
-	i = Nfields-1-l;
-	j = Nfields-1-m;
-	for(l=lminout; l<=lmaxout; l++) {
-	  recovCl[k][l] = 0;
-	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
-	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
-	  recovCl[k][l] = recovCl[k][l]/((double)(l+1));
-	}
-      } // End of Cl computing.
-      Announce();
-      GeneralOutput(recovCl, N1, N2, config, "RECOVCLS_OUT");
-      free_matrix(recovCl, 0, status-1, lminout, lmaxout); 
+    if (ExitAt=="DENS2KAPPA_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
     }
     
-    // Free memory:
-    free_vector(bflm, 0, Nfields-1);
+    // If requested, recover alms and/or Cls from this convergence:
+    RecoverAlmCls(IntDens, N1, N2, "DENS2KAPPA_ALM", "DENS2KAPPA_CLS", config);
+    free_vector(IntDens, 0,Nfields-1);  
+  } // End of IF compute convergence by density LoS integration.
+  // Exit if this is the last output requested:
+  if (ExitAt=="DENS2KAPPA_ALM" || ExitAt=="DENS2KAPPA_CLS") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
   }
 
-
+  // If requested, recover alms and/or Cls from maps:
+  RecoverAlmCls(mapf, N1, N2, "RECOVALM_OUT", "RECOVCLS_OUT", config);
   // Exit if this is the last output requested:
-  if (ExitAt=="RECOVALM_OUT" || 
-      ExitAt=="RECOVCLS_OUT") {
+  if (ExitAt=="RECOVALM_OUT" || ExitAt=="RECOVCLS_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
@@ -567,7 +524,7 @@ int main (int argc, char *argv[]) {
   gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
   gamma2f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
   Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
-  arr<double> weight(2*mapf[0].Nside()); weight.fill(1);           // Temp memory
+  arr<double> weight(2*mapf[0].Nside());                           // Temp memory
   for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
   
   // LOOP over convergence fields:
@@ -583,6 +540,7 @@ int main (int argc, char *argv[]) {
       
       // LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
       if (dist==lognormal) {
+	PrepRingWeights(1, weight, config);
 	Announce("   Transforming convergence map to harmonic space... ");
 	if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
 	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);

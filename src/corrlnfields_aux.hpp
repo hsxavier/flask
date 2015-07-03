@@ -13,8 +13,10 @@
 #include <alm.h>         // For Kappa2ShearEmode function.
 #include <xcomplex.h>    // For Kappa2ShearEmode function.
 
-
 // Auxiliary functions for corrlnfields program:
+void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, 
+		   std::string almKey, std::string clsKey, const ParameterList & config);
+void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config);
 double rad2deg(double rad);
 double theta2dec(double theta);
 double phi2ra(double phi);

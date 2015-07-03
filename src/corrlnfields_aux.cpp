@@ -4,6 +4,107 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_min.h>
 #include <xcomplex.h>
+#include "fitsfunctions.hpp"
+#include "GeneralOutput.hpp"
+#include <alm_healpix_tools.h>
+
+
+// If alm or Cls output is requested, compute them and output them:
+void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, 
+		   std::string almKey, std::string clsKey, const ParameterList & config) {
+  int i, j, k, l, m, nside, lmin, lmax, lminout, lmaxout, mmax, NCls, Nfields;
+  Alm<xcomplex <ALM_PRECISION> > *bflm;
+  double **recovCl;
+  bool *yesCl;
+
+  if (config.reads(almKey)!="0" || config.reads(clsKey)!="0") {
+
+    Nfields = N1*N2;
+    nside   = config.readi("NSIDE");
+    lmin    = config.readi("LMIN");
+    lmax    = config.readi("LMAX");  
+    
+
+    // Allocate and clear variables to receive new alm's:
+    bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
+    for (i=0; i<Nfields; i++) if(mapf[i].Nside()!=0) {
+	bflm[i].Set(lmax,lmax);
+	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
+      }    
+    // Load map ring weights:
+    arr<double> weight(2*nside);
+    PrepRingWeights(1, weight, config);
+    // Compute alm's from map:
+    Announce("Recovering alm's from map... ");
+    for(i=0; i<Nfields; i++) if(mapf[i].Nside()!=0) map2alm(mapf[i],bflm[i],weight);
+    Announce();
+    weight.dealloc();
+    // Output to file:
+    GeneralOutput(bflm, config, almKey, N1, N2);
+
+    // Compute Cl's if requested:
+    if (config.reads(clsKey)!="0") {
+      Announce("Recovering Cl's from maps... ");
+      lminout = config.readi("LRANGE_OUT", 0);
+      lmaxout = config.readi("LRANGE_OUT", 1);
+      if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverAlmCls: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
+      if (lminout < lmin) { lminout=lmin; warning("RecoverAlmCls: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
+      mmax    = config.readi("MMAX_OUT");
+      if (mmax>lminout) error("RecoverAlmCls: current code only allows MMAX_OUT <= LMIN_OUT.");
+      NCls  = Nfields*(Nfields+1)/2;
+      recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
+      yesCl   = vector<bool>(0, NCls-1);
+      for (k=0; k<NCls; k++) {
+	l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
+	m = NCls-1-k-(l*(l+1))/2;
+	i = Nfields-1-l;
+	j = Nfields-1-m;
+	if(bflm[i].Lmax()!=0 && bflm[j].Lmax()!=0) {
+	  yesCl[k] = 1;
+	  for(l=lminout; l<=lmaxout; l++) {
+	    recovCl[k][l] = 0;
+	    if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	    else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	    recovCl[k][l] = recovCl[k][l]/((double)(l+1));
+	  }
+	}
+	else yesCl[k] = 0;
+      } // End of Cl computing.
+      Announce();
+      GeneralOutput(recovCl, yesCl, N1, N2, config, clsKey);
+      free_matrix(recovCl, 0, NCls-1, lminout, lmaxout);
+      free_vector(yesCl, 0, NCls-1);
+    }
+    
+    // Free memory:
+    free_vector(bflm, 0, Nfields-1);
+  }
+}
+
+
+// Prepare weights used by map2alm. weight array must be allocated already:
+void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config) {
+  double *tempweight;
+  int nside, status;
+  long i;
+
+  nside = config.readi("NSIDE");
+
+  if (config.readi("USE_HEALPIX_WGTS")==1) {
+    Announce("Loading Healpix map weights... ");
+    tempweight = vector<double>(0, 2*nside-1);
+    status = ReadHealpixWeights(col, nside, config, tempweight);
+    if (status==0) for (i=0; i<2*nside; i++) weight[i]=1.0+tempweight[i];
+    else { 
+      warning("PrepRingWeights: could not load Healpix weights, using 1.0 instead.");
+      weight.fill(1);
+    }
+    free_vector(tempweight, 0, 2*nside-1);
+    Announce();
+  }
+  else weight.fill(1);  
+}
+
 
 // Transform radians to degrees:
 double rad2deg(double rad) {

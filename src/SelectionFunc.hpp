@@ -10,8 +10,8 @@
 class SelectionFunction {
 private:
   int NoMap;
-  Healpix_Map<MAP_PRECISION> *AngularSel;
-  Healpix_Map<MAP_PRECISION>  StarMask;
+  Healpix_Map<SEL_PRECISION> *AngularSel;
+  Healpix_Map<SEL_PRECISION>  StarMask;
   double **zSel, **zEntries, **fieldZrange, zSearchTol, Scale;
   long *NzEntries;
   int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes, SelectionType, UseStarMask, UseAngularMask;

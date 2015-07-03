@@ -73,7 +73,7 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
 
 
 // Prints all Cl's to a TEXT file:
-void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & config, std::string keyword, bool inform) {
+void GeneralOutput(double **recovCl, bool *yesCl, int N1, int N2, const ParameterList & config, std::string keyword, bool inform) {
   std::string filename;
   std::ofstream outfile; 
   int k, l, m, i, j, fi, zi, fj, zj, lminout, lmaxout, NCls;
@@ -98,7 +98,7 @@ void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & confi
 
     // Write header to file:
     outfile << "# l ";
-    for (k=0; k<NCls; k++) {
+    for (k=0; k<NCls; k++) if (yesCl[k]==1) {
       l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
       m = NCls-1-k-(l*(l+1))/2;
       i = N1*N2-1-l;
@@ -111,7 +111,7 @@ void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & confi
     
     // Write Cls to file:
     for (l=lminout; l<=lmaxout; l++) {
-      outfile<<l<<" "; for (k=0; k<NCls; k++) outfile << recovCl[k][l] << " ";
+      outfile<<l<<" "; for (k=0; k<NCls; k++) if (yesCl[k]==1) outfile << recovCl[k][l] << " ";
       outfile << std::endl;      
     }
     
@@ -130,7 +130,7 @@ void GeneralOutput(double **recovCl, int N1, int N2, const ParameterList & confi
 void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
   std::string filename;
   std::ofstream outfile; 
-  int lminout, lmaxout, mmax, l, m, i, Nfields;
+  int lminout, lmaxout, mmax, l, m, i, Nfields, f, z;
 
   Nfields=N1*N2;
 
@@ -139,16 +139,23 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     filename = config.reads(keyword);
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
-    outfile << SampleHeader(N1, N2) <<std::endl<<std::endl;
+    //outfile << SampleHeader(N1, N2) <<std::endl<<std::endl;
+    outfile << "# l, m";
+    for (i=0; i<Nfields; i++) if (af[i].Lmax()>0) {
+      n2fz(i, &f, &z, N1, N2);
+      outfile << ", f" << f << "z" << z << "Re, f" << f << "z" << z << "Im";
+    }
+    outfile<<std::endl<<std::endl;
+    
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
     if (lmaxout > config.readi("LMAX")) { 
       lmaxout = config.readi("LMAX"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+      warning("GeneralOutput: LRANGE_OUT beyond LMAX, will use LMAX instead");
     }
     if (lminout < config.readi("LMIN")) { 
       lminout = config.readi("LMIN"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+      warning("GeneralOutput: LRANGE_OUT beyond LMIN, will use LMIN instead");
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
@@ -157,7 +164,9 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
       for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
+	  for (i=0; i<Nfields; i++) 
+	    if(af[i].Lmax()>0) 
+	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
 	  outfile<<std::endl;
 	} 
     }
@@ -166,7 +175,9 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
      for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
-	  for (i=0; i<Nfields; i++) outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
+	  for (i=0; i<Nfields; i++) 
+	    if(af[i].Lmax()>0) 
+	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
 	  outfile<<std::endl;
 	}  
     }
