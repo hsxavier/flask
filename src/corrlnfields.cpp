@@ -370,9 +370,9 @@ int main (int argc, char *argv[]) {
   // Exit if this is the last output requested:
   if (ExitAt=="MAP_OUT" ||
       ExitAt=="MAPFITS_PREFIX") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
   }
 
 
@@ -380,51 +380,50 @@ int main (int argc, char *argv[]) {
   if(config.reads("DENS2KAPPA_OUT")!="0" || 
      config.reads("DENS2KAPPA_ALM")!="0" || 
      config.reads("DENS2KAPPA_CLS")!="0") {
-    double *KappaWeightTable, zsource=0.0;
+    double **KappaWeightTable;
     Healpix_Map<MAP_PRECISION> *IntDens;
+    int zsource;
 
     cout << "Will compute the convergence by density line of sight integration:\n";
     // Error checking (density fields must have continuous redshift coverage):
-    k=0;
+    k=0; m=0;
     for (f=1; f<=N1; f++) {
-      fz2n(f, 1, &i, N1, N2); if (ftype[i]==fgalaxies) k++; // Count density fields.
-      if (zrange[i][1]>zsource) zsource=zrange[i][1];       // Get zmax of first bin.
-      for (z=2; z<=N2; z++) {
-	fz2n(f, z-1, &i, N1, N2); fz2n(f, z, &j, N1, N2);   
-	if (ftype[i]==fgalaxies) {
-	  if (zrange[j][1]>zsource) zsource=zrange[j][1];   // Get maximum of zmax.
+      fz2n(f, 1, &i, N1, N2);
+      if (ftype[i]==fgalaxies) {
+	k++; // Count density fields.
+	for (z=2; z<=N2; z++) {
+	  fz2n(f, z-1, &i, N1, N2); fz2n(f, z, &j, N1, N2);   
 	  if (zrange[i][1] != zrange[j][0])                 // Check if z bins are sequential and contiguous.
 	    warning("corrlnfields: expecting sequential AND contiguous redshift slices for galaxies");
 	}
       }
     }
-    cout << "   Found "<<k<<" density fields and set sources redshift at "<<zsource<<endl;
+    cout << "   Found "<<k<<" density fields.\n";
     if (k==0) error("corrlnfields: no density field found for integrating");
     
     // Compute Kernel:
     Announce("   Tabulating integration kernel... ");
-    KappaWeightTable = vector<double>(0, Nfields-1);    
+    KappaWeightTable = matrix<double>(0, Nfields-1, 0, Nfields-1);    
     for (i=0; i<Nfields; i++) 
-      KappaWeightTable[i] = KappaWeightByZ(&cosmo, (zrange[i][0]+zrange[i][1])/2.0, zsource) * (zrange[i][1]-zrange[i][0]);
+      for (j=0; j<Nfields; j++) 
+	KappaWeightTable[i][j] = KappaWeightByZ(&cosmo, (zrange[j][0]+zrange[j][1])/2.0, zrange[i][1]) * (zrange[j][1]-zrange[j][0]);
     Announce();
-
+    
     // Do the integration:
     Announce("   Integrating densities... ");
     IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
-    for (f=1; f<=N1; f++) {
-      fz2n(f, 1, &i, N1, N2); 
-      if (ftype[i]==fgalaxies) {                               // LOOP over galaxy fields.
-	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);  // Allocate map at intdens(f,z=1) to receive delta(f,z). 
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {        // LOOP over galaxy fields and redshift bins (as sources).
+	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
+	n2fz(i, &f, &zsource, N1, N2); 
 #pragma omp parallel for private(z, m)
-	for (j=0; j<npixels; j++) {                            // LOOP over pixels (lines of sight).
-	  for (z=1; z<=N2; z++) {                              // LOOP over redshift z.
+	for (j=0; j<npixels; j++) {                             // LOOP over pixels (lines of sight).
+	  for (z=1; z<=zsource; z++) {                          // LOOP over redshift z (integrating).
 	    fz2n(f, z, &m, N1, N2); 
-	    IntDens[i][j] += KappaWeightTable[m]*mapf[m][j];   // Sum contributions in the same pixel. 
+	    IntDens[i][j] += KappaWeightTable[i][m]*mapf[m][j]; // Sum contributions in the same pixel. 
 	  }
 	}
       }
-    }
-    free_vector(KappaWeightTable, 0, Nfields-1);
+    free_matrix(KappaWeightTable, 0, Nfields-1, 0, Nfields-1);
     Announce();
     
     // Output to file:
@@ -441,18 +440,18 @@ int main (int argc, char *argv[]) {
   } // End of IF compute convergence by density LoS integration.
   // Exit if this is the last output requested:
   if (ExitAt=="DENS2KAPPA_ALM" || ExitAt=="DENS2KAPPA_CLS") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
   }
 
   // If requested, recover alms and/or Cls from maps:
   RecoverAlmCls(mapf, N1, N2, "RECOVALM_OUT", "RECOVCLS_OUT", config);
   // Exit if this is the last output requested:
   if (ExitAt=="RECOVALM_OUT" || ExitAt=="RECOVCLS_OUT") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+    cout << "\nTotal number of warnings: " << warning("count") << endl;
+    cout<<endl;
+    return 0;
   }
     
 
