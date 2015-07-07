@@ -432,13 +432,13 @@ int main (int argc, char *argv[]) {
     if (filename!="0") {
       if (filename=="1") {
 	cout << endl;
-	PrintMapsStats(IntDens, N1, N2);
+	PrintMapsStats(IntDens, N1, N2, lognormal);
 	cout << endl;
       }
       else {
 	outfile.open(filename.c_str());
 	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-	PrintMapsStats(IntDens, N1, N2, &outfile);
+	PrintMapsStats(IntDens, N1, N2, lognormal, &outfile);
 	outfile.close();
       	cout << ">> DENS2KAPPA_STAT written to "+filename;
       }

@@ -42,7 +42,7 @@ double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double v
 
 
 // Prints a table with mean, std. dev., skewness, mu (gaussian mean), sigma (gaussian dev) and shift for all maps.
-void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, std::ostream *output) {
+void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, simtype dist, std::ostream *output) {
   const int ColWidth = 12;
   int Nfields=N1*N2, i, f, z;
   char name[11];
@@ -55,9 +55,11 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, std::ostre
   (*output) << "Mean";           (*output).width(ColWidth);
   (*output) << "Std.Dev.";       (*output).width(ColWidth);
   (*output) << "Skewness";       (*output).width(ColWidth);
-  (*output) << "gMU";            (*output).width(ColWidth);
-  (*output) << "gSIGMA";         (*output).width(ColWidth);
-  (*output) << "Shift";          (*output).width(ColWidth);
+  if (dist==lognormal) {
+    (*output) << "gMU";          (*output).width(ColWidth);
+    (*output) << "gSIGMA";       (*output).width(ColWidth);
+    (*output) << "Shift";        (*output).width(ColWidth);
+  }
   (*output) << std::endl;        (*output).width(ColWidth);
 
   // LOOP over allocated maps: 
@@ -71,13 +73,15 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, std::ostre
       n2fz(i, &f, &z, N1, N2);
       sprintf(name, "f%dz%d   ",f,z);
       (*output) << std::left<<name<<std::right; (*output).width(ColWidth);
-      (*output) << mean;                      (*output).width(ColWidth);
-      (*output) << sqrt(var);                 (*output).width(ColWidth);
-      (*output) << skew;                      (*output).width(ColWidth);
-      (*output) << gmu(mean, var, shift);     (*output).width(ColWidth);
-      (*output) << gsigma(mean, var, shift);  (*output).width(ColWidth);
-      (*output) << shift;                     (*output).width(ColWidth);
-      (*output) << std::endl;                 (*output).width(ColWidth);
+      (*output) << mean;                        (*output).width(ColWidth);
+      (*output) << sqrt(var);                   (*output).width(ColWidth);
+      (*output) << skew;                        (*output).width(ColWidth);
+      if (dist==lognormal) {
+	(*output) << gmu(mean, var, shift);     (*output).width(ColWidth);
+	(*output) << gsigma(mean, var, shift);  (*output).width(ColWidth);
+	(*output) << shift;                     (*output).width(ColWidth);
+      }
+      (*output) << std::endl;                   (*output).width(ColWidth);
     }
 }
 
