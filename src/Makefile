@@ -36,12 +36,14 @@ $(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utiliti
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
+			$(OBJ)/lognormal.o
 	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
-			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o -o $@ $(LIBS)
+			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
+			$(OBJ)/lognormal.o -o $@ $(LIBS)
 
 # Objects:
 
@@ -53,7 +55,7 @@ $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
-			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
+			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp $(SRC)/lognormal.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
@@ -63,11 +65,15 @@ $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Ut
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
 			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp $(SRC)/definitions.hpp \
-			$(SRC)/fitsfunctions.hpp $(SRC)/GeneralOutput.hpp $(SRC)/Utilities.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@
+			$(SRC)/fitsfunctions.hpp $(SRC)/GeneralOutput.hpp $(SRC)/Utilities.hpp \
+			$(SRC)/lognormal.hpp
+	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(SRC)/fitsfunctions.cpp -o $@
+
+$(OBJ)/lognormal.o: $(SRC)/lognormal.cpp $(SRC)/lognormal.hpp
+	$(COMP) -c $(SRC)/lognormal.cpp -o $@
 
 $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp

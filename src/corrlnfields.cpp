@@ -20,6 +20,7 @@
 #include "SelectionFunc.hpp"
 #include "ClProcessing.hpp"
 #include "fitsfunctions.hpp"    // For WriteCatalog2Fits function.
+#include "lognormal.hpp"
 #include <unistd.h> // debugging
 
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
@@ -375,11 +376,11 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-
   // If requested, integrate density along the line of sight to get convergence:
   if(config.reads("DENS2KAPPA_OUT")!="0" || 
      config.reads("DENS2KAPPA_ALM")!="0" || 
-     config.reads("DENS2KAPPA_CLS")!="0") {
+     config.reads("DENS2KAPPA_CLS")!="0" || 
+     config.reads("DENS2KAPPA_STAT")!="0") {
     double **KappaWeightTable;
     Healpix_Map<MAP_PRECISION> *IntDens;
     int zsource;
@@ -425,6 +426,28 @@ int main (int argc, char *argv[]) {
       }
     free_matrix(KappaWeightTable, 0, Nfields-1, 0, Nfields-1);
     Announce();
+
+    // Print table with integrated densities statistics:
+    filename = config.reads("DENS2KAPPA_STAT");
+    if (filename!="0") {
+      if (filename=="1") {
+	cout << endl;
+	PrintMapsStats(IntDens, N1, N2);
+	cout << endl;
+      }
+      else {
+	outfile.open(filename.c_str());
+	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+	PrintMapsStats(IntDens, N1, N2, &outfile);
+	outfile.close();
+      	cout << ">> DENS2KAPPA_STAT written to "+filename;
+      }
+    }
+    if (ExitAt=="DENS2KAPPA_STAT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+    }
     
     // Output to file:
     GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", N1, N2);
@@ -439,7 +462,10 @@ int main (int argc, char *argv[]) {
     free_vector(IntDens, 0,Nfields-1);  
   } // End of IF compute convergence by density LoS integration.
   // Exit if this is the last output requested:
-  if (ExitAt=="DENS2KAPPA_ALM" || ExitAt=="DENS2KAPPA_CLS") {
+  if (ExitAt=="DENS2KAPPA_ALM" || 
+      ExitAt=="DENS2KAPPA_CLS" || 
+      ExitAt=="DENS2KAPPA_OUT" ||
+      ExitAt=="DENS2KAPPA_STAT") {
     cout << "\nTotal number of warnings: " << warning("count") << endl;
     cout<<endl;
     return 0;

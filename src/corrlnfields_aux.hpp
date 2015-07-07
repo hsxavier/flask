@@ -14,6 +14,10 @@
 #include <xcomplex.h>    // For Kappa2ShearEmode function.
 
 // Auxiliary functions for corrlnfields program:
+double MapMean(const Healpix_Map<MAP_PRECISION> & map);
+double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
+double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double variance);
+void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, std::ostream *output = &std::cout);
 void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, 
 		   std::string almKey, std::string clsKey, const ParameterList & config);
 void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config);
