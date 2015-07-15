@@ -52,7 +52,10 @@ l = classout[0]
 # Precompute basic factor:
 
 fac0 = (2.0*m.pi)/l/(l+1)
-fac1 = (-1.0*l*(l+1))/2.0
+fac1 = l*(l+1)/2.0   # The sign was supposed to be negative according to Hu 2000 (PRD 62:043007), 
+                     # but that would lead to negative kappa-delta cross-Cls, which according to 
+                     # numerical integration of delta auto-Cls is wrong. This is probably caused 
+                     # by differences in definitions.
 
 # LOOP over columns 
 for i in range(1, ncols):

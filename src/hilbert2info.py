@@ -127,8 +127,8 @@ def shift(f, z):
                 return KappaShift
             if FixKappa==0:
                 #return np.interp(z, fileZ, fileSh)
-                #return HilbertShift(z)
-                return XavierShift(z)
+                return HilbertShift(z)
+                #return XavierShift(z)
     elif nf==1:
         if HasGal==1: 
             return GalShift
@@ -137,8 +137,8 @@ def shift(f, z):
                 return KappaShift
             if FixKappa==0:
                 #return np.interp(z, fileZ, fileSh)
-                #return HilbertShift(z)
-                return XavierShift(z)
+                return HilbertShift(z)
+                #return XavierShift(z)
 
 # Functions for output:
 def ftype(f):

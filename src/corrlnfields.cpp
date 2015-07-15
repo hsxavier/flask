@@ -430,6 +430,7 @@ int main (int argc, char *argv[]) {
     // Print table with integrated densities statistics:
     filename = config.reads("DENS2KAPPA_STAT");
     if (filename!="0") {
+      Announce("   Computing integrated density statistics... ");
       if (filename=="1") {
 	cout << endl;
 	PrintMapsStats(IntDens, N1, N2, lognormal);
@@ -440,8 +441,9 @@ int main (int argc, char *argv[]) {
 	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
 	PrintMapsStats(IntDens, N1, N2, lognormal, &outfile);
 	outfile.close();
-      	cout << ">> DENS2KAPPA_STAT written to "+filename;
+      	cout << ">> DENS2KAPPA_STAT written to "+filename<<endl;
       }
+      Announce();
     }
     if (ExitAt=="DENS2KAPPA_STAT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;

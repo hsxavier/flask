@@ -13,8 +13,17 @@ void ClassColName2ftypez(std::string word, int *ft1, int *z1, int *ft2, int *z2)
   // Set to -1 if unknown:
   else *ft1=-1;
 
+  // Get the type of the second element:
   start2 = word.find("-dens[");
-  
+  if (start2!=word.npos) *ft2=1;
+  else {
+    start2 = word.find(":lens[");
+    if (start2!=word.npos) *ft2=2;
+  }
+  // Set to -1 if unknown:
+  else *ft2=-1;
+
+
   if(start1!=word.npos && start2!=word.npos) {
     end1 = word.find("]", start1);
     end2 = word.find("]", start2);
