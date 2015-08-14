@@ -421,7 +421,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   /****************************************************************************/
   gsl_matrix *gslm;
   double *MaxChange, MMax;
-  int lMMax, lstart, lend, FailReg=0;
+  int lMMax, lstart, lend, FailReg=0, NCls;
 
   // If producing the regularized lognormal C(l)s, all ls must be regularized (skip l=0 because is set to zero).
   // Else, only the cov. matrices for requested ls are regularized.
@@ -458,7 +458,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   // Dump changes in cov. matrices to the screen:
   MMax  = 0.0; lMMax = 0;
   for (l=lmin; l<=lmax; l++) if (MaxChange[l]>MMax) {MMax = MaxChange[l]; lMMax = l;}
-  cout << "Max. % change for "<<lmin<<"<=l<="<<lmax<<" at l="<<lMMax<<": "<<MMax<<endl;  
+  cout << "Max. frac. change for "<<lmin<<"<=l<="<<lmax<<" at l="<<lMMax<<": "<<MMax<<endl;  
   free_vector(MaxChange, lstart, lend);
   // Output regularized matrices if requested:
   if (config.reads("REG_COVL_PREFIX")!="0") 
@@ -475,9 +475,14 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
       Announce("Computing regularized lognormal Cls... ");
             
       // LOOP over fields:
-#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, i, j)
-      for (k=0; k<Nfields*Nfields; k++) {
-	i=k/Nfields;  j=k%Nfields;
+      NCls = (Nfields*(Nfields+1))/2;
+#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, m, i, j)
+      for (k=0; k<NCls; k++) {
+	l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
+	m = NCls-1-k-(l*(l+1))/2;
+	i = Nfields-1-l;
+	j = Nfields-1-m;
+	//i=k/Nfields;  j=k%Nfields;
 	
 	//cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 
