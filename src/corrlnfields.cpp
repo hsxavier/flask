@@ -416,10 +416,10 @@ int main (int argc, char *argv[]) {
     IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {        // LOOP over galaxy fields and redshift bins (as sources).
 	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
-	fieldlist.Index2fFixed(i, &f, &zsource); 
+	fieldlist.Index2fFixed(i, &f, &zsource);
 #pragma omp parallel for private(z, m)
 	for (j=0; j<npixels; j++) {                             // LOOP over pixels (lines of sight).
-	  for (z=0; z<zsource; z++) {                          // LOOP over redshift z (integrating).
+	  for (z=0; z<=zsource; z++) {                          // LOOP over redshift z (integrating).
 	    m = fieldlist.fFixedIndex(f, z);
 	    IntDens[i][j] += KappaWeightTable[i][m]*mapf[m][j]; // Sum contributions in the same pixel. 
 	  }
