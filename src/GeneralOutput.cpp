@@ -4,26 +4,7 @@
 #include "GeneralOutput.hpp"    // I don't know why, maybe to avoid mismatches.
 #include "Utilities.hpp"        // For warnings, errros and dynamic allocation.
 #include "corrlnfields_aux.hpp" // For n2fz function.
-
-/**********************************************/
-/*** Auxiliary functions for General output ***/
-/**********************************************/
-
-/*** Function for writing the header of alm's file ***/
-std::string SampleHeader(int N1, int N2) {
-  std::stringstream ss;
-  int i, f, z, nr;
-  
-  nr=N1*N2;
-
-  ss << "# l, m";
-  for (i=0; i<nr; i++) {
-    n2fz(i, &f, &z, N1, N2);
-    ss << ", f" << f << "z" << z << "Re, f" << f << "z" << z << "Im";
-  }
-  
-  return ss.str(); 
-}
+#include "FieldsDatabase.hpp"
 
 
 /***********************/
@@ -73,10 +54,11 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
 
 
 // Prints all Cl's to a TEXT file:
-void GeneralOutput(double **recovCl, bool *yesCl, int N1, int N2, const ParameterList & config, std::string keyword, bool inform) {
+void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist, 
+		   const ParameterList & config, std::string keyword, bool inform) {
   std::string filename;
   std::ofstream outfile; 
-  int k, l, m, i, j, fi, zi, fj, zj, lminout, lmaxout, NCls;
+  int k, l, m, i, j, fi, zi, fj, zj, lminout, lmaxout, NCls, Nfields;
   
   filename  = config.reads(keyword);
   // If requested, write Cl's to the file:
@@ -93,18 +75,19 @@ void GeneralOutput(double **recovCl, bool *yesCl, int N1, int N2, const Paramete
       lminout = config.readi("LMIN"); 
       warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
     }
-      
-    NCls  = N1*N2*(N1*N2+1)/2;
+    
+    Nfields = fieldlist.Nfields();
+    NCls    = (Nfields*(Nfields+1))/2;
 
     // Write header to file:
     outfile << "# l ";
     for (k=0; k<NCls; k++) if (yesCl[k]==1) {
       l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
       m = NCls-1-k-(l*(l+1))/2;
-      i = N1*N2-1-l;
-      j = N1*N2-1-m;
-      n2fz(i, &fi, &zi, N1, N2);
-      n2fz(j, &fj, &zj, N1, N2);
+      i = Nfields-1-l;
+      j = Nfields-1-m;
+      fieldlist.Index2Name(i, &fi, &zi);
+      fieldlist.Index2Name(j, &fj, &zj);
       outfile << "Cl-f"<<fi<<"z"<<zi<<"f"<<fj<<"z"<<zj<<" ";
     }
     outfile << std::endl;
@@ -127,22 +110,22 @@ void GeneralOutput(double **recovCl, bool *yesCl, int N1, int N2, const Paramete
 
 
 // Prints ALL fields alm's to a TEXT file labeled by their FIELD IDs.
-void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & config, std::string keyword, 
+		   const FZdatabase & fieldlist, bool inform) {
   std::string filename;
   std::ofstream outfile; 
   int lminout, lmaxout, mmax, l, m, i, Nfields, f, z;
 
-  Nfields=N1*N2;
+  Nfields = fieldlist.Nfields();
 
   // If requested, write alm's to file:
   if (config.reads(keyword)!="0") {
     filename = config.reads(keyword);
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
-    //outfile << SampleHeader(N1, N2) <<std::endl<<std::endl;
     outfile << "# l, m";
     for (i=0; i<Nfields; i++) if (af[i].Lmax()>0) {
-      n2fz(i, &f, &z, N1, N2);
+      fieldlist.Index2Name(i, &f, &z);
       outfile << ", f" << f << "z" << z << "Re, f" << f << "z" << z << "Im";
     }
     outfile<<std::endl<<std::endl;
@@ -294,23 +277,22 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
 
 
 // Prints a list of maps to a many FITS files:
-void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, std::string keyword, 
+		       const FZdatabase & fieldlist, bool inform) {
   std::string filename, tempstr;
   char message[100], message2[100], *arg[4];
   char opt1[]="-bar";
   int i, Nfields, f, z;
   
-  Nfields=N1*N2;
+  Nfields=fieldlist.Nfields();
 
   if (config.reads(keyword)!="0") {
     // Write to FITS:
     tempstr  = config.reads(keyword);
     for (i=0; i<Nfields; i++) {
-      n2fz(i, &f, &z, N1, N2); // Get field and redshift numbers.
+      fieldlist.Index2Name(i, &f, &z);
       sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
       filename.assign(message);
-      //sprintf(message2, "rm -f %s", message);
-      //system(message2); // Have to delete previous fits files first.
       write_Healpix_map_to_fits("!"+filename,mapf[i],planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
       if(inform==1) std::cout << ">> "<<keyword<< "["<<i<<"] written to "<<filename<<std::endl;
       // Write to TGA if requested:
@@ -331,14 +313,15 @@ void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & c
 
 
 // Prints a list of maps to a single TEXT file.
-void GeneralOutputTEXT(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+void GeneralOutputTEXT(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, 
+		       std::string keyword, const FZdatabase & fieldlist, bool inform) {
   std::string filename;
   std::ofstream outfile;
   int i, j, Nfields, field, z, npixels, *nside, n, coordtype;
   pointing coord;
 
   if (config.reads(keyword)!="0") {
-    Nfields   = N1*N2; 
+    Nfields   = fieldlist.Nfields(); 
     coordtype = config.readi("ANGULAR_COORD");
     if (coordtype<0 || coordtype>2) warning("GeneralOutputTEXT: unknown ANGULAR_COORD option, keeping Theta & Phi in radians.");
 
@@ -365,7 +348,7 @@ void GeneralOutputTEXT(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & c
       if (coordtype==2) outfile << "# ra, dec";
       else outfile << "# theta, phi";
       for (i=0; i<Nfields; i++) if (nside[i]!=0) { 
-	  n2fz(i, &field, &z, N1, N2);
+	  fieldlist.Index2Name(i, &field, &z);
 	  outfile << ", f"<<field<<"z"<<z;
 	}
       outfile << std::endl;
@@ -398,22 +381,22 @@ void GeneralOutputTEXT(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & c
 
 // Prints array of Healpix maps to either a single TEXT (if fits=0 or unespecified) or many FITS (if fits=1) files.
 void GeneralOutput(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & config, 
-		   std::string keyword, int N1, int N2, bool fits, bool inform) {
-  if (fits==1) GeneralOutputFITS(mapf, config, keyword, N1, N2, inform);
-  else GeneralOutputTEXT(mapf, config, keyword, N1, N2, inform);
+		   std::string keyword, const FZdatabase & fieldlist, bool fits, bool inform) {
+  if (fits==1) GeneralOutputFITS(mapf, config, keyword, fieldlist, inform);
+  else GeneralOutputTEXT(mapf, config, keyword, fieldlist, inform);
 }
 
 
 // Prints two lists of maps to a single TEXT file.
 void GeneralOutput(Healpix_Map<MAP_PRECISION> *gamma1, Healpix_Map<MAP_PRECISION> *gamma2, 
-		   const ParameterList & config, std::string keyword, int N1, int N2, bool inform) {
+		   const ParameterList & config, std::string keyword, const FZdatabase & fieldlist, bool inform) {
   std::string filename;
   std::ofstream outfile;
   int i, j, Nfields, field, z, npixels, *nside, n, coordtype;
   pointing coord;
 
   if (config.reads(keyword)!="0") {
-    Nfields=N1*N2; 
+    Nfields=fieldlist.Nfields(); 
     
     coordtype = config.readi("ANGULAR_COORD");
     if (coordtype<0 || coordtype>2) warning("GeneralOutputTEXT: unknown ANGULAR_COORD option, keeping Theta & Phi in radians.");
@@ -442,7 +425,7 @@ void GeneralOutput(Healpix_Map<MAP_PRECISION> *gamma1, Healpix_Map<MAP_PRECISION
       if (coordtype==2) outfile << "# ra, dec";
       else outfile << "# theta, phi";
       for (i=0; i<Nfields; i++) if (nside[i]!=0) { 
-	  n2fz(i, &field, &z, N1, N2);
+	  fieldlist.Index2Name(i, &field, &z);
 	  outfile <<", f"<<field<<"z"<<z<<"[1]"<<", f"<<field<<"z"<<z<<"[2]";
 	}
       outfile << std::endl;
@@ -484,8 +467,6 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
     filename.assign(message1);
 
     // Write to FITS:
-    //sprintf(message1, "rm -f %s", filename.c_str());
-    //system(message1); // Have to delete previous fits files first.
     write_Healpix_map_to_fits("!"+filename, map, planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
@@ -519,8 +500,6 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
     filename.assign(message1);
 
     // Write to FITS:
-    //sprintf(message1, "rm -f %s", filename.c_str());
-    //system(message1); // Have to delete previous fits files first.
     write_Healpix_map_to_fits("!"+filename, kmap, g1map, g2map, planckType<MAP_PRECISION>());
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:

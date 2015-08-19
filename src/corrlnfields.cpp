@@ -21,6 +21,7 @@
 #include "ClProcessing.hpp"
 #include "fitsfunctions.hpp"    // For WriteCatalog2Fits function.
 #include "lognormal.hpp"
+#include "FieldsDatabase.hpp"
 #include <unistd.h> // debugging
 
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
@@ -34,12 +35,13 @@ int main (int argc, char *argv[]) {
   using namespace definitions;                          // Global definitions.
   using namespace ParDef; ParameterList config;         // Easy configuration file use.
   Cosmology cosmo;                                      // Cosmological parameters.
+  FZdatabase fieldlist;
   char message[100];                                    // Handling warnings and errors.
   std::string filename, ExitAt;
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, k, l, m, N1, N2, f, z, Nfields, *ftype, Nls, MaxThreads;
+  int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, *ftype, Nls, MaxThreads;
   double *means, *shifts, **zrange; 
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
@@ -51,8 +53,6 @@ int main (int argc, char *argv[]) {
 
   // Testing the code:
   Announce("Testing the code... "); 
-  // Verify consistency between f&z <-> i conversions:
-  test_fzij(3,11); test_fzij(13,4);
   // Verify that max. value for INT is not smaller than expected:
   sprintf(message, "%d", INT_MAX); filename.assign(message);
   if (filename.size() < 10) 
@@ -85,47 +85,48 @@ int main (int argc, char *argv[]) {
   /***********************************/
   /*** PART 1: Loads fields info   ***/
   /***********************************/
-  bool *fnzSet;
+  int *fName, *zName;
   double **aux;
 
   // Load means, shifts, type and z range data file:
   Announce("Loading means and shifts from file "+config.reads("FIELDS_INFO")+"... ");
   aux     = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2);
   Nfields = (int)long1;
-  fnzSet  = vector<bool>     (0, Nfields-1); for (i=0; i<Nfields; i++) fnzSet[i]=0;
+  fName   = vector<int>      (0, Nfields-1);
+  zName   = vector<int>      (0, Nfields-1);
   means   = vector<double>   (0, Nfields-1);
   ftype   = vector<int>      (0, Nfields-1);
   zrange  = matrix<double>   (0, Nfields-1, 0,1);
   if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
-  // Check if some input properties are as expected:
-  if  ((int)Minimum(aux, 0, Nfields)!=1) error("corrlnfields: first field index in FIELDS_INFO should be 1.");
-  if  ((int)Minimum(aux, 1, Nfields)!=1) error("corrlnfields: first redshift index FIELDS_INFO should be 1.");
-  N1 = (int)Maximum(aux, 0, Nfields);
-  N2 = (int)Maximum(aux, 1, Nfields);
-  if  (N1*N2 != Nfields)            error("corrlnfields: mismatch between number and indexes of fields.");
-  // Should introduce other checks here, e.g. if there are no gaps or other issues in field IDs.
   
   // Parse information to separate arrays:
-  for (j=0; j<Nfields; j++) {
-    fz2n((int)aux[j][0], (int)aux[j][1], &i, N1, N2); // Find conventional position of field in arrays.
-    if (fnzSet[i]==1) error ("corrlnfields: found more than one mean & shift entry for the same f-z.");
-    fnzSet[i] = 1; 
-    means[i]  = aux[j][2];  
-    if (dist==lognormal) shifts[i] = aux[j][3];
-    ftype[i] = (int)aux[j][4];
-    zrange[i][0] = aux[j][5]; zrange[i][1] = aux[j][6]; 
+  for (i=0; i<Nfields; i++) {
+    fName[i]     = (int)aux[i][0];
+    zName[i]     = (int)aux[i][1];
+    means[i]     =      aux[i][2];  
+    ftype[i]     = (int)aux[i][4];
+    zrange[i][0] =      aux[i][5];
+    zrange[i][1] =      aux[i][6]; 
+    if (dist==lognormal) shifts[i] = aux[i][3];    
   }
   // A few checks on the input:
-  for (i=0; i<Nfields; i++) if (fnzSet[i]!=1) error("corrlnfields: the properties of a field were not set.");
-  for (i=0; i<Nfields; i++) if (zrange[i][0]>zrange[i][1]) error("corrlnfields: zmin > zmax for a field.");
+  for (i=0; i<Nfields; i++) {
+    if (zrange[i][0]>zrange[i][1])  error("corrlnfields: zmin > zmax for a field.");
+    if (ftype[i]!=1 && ftype[i]!=2) error("corrlnfields: unknown field type in FIELDS_INFO file.");
+  }
   if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) {
 	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
       }
-  free_vector(fnzSet, 0, Nfields-1);
-  free_matrix(aux, 0, Nfields-1, 0, long2-1);
+  free_matrix(aux, 0, long1-1, 0, long2-1);
+  // Pass field list to FZdatabase:
+  fieldlist.Build(fName, zName, Nfields);
+  free_vector(fName, 0, Nfields-1);
+  free_vector(zName, 0, Nfields-1);
   Announce();
   
-  cout << "Infered from FIELDS_INFO file:  Nf = " << N1 << "   Nz = " << N2 << endl;
+  Nf = fieldlist.Nfs();
+  Nz = fieldlist.Nzs();
+  cout << "Infered from FIELDS_INFO file:  Nf = " << Nf << "   Nz = " << Nz << endl;
 
 
   /**************************************************************/
@@ -144,7 +145,7 @@ int main (int argc, char *argv[]) {
     // If input triangular mixing matrices unspecified, compute them from input Cls:
     if (CholeskyInPrefix=="0") {
       // Load C(l)s and compute auxiliary Gaussian cov. matrices:
-      status = ClProcess(&CovByl, means, shifts, N1, N2, &Nls, config);
+      status = ClProcess(&CovByl, means, shifts, &Nls, fieldlist, config);
       if (status==1) { // Exit if fast output was inside ClProcess.
 	cout << "\nTotal number of warnings: " << warning("count") << endl;
 	cout<<endl;
@@ -274,7 +275,7 @@ int main (int argc, char *argv[]) {
     free_tensor3(gaus0, 1,MaxThreads, 0,Nfields-1, 0,1);
     free_tensor3(gaus1, 1,MaxThreads, 0,Nfields-1, 0,1);
     // If requested, write alm's to file:
-    GeneralOutput(aflm, config, "AUXALM_OUT", N1, N2);
+    GeneralOutput(aflm, config, "AUXALM_OUT", fieldlist);
   } // End of IF not homogeneous.
 
   else cout << "HOMOGENEOUS realizations: skipped alm generation.\n";
@@ -309,7 +310,7 @@ int main (int argc, char *argv[]) {
   // Generate maps from alm's for each field if not creating homogeneous uncorrelated fields:
   if (dist!=homogeneous) {
     Announce("Generating maps from alm's... ");
-    for(i=0; i<Nfields; i++) alm2map(aflm[i],mapf[i]);
+    for(i=0; i<Nfields; i++) alm2map(aflm[i], mapf[i]);
     Announce();
   }
   // Generate mean maps if creating homogeneous fields:
@@ -322,7 +323,7 @@ int main (int argc, char *argv[]) {
   // If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
   if (dist==lognormal) free_vector(aflm, 0, Nfields-1);
   // Write auxiliary map to file as a table if requested:
-  GeneralOutput(mapf, config, "AUXMAP_OUT", N1, N2);
+  GeneralOutput(mapf, config, "AUXMAP_OUT", fieldlist);
   
   // Exit if this is the last output requested:
   if (ExitAt=="AUXMAP_OUT") {
@@ -364,9 +365,9 @@ int main (int argc, char *argv[]) {
   free_vector(means, 0, Nfields-1);
   
   // Write final map to file as a table if requested:
-  GeneralOutput(mapf, config, "MAP_OUT", N1, N2);
+  GeneralOutput(mapf, config, "MAP_OUT", fieldlist);
   // Map output to fits and/or tga files:
-  GeneralOutput(mapf, config, "MAPFITS_PREFIX", N1, N2, 1);
+  GeneralOutput(mapf, config, "MAPFITS_PREFIX", fieldlist, 1);
   
   // Exit if this is the last output requested:
   if (ExitAt=="MAP_OUT" ||
@@ -388,12 +389,12 @@ int main (int argc, char *argv[]) {
     cout << "Will compute the convergence by density line of sight integration:\n";
     // Error checking (density fields must have continuous redshift coverage):
     k=0; m=0;
-    for (f=1; f<=N1; f++) {
-      fz2n(f, 1, &i, N1, N2);
+    for (f=0; f<Nf; f++) {
+      i = fieldlist.fFixedIndex(f, 0);
       if (ftype[i]==fgalaxies) {
 	k++; // Count density fields.
-	for (z=2; z<=N2; z++) {
-	  fz2n(f, z-1, &i, N1, N2); fz2n(f, z, &j, N1, N2);   
+	for (z=1; z<fieldlist.Nz4f(f); z++) {
+	  fieldlist.fFixedIndex(f, z-1, &i); fieldlist.fFixedIndex(f, z, &j); 
 	  if (zrange[i][1] != zrange[j][0])                 // Check if z bins are sequential and contiguous.
 	    warning("corrlnfields: expecting sequential AND contiguous redshift slices for galaxies");
 	}
@@ -415,11 +416,11 @@ int main (int argc, char *argv[]) {
     IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {        // LOOP over galaxy fields and redshift bins (as sources).
 	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
-	n2fz(i, &f, &zsource, N1, N2); 
+	fieldlist.Index2fFixed(i, &f, &zsource); 
 #pragma omp parallel for private(z, m)
 	for (j=0; j<npixels; j++) {                             // LOOP over pixels (lines of sight).
-	  for (z=1; z<=zsource; z++) {                          // LOOP over redshift z (integrating).
-	    fz2n(f, z, &m, N1, N2); 
+	  for (z=0; z<zsource; z++) {                          // LOOP over redshift z (integrating).
+	    m = fieldlist.fFixedIndex(f, z);
 	    IntDens[i][j] += KappaWeightTable[i][m]*mapf[m][j]; // Sum contributions in the same pixel. 
 	  }
 	}
@@ -433,13 +434,13 @@ int main (int argc, char *argv[]) {
       Announce("   Computing integrated density statistics... ");
       if (filename=="1") {
 	cout << endl;
-	PrintMapsStats(IntDens, N1, N2, lognormal);
+	PrintMapsStats(IntDens, fieldlist, lognormal);
 	cout << endl;
       }
       else {
 	outfile.open(filename.c_str());
 	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
-	PrintMapsStats(IntDens, N1, N2, lognormal, &outfile);
+	PrintMapsStats(IntDens, fieldlist, lognormal, &outfile);
 	outfile.close();
       	cout << ">> DENS2KAPPA_STAT written to "+filename<<endl;
       }
@@ -452,7 +453,7 @@ int main (int argc, char *argv[]) {
     }
     
     // Output to file:
-    GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", N1, N2);
+    GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", fieldlist);
     if (ExitAt=="DENS2KAPPA_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
@@ -460,7 +461,7 @@ int main (int argc, char *argv[]) {
     }
     
     // If requested, recover alms and/or Cls from this convergence:
-    RecoverAlmCls(IntDens, N1, N2, "DENS2KAPPA_ALM", "DENS2KAPPA_CLS", config);
+    RecoverAlmCls(IntDens, fieldlist, "DENS2KAPPA_ALM", "DENS2KAPPA_CLS", config);
     free_vector(IntDens, 0,Nfields-1);  
   } // End of IF compute convergence by density LoS integration.
   // Exit if this is the last output requested:
@@ -474,7 +475,7 @@ int main (int argc, char *argv[]) {
   }
 
   // If requested, recover alms and/or Cls from maps:
-  RecoverAlmCls(mapf, N1, N2, "RECOVALM_OUT", "RECOVCLS_OUT", config);
+  RecoverAlmCls(mapf, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config);
   // Exit if this is the last output requested:
   if (ExitAt=="RECOVALM_OUT" || ExitAt=="RECOVCLS_OUT") {
     cout << "\nTotal number of warnings: " << warning("count") << endl;
@@ -498,7 +499,7 @@ int main (int argc, char *argv[]) {
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   Announce("Reading selection functions from files... ");
-  selection.load(config, ftype, zrange, N1, N2); 
+  selection.load(config, ftype, zrange, Nf, Nz); 
   if (selection.Nside()!=-2 && selection.Nside()!=mapf[0].Nside())
     error("corrlnfields: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=-2 && selection.Scheme()!=mapf[0].Scheme()) 
@@ -510,7 +511,7 @@ int main (int argc, char *argv[]) {
     counter = vector<int>(1, MaxThreads);
     // LOOP over fields:
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	n2fz(i, &f, &z, N1, N2);
+	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
@@ -532,7 +533,7 @@ int main (int argc, char *argv[]) {
   // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	n2fz(i, &f, &z, N1, N2);
+	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
 	Announce(message);
 	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
@@ -556,7 +557,7 @@ int main (int argc, char *argv[]) {
   
   // LOOP over convergence fields:
   for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
-      n2fz(i, &f, &z, N1, N2);
+      fieldlist.Index2Name(i, &f, &z);
       cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
       
       // Preparing memory:
@@ -587,7 +588,7 @@ int main (int argc, char *argv[]) {
 	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
 	Announce();
       }
-      n2fz(i, &f, &z, N1, N2);
+      fieldlist.Index2Name(i, &f, &z);
       GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
 
       // Go from shear E-mode alm's to gamma1 and gamma2 maps:
@@ -595,7 +596,7 @@ int main (int argc, char *argv[]) {
       alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
       Announce();
       // Write kappa, gamma1 and gamma2 to FITS file:
-      n2fz(i, &f, &z, N1, N2);
+      fieldlist.Index2Name(i, &f, &z);
       GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
 
     } // End of LOOP over convergence fields.
@@ -615,9 +616,9 @@ int main (int argc, char *argv[]) {
   }
 
   // Write final map to file as a table if requested:
-  GeneralOutput(mapf, config, "MAPWER_OUT", N1, N2);
+  GeneralOutput(mapf, config, "MAPWER_OUT", fieldlist);
   // Map output to fits and/or tga files:
-  GeneralOutput(mapf, config, "MAPWERFITS_PREFIX", N1, N2, 1);  
+  GeneralOutput(mapf, config, "MAPWERFITS_PREFIX", fieldlist, 1);  
   // Exit if this is the last output requested:
   if (ExitAt=="MAPWER_OUT" ||
       ExitAt=="MAPWERFITS_PREFIX") {
@@ -627,7 +628,7 @@ int main (int argc, char *argv[]) {
   }
 
   // Output shear maps to TEXT tables:
-  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", N1, N2);
+  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fieldlist);
   // Exit if this is the last output requested:
   if (ExitAt=="SHEAR_MAP_OUT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
@@ -657,14 +658,14 @@ int main (int argc, char *argv[]) {
   ThreadNgals = vector<long>(0, MaxThreads);       
   for(l=0; l<=MaxThreads; l++) ThreadNgals[l] = 0;
   // Loop over 3D cells:
-  Ncells  = ((long)npixels)*((long)N2); // Number of 3D cells.
+  Ncells  = ((long)npixels)*((long)Nz); // Number of 3D cells.
 #pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
   for (kl=0; kl<Ncells; kl++) {
     l     = omp_get_thread_num();
-    j     = kl/N2;     // angular pixel.
-    ziter = kl%N2 + 1; // z slice.
-    for (fiter=1; fiter<=N1; fiter++) {
-      fz2n(fiter, ziter, &i, N1, N2);
+    j     = kl/Nz;     // angular pixel.
+    ziter = kl%Nz;     // z slice.
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
       if (ftype[i]==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
     }
   }
@@ -706,20 +707,20 @@ int main (int argc, char *argv[]) {
   // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
   for (kl=0; kl<Ncells; kl++) {
     l        = omp_get_thread_num();   // Processor number.
-    j        = kl/N2;                   // pixel.
-    ziter    = kl%N2 + 1;               // z slice.
+    j        = kl/Nz;                  // pixel.
+    ziter    = kl%Nz;                  // z slice.
     gali     = 0;                      // Galaxy number inside cell.
     cellNgal = 0;                      // Total galaxy number inside cell.
 
     // Count total number of galaxies of all types inside cell:
-    for (fiter=1; fiter<=N1; fiter++) {
-      fz2n(fiter, ziter, &i, N1, N2);
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
       if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) cellNgal++;
     }
     
     // LOOP over field IDs:
-    for (fiter=1; fiter<=N1; fiter++) {
-      fz2n(fiter, ziter, &i, N1, N2);
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
       
       // Add entry of type GALAXY:      
       if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {

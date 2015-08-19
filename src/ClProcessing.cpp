@@ -6,7 +6,8 @@
 #include "GeneralOutput.hpp"
 #include "RegularizeCov.hpp"
 #include "corrlnfields_aux.hpp" // For n2fz functions, Maximum, etc..
-
+#include <unistd.h>             // For access function.
+#include "FieldsDatabase.hpp"   
 
 /*** Transforms a correlation function of gaussian variables gXi into a corr. function of corresponding lognormal variables lnXi ***/
 void GetLNCorr(double *lnXi, double *gXi, int XiLength, double mean1, double shift1, double mean2, double shift2) {
@@ -35,33 +36,6 @@ int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double s
   return status;
 }
 
-
-/*** Get four numbers separated by characters that specify the fields and redshifts
-     of the correlation function. ***/
-void getcovid(const std::string filename, int *a1, int *a2, int *b1, int *b2) {
-  int i=0, num, index, fileL;
-  fileL=filename.length();
-  // LOOP over the four indexes that indentifies the C(l):
-  for(index=1; index<=4; index++) {
-    num=0;
-    // Find a number:
-    while (isdigit(filename.c_str()[i])==0) {i++; if(i>=fileL) error("getcovid: cannot find four numbers.");}
-    // Read the number:
-    while (isdigit(filename.c_str()[i])!=0) {num = num*10 + (filename.c_str()[i]-'0'); i++;}
-    // Save it as an index:
-    switch (index) {
-    case 1: *a1 = num; break;
-    case 2: *a2 = num; break;
-    case 3: *b1 = num; break;
-    case 4: *b2 = num; break;
-    }
-  }
-  // Check if there are more numbers in filename:
-  while (i<=fileL) {
-    if (isdigit(filename.c_str()[i])!=0) error("getcovid: found more numbers than expected.");
-    i++;
-  }
-}
 
 
 /*** Find out number of columns and rows in file ***/
@@ -93,8 +67,8 @@ void CountEntries(std::string filename, long *nr, long *nc) {
 
 
 /*** Export function y(x) for the field combination [i,j] to file ***/
-std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x, double *y, int length) {
-  int a1, a2, b1, b2;
+std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldlist, double *x, double *y, int length) {
+  int af, az, bf, bz;
   char message[100];
   std::string filename;
   double *wrapper[2];
@@ -103,8 +77,8 @@ std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x
   wrapper[0] =  x;
   wrapper[1] =  y;
 
-  n2fz(i, &a1, &a2, N1, N2); n2fz(j, &b1, &b2, N1, N2);
-  sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(),a1,a2,b1,b2);
+  fieldlist.Index2Name(i, &af, &az); fieldlist.Index2Name(j, &bf, &bz); 
+  sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(),af,az,bf,bz);
   filename.assign(message);
 
   outfile.open(message);
@@ -117,69 +91,61 @@ std::string PrintOut(std::string prefix, int i, int j, int N1, int N2, double *x
 
 
 /*** Wraps all processing of the input Cls up to the gaussian covariance matrices for each l ***/
-int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, int N2, int *NlsOut, const ParameterList & config) {
+int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsOut, const FZdatabase & fieldlist, const ParameterList & config) {
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
   simtype dist;                                         // For specifying simulation type.
   char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
-  int i, j, k, l, m, status, Nfields, Nls, lmin, lmax;
+  int i, j, k, l, m, status, Nfields, Nf, Nz, Nls, lmin, lmax;
   std::string filename, ExitAt;
   bool *fnzSet;
   gsl_matrix **CovByl;
   
 
   // Getting general information:
-  Nfields=N1*N2;
+  Nfields = fieldlist.Nfields();
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
-  ExitAt = config.reads("EXIT_AT");
-  lmax   = config.readi("LMAX");
-  lmin   = config.readi("LMIN");
+  ExitAt  = config.reads("EXIT_AT");
+  lmax    = config.readi("LMAX");
+  lmin    = config.readi("LMIN");
 
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
   const int HWMAXL = 10000000; int lastl = HWMAXL;
-  int a1, a2, b1, b2, Nlinput, **fnz, **NentMat;
+  int af, az, bf, bz, Nlinput, **fnz, **NentMat;
   long *Nentries, ncols;
   double ***ll, ***Cov, *wrapper[2];
   bool **IsSet;
-  
-  // Listing files to use based on CL_PREFIX:
-  // Find out how many input C(l)'s we have.
-  cout << "Will load input C(l)s:\n";
-  sprintf(message, "ls %s* | wc -l", config.reads("CL_PREFIX").c_str()); 
-  stream = popen(message, "r");
-  if ((stream=popen(message, "r")) == NULL) error("ClProcess: cannot 'ls | wc' output");
-  fscanf(stream, "%d", &NinputCls); pclose(stream);
-  // Get list of input C(l) files:
-  filelist = vector<std::string>(0,NinputCls-1);
-  sprintf(message, "ls %s*", config.reads("CL_PREFIX").c_str());
-  if ((stream=popen(message, "r")) == NULL) error("ClProcess: cannot pipe 'ls' output");
-  for (i=0; i<NinputCls; i++) {
-    fscanf(stream, "%s", message);
-    filelist[i].assign(message);
-  }
-  pclose(stream);
 
-  // Get file list and find out how many C(l)s there are:  
-  N1=0; N2=0; Nlinput=0;
+  // Get list of the necessary C(l) files:
+  NinputCls = Nfields*Nfields;
+  filelist  = vector<std::string>(0,NinputCls-1);
+  // LOOP over all C(l)s:
+  for (k=0; k<NinputCls; k++) {
+    i = k/Nfields;      j = k%Nfields;
+    fieldlist.Index2Name(i, &af, &az);
+    fieldlist.Index2Name(j, &bf, &bz);
+    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("CL_PREFIX").c_str(), af, az, bf, bz);
+    if(access(message, R_OK) == 0) filelist[k].assign(message);
+  }
+  
+  // Find out the number of lines and columns in C(l) files:  
+  Nlinput=0;
   Nentries = vector<long>(0,NinputCls-1);
-  for (i=0; i<NinputCls; i++) {
-    getcovid(filelist[i], &a1, &a2, &b1, &b2);
-    if (a1>N1) N1=a1; if (b1>N1) N1=b1;                // Get number of fields.
-    if (a2>N2) N2=a2; if (b2>N2) N2=b2;                // Get number of z bins.
-    CountEntries(filelist[i], &(Nentries[i]), &ncols); // Get number of Nls.
-    if (ncols!=2) error("ClProcess: wrong number of columns in file "+filename);
-    if (Nentries[i]>Nlinput) Nlinput=Nentries[i];          // Record maximum number of ls.
+  for (k=0; k<NinputCls; k++) {
+    if (filelist[k].size()>0) {
+      CountEntries(filelist[k], &(Nentries[k]), &ncols); // Get number of Nls.
+      if (ncols!=2) error("ClProcess: wrong number of columns in file "+filelist[k]);
+      if (Nentries[k]>Nlinput) Nlinput=Nentries[k];          // Record maximum number of ls.
+    }
+    else Nentries[k]=0;
   }
-  //Check if number of fields in INFO is the same as in the Cls:
-  if (Nfields != N1*N2) error("ClProcess: number of means and shifts do not match number of C(l)s.");
   
-
   // Allocate memory to store C(l)s:
   // First two indexes are CovMatrix indexes and last is for ll.
   // fnz stores the order that the fields are stored in CovMatrix.
@@ -193,23 +159,23 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
   for(i=0; i<Nfields; i++) fnzSet[i]=0;
   
   // Read C(l)s and store in data-cube:
-  for (m=0; m<NinputCls; m++) {
-    // Find CovMatrix indexes of C(l):
-    getcovid(filelist[m], &a1, &a2, &b1, &b2);
-    fz2n(a1, a2, &i, N1, N2); fz2n(b1, b2, &j, N1, N2); 
-    cout << filelist[m] << " goes to ["<<i<<", "<<j<<"]" << endl;
-    // Record the order of the fields in CovMatrix:
-    if (fnzSet[i]==0) { fnz[i][0] = a1; fnz[i][1] = a2; fnzSet[i] = 1; }
-    else if (fnz[i][0] != a1 || fnz[i][1] != a2) error("ClProcess: field order in CovMatrix is messed up!"); 
-    if (fnzSet[j]==0) { fnz[j][0] = b1; fnz[j][1] = b2; fnzSet[j] = 1; }
-    else if (fnz[j][0] != b1 || fnz[j][1] != b2) error("ClProcess: field order in CovMatrix is messed up!");
-    // Import data:
-    wrapper[0] = &(ll[i][j][0]);
-    wrapper[1] = &(Cov[i][j][0]);
-    ImportVecs(wrapper, Nentries[m], 2, filelist[m].c_str());
-    NentMat[i][j] = Nentries[m];
-    IsSet[i][j]=1; 
-  };
+  for (k=0; k<NinputCls; k++) if (filelist[k].size()>0) {
+      i = k/Nfields;      j = k%Nfields;
+      fieldlist.Index2Name(i, &af, &az);
+      fieldlist.Index2Name(j, &bf, &bz);      
+      cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
+      // Record the order of the fields in CovMatrix:  
+      if (fnzSet[i]==0) { fnz[i][0] = af; fnz[i][1] = az; fnzSet[i] = 1; }
+      else if (fnz[i][0] != af || fnz[i][1] != az) error("ClProcess: field order in CovMatrix is messed up!"); 
+      if (fnzSet[j]==0) { fnz[j][0] = bf; fnz[j][1] = bz; fnzSet[j] = 1; }
+      else if (fnz[j][0] != bf || fnz[j][1] != bz) error("ClProcess: field order in CovMatrix is messed up!");
+      // Import data:
+      wrapper[0] = &(ll[i][j][0]);
+      wrapper[1] = &(Cov[i][j][0]);
+      ImportVecs(wrapper, Nentries[k], 2, filelist[k].c_str());
+      NentMat[i][j] = Nentries[k];
+      IsSet[i][j]=1; 
+    };
   free_vector(Nentries, 0, NinputCls-1);
   free_vector(filelist, 0, NinputCls-1);
 
@@ -291,49 +257,36 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
     i=k/Nfields;  j=k%Nfields;
     if (IsSet[i][j]==1) {
       
-      //cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
-      
       // Temporary memory allocation:
       tempCl    = vector<double>(0, lastl);
       xi        = vector<double>(0, 2*Nls-1);
       workspace = vector<double>(0, 2*Nls-1);
 
       // Interpolate C(l) for every l; input C(l) might not be like that:
-      //cout << "   Interpolating input C(l) for all l's...  "; cout.flush();
       GetAllLs(ll[i][j], Cov[i][j], NentMat[i][j], tempCl, lastl, config.readi("EXTRAP_DIPOLE"));
-      //cout << "              done.\n";
 	
       if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	
 	// Compute correlation function Xi(theta):
-	//cout << "   DLT (inverse) to obtain the correlation function...  "; cout.flush();
 	ModCl4DLT(tempCl, lastl, lsup, supindex);
 	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	//cout << "  done.\n";
 	if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
-	  filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	  //cout << ">> Correlation function written to "+filename<<endl;
+	  filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, fieldlist, theta, xi, 2*Nls);
 	}
 
 	// Transform Xi(theta) to auxiliary gaussian Xi(theta):
-	//cout << "   Computing associated gaussian correlation function...  "; cout.flush(); 
 	status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	//cout << "done.\n";
 	if (status==EDOM) error("ClProcess: GetGaussCorr found bad log arguments.");
 	if (i==j && xi[0]<0) warning("ClProcess: auxiliary field variance is negative.");
 	if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
-	  filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, N1, N2, theta, xi, 2*Nls);
-	  //cout << ">> Associated Gaussian correlation function written to "+filename<<endl;
+	  filename=PrintOut(config.reads("GXIOUT_PREFIX"), i, j, fieldlist, theta, xi, 2*Nls);
 	}
 
 	// Transform Xi(theta) back to C(l):
-	//cout << "   DLT (forward) to obtain the angular power spectrum...  "; cout.flush(); 
 	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
 	ApplyClFactors(tempCl, Nls);
-	//cout << "done.\n";
 	if (config.reads("GCLOUT_PREFIX")!="0") { // Write it out if requested:
-	  filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
-	  //cout << ">> C(l) for auxiliary Gaussian variables written to "+filename<<endl;
+	  filename=PrintOut(config.reads("GCLOUT_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
 	}	  
       }                                 /** END OF LOGNORMAL ONLY **/ 
 	
@@ -508,7 +461,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int N1, i
 	ApplyClFactors(tempCl, Nls, lsup, supindex);
 	//cout << "done.\n";
 	// Output:
-	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, N1, N2, lls, tempCl, Nls);
+	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
 	//cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
 	
 	// Temporary memory deallocation:

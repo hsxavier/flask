@@ -12,14 +12,15 @@
 #include <healpix_map.h> // For RandAngInPix function.
 #include <alm.h>         // For Kappa2ShearEmode function.
 #include <xcomplex.h>    // For Kappa2ShearEmode function.
+#include "FieldsDatabase.hpp"
 
 // Auxiliary functions for corrlnfields program:
 double MapMean(const Healpix_Map<MAP_PRECISION> & map);
 double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
 double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double variance);
 using namespace definitions;
-void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, simtype dist, std::ostream *output = &std::cout);
-void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, 
+void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, simtype dist, std::ostream *output = &std::cout);
+void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, 
 		   std::string almKey, std::string clsKey, const ParameterList & config);
 void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config);
 double rad2deg(double rad);

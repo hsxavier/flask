@@ -42,12 +42,13 @@ double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double v
 
 
 // Prints a table with mean, std. dev., skewness, mu (gaussian mean), sigma (gaussian dev) and shift for all maps.
-void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, simtype dist, std::ostream *output) {
+void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, simtype dist, std::ostream *output) {
   const int ColWidth = 12;
-  int Nfields=N1*N2, i, f, z;
+  int Nfields, i, f, z;
   char name[11];
   double mean, var, skew, shift;
   
+  Nfields = fieldlist.Nfields();
   (*output).width(ColWidth);
   
   // Header:
@@ -70,7 +71,7 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, simtype di
       skew  = MapSkewness(mapf[i], mean, var);
       shift = Moments2Shift(mean, var, skew); 
       // Output results:
-      n2fz(i, &f, &z, N1, N2);
+      fieldlist.Index2Name(i, &f, &z);
       sprintf(name, "f%dz%d   ",f,z);
       (*output) << std::left<<name<<std::right; (*output).width(ColWidth);
       (*output) << mean;                        (*output).width(ColWidth);
@@ -86,7 +87,7 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, simtype di
 }
 
 // If alm or Cls output is requested, compute them and output them:
-void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2, 
+void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, 
 		   std::string almKey, std::string clsKey, const ParameterList & config) {
   int i, j, k, l, m, nside, lmin, lmax, lminout, lmaxout, mmax, NCls, Nfields;
   Alm<xcomplex <ALM_PRECISION> > *bflm;
@@ -95,7 +96,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2,
 
   if (config.reads(almKey)!="0" || config.reads(clsKey)!="0") {
 
-    Nfields = N1*N2;
+    Nfields = fieldlist.Nfields();
     nside   = config.readi("NSIDE");
     lmin    = config.readi("LMIN");
     lmax    = config.readi("LMAX");  
@@ -116,7 +117,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2,
     Announce();
     weight.dealloc();
     // Output to file:
-    GeneralOutput(bflm, config, almKey, N1, N2);
+    GeneralOutput(bflm, config, almKey, fieldlist);
 
     // Compute Cl's if requested:
     if (config.reads(clsKey)!="0") {
@@ -147,7 +148,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, int N1, int N2,
 	else yesCl[k] = 0;
       } // End of Cl computing.
       Announce();
-      GeneralOutput(recovCl, yesCl, N1, N2, config, clsKey);
+      GeneralOutput(recovCl, yesCl, fieldlist, config, clsKey);
       free_matrix(recovCl, 0, NCls-1, lminout, lmaxout);
       free_vector(yesCl, 0, NCls-1);
     }

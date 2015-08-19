@@ -37,13 +37,13 @@ $(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utiliti
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
-			$(OBJ)/lognormal.o
+			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o
 	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
-			$(OBJ)/lognormal.o -o $@ $(LIBS)
+			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o -o $@ $(LIBS)
 
 # Objects:
 
@@ -55,12 +55,16 @@ $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 
 $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
-			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp $(SRC)/lognormal.hpp
+			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp \
+			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
+
+$(OBJ)/FieldsDatabase.o: $(SRC)/FieldsDatabase.cpp $(SRC)/FieldsDatabase.hpp $(SRC)/Utilities.hpp
+	 $(COMP) -c $(SRC)/FieldsDatabase.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
 			$(SRC)/s2kit10_naive.hpp $(SRC)/GeneralOutput.hpp $(SRC)/RegularizeCov.hpp \
-			$(SRC)/corrlnfields_aux.hpp
+			$(SRC)/corrlnfields_aux.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP)  $(CXXHEAL) -c $(SRC)/ClProcessing.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
@@ -84,7 +88,7 @@ $(OBJ)/SelectionFunc.o: $(SRC)/SelectionFunc.cpp $(SRC)/SelectionFunc.hpp $(SRC)
 	$(COMP) $(CXXHEAL) -c $(SRC)/SelectionFunc.cpp -o $@
 
 $(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp
+			$(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
