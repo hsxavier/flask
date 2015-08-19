@@ -14,7 +14,7 @@ SelectionFunction::SelectionFunction () {
 }
 
 // Load selection functions:
-void SelectionFunction::load(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20) {
+void SelectionFunction::load(const ParameterList & config, int *ftype0, double **fzrange, const FZdatabase & fieldlist) {
   using namespace definitions;
   std::string tempstr, filename, starfile;
   char message[100];
@@ -23,8 +23,8 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   long Ncolumns;
 
   // Overall properties of the selection functions and fields:
-  N1 = N10;     N2 = N20;
-  Nfields       = N1*N2;
+  //N1 = N10;     N2 = N20;
+  Nfields       = fieldlist.Nfields();
   zSearchTol    = config.readd("ZSEARCH_TOL");
   SelectionType = config.readi("SELEC_TYPE");
   Separable     = config.readi("SELEC_SEPARABLE");
@@ -56,7 +56,7 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
       AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,Nfields-1);
       for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	  // Load FITS file:
-	  n2fz(i, &f, &z, N1, N2);
+	  fieldlist.Index2Name(i, &f, &z);
 	  sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
 	  filename.assign(message);
 	  read_Healpix_map_from_fits(filename, AngularSel[i]);
@@ -85,27 +85,22 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 
     // Prepare for radial selection functions:
     zSelIndex = vector<int>    (0, Nfields-1);
-    NgalTypes = IndexGalTypes();
+    NgalTypes = IndexGalTypes(fieldlist);
     zSel      = vector<double*>(0, NgalTypes-1); 
     zEntries  = vector<double*>(0, NgalTypes-1);
     NzEntries = vector<long>   (0, NgalTypes-1);
-    tempstr = config.reads("SELEC_Z_PREFIX");
+    tempstr   = config.reads("SELEC_Z_PREFIX");
     if (tempstr=="0") error ("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
 
     // LOOP over fields, look for type of tracer (galaxy):
-    prevf=-1;
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
-	n2fz(i, &f, &z, N1, N2);
-	if (f < prevf) error("SelectionFunction.load: n2fz should be monotonic.");
-	else if (f > prevf) {
-	  // Found new type of galaxy: load radial selection function:
-	  sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
-	  filename.assign(message);
-	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
-	  zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
-	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
-	  prevf = f;
-	}
+	fieldlist.Index2Name(i, &f, &z);
+	// Found new type of galaxy: load radial selection function:
+	sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
+	filename.assign(message);
+	LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
+	zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
+	if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
       }
   }  
   // Unknown type of selection function:
@@ -135,24 +130,38 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
 
 // Count types of galaxies and index their radial selection functions:
 // This function assumes zSelIndex is already allocated.
-int SelectionFunction::IndexGalTypes() {
+int SelectionFunction::IndexGalTypes(const FZdatabase & fieldlist) {
   using namespace definitions;
-  int i, f, z, prevf, NgalTypes=0;
+  int i, f, z, NgalTypes=0, *IsSet;
 
-  prevf = -1;
-  // Loop over all fields
-  for (i=0; i<Nfields; i++) {
-    // If is a galaxy, check if it's a new one and set an index for its selection function:
-    if (ftype[i]==fgalaxies) {
-      n2fz(i, &f, &z, N1, N2);
-      if (f < prevf) error("SelectionFunction.CountGalTypes: n2fz should be monotonic.");
-      else if (f > prevf) { NgalTypes++; prevf = f; }
-      zSelIndex[i] = NgalTypes-1; 
+  // For bookkeeping:
+  IsSet = vector<int>(0, Nfields-1);
+  for (i=0; i<Nfields; i++) IsSet[i]=0;
+
+  // Loop over all fields (small f)
+  for (f=0; f<fieldlist.Nfs(); f++) {
+    // If is a galaxy, count it and set an index for its selection function:
+    if (ftype[fieldlist.fFixedIndex(f,0)]==fgalaxies) {
+      NgalTypes++;
+      for (z=0; z<fieldlist.Nz4f(f); z++) {
+	i = fieldlist.fFixedIndex(f, z);
+	zSelIndex[i] = NgalTypes-1;
+	IsSet[i]++;
+      }
     }
     // If not a galaxy, the index is -1:
-    else zSelIndex[i] = -1;
+    else for (z=0; z<fieldlist.Nz4f(f); z++) {
+	i = fieldlist.fFixedIndex(f, z);
+	zSelIndex[i] = -1;
+	IsSet[i]++;
+      }
   }
-
+  
+  // Check if every Field has been assigned one and only one zSel (including none=-1):
+  for (i=0; i<Nfields; i++) 
+    if (IsSet[i]!=1) error("SelectionFunction.IndexGalTypes: radial selection function assignment is messed up.");
+  
+  free_vector(IsSet, 0, Nfields-1);
   return NgalTypes;
 }
 
@@ -303,10 +312,10 @@ double SelectionFunction::operator()(int fz, int pix) {
 
 
 // Function to test for memory leackage by loading and unloading selection functions:
-void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, int N10, int N20) {
+void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, const FZdatabase & fieldlist) {
   SelectionFunction test;
 
   // Load Selection function to allocate memory:
-  test.load(config, ftype0, fzrange, N10, N20);
+  test.load(config, ftype0, fzrange, fieldlist);
   // Destructor should be called when exiting this function.
 }
