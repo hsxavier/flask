@@ -297,6 +297,7 @@ int main (int argc, char *argv[]) {
   pointing coord;
   char *arg[5];
   char opt1[]="-bar", val1[]="1";
+  
 
   // Allocate memory for pixel maps:
   Announce("Allocating memory for pixel maps... "); 
@@ -363,30 +364,15 @@ int main (int argc, char *argv[]) {
   // Free memory for means and shifts:
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
   free_vector(means, 0, Nfields-1);
-  
-  // Write final map to file as a table if requested:
-  GeneralOutput(mapf, config, "MAP_OUT", fieldlist);
-  // Map output to fits and/or tga files:
-  GeneralOutput(mapf, config, "MAPFITS_PREFIX", fieldlist, 1);
-  
-  // Exit if this is the last output requested:
-  if (ExitAt=="MAP_OUT" ||
-      ExitAt=="MAPFITS_PREFIX") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
-  }
 
+  
   // If requested, integrate density along the line of sight to get convergence:
-  if(config.reads("DENS2KAPPA_OUT")!="0" || 
-     config.reads("DENS2KAPPA_ALM")!="0" || 
-     config.reads("DENS2KAPPA_CLS")!="0" || 
-     config.reads("DENS2KAPPA_STAT")!="0") {
+  if(config.readi("DENS2KAPPA")==1) {
+    cout << "Will perform LoS integration over density fields:\n";
     double **KappaWeightTable;
-    Healpix_Map<MAP_PRECISION> *IntDens;
-    int zsource;
+    Healpix_Map<MAP_PRECISION> *IntDens, *tempmapf;
+    int zsource, Nintdens=0;
 
-    cout << "Will compute the convergence by density line of sight integration:\n";
     // Error checking (density fields must have continuous redshift coverage):
     k=0; m=0;
     for (f=0; f<Nf; f++) {
@@ -415,6 +401,7 @@ int main (int argc, char *argv[]) {
     Announce("   Integrating densities... ");
     IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {        // LOOP over galaxy fields and redshift bins (as sources).
+	Nintdens++;
 	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
 	fieldlist.Index2fFixed(i, &f, &zsource);
 #pragma omp parallel for private(z, m)
@@ -431,44 +418,79 @@ int main (int argc, char *argv[]) {
     // Print table with integrated densities statistics:
     filename = config.reads("DENS2KAPPA_STAT");
     if (filename!="0") {
-      Announce("   Computing integrated density statistics... ");
       if (filename=="1") {
+	Announce("   Computing integrated density statistics... ");
 	cout << endl;
 	PrintMapsStats(IntDens, fieldlist, lognormal);
 	cout << endl;
+	Announce();
       }
       else {
+	Announce("   Computing integrated density statistics... ");
 	outfile.open(filename.c_str());
 	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
 	PrintMapsStats(IntDens, fieldlist, lognormal, &outfile);
 	outfile.close();
+	Announce();
       	cout << ">> DENS2KAPPA_STAT written to "+filename<<endl;
       }
-      Announce();
+      
     }
     if (ExitAt=="DENS2KAPPA_STAT") {
       cout << "\nTotal number of warnings: " << warning("count") << endl;
       cout<<endl;
       return 0;
     }
+
     
-    // Output to file:
-    GeneralOutput(IntDens, config, "DENS2KAPPA_OUT", fieldlist);
-    if (ExitAt=="DENS2KAPPA_OUT") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+    // Join Integrated density to other maps:
+    Announce("   Concatenating integrated density data to main data...");
+    int *ftemp;
+    // Allocate temporary memory:
+    fName    = vector<int>(0, Nfields+Nintdens-1);
+    zName    = vector<int>(0, Nfields+Nintdens-1);
+    ftemp    = vector<int>(0, Nfields+Nintdens-1);
+    tempmapf = vector<Healpix_Map<MAP_PRECISION> >(0, Nfields+Nintdens-1);	  
+    // Copy original maps and integrated density maps (and their infos) to same arrays:
+    k=0;
+    for(i=0; i<Nfields; i++) {
+      // Copy original:
+      fieldlist.Index2Name(i, &(fName[i]), &(zName[i]));
+      ftemp[i] = ftype[i];
+      tempmapf[i].SetNside(nside, RING);
+      tempmapf[i].Import(mapf[i]);
+      mapf[i].SetNside(1, RING);
+      // Copy integrated densities:
+      if (ftype[i]==fgalaxies) {
+	k++;
+	fName[Nfields-1+k] = Nf + fName[i];
+	zName[Nfields-1+k] =      zName[i];
+	ftemp[Nfields-1+k] = fshear;
+	tempmapf[Nfields-1+k].SetNside(nside, RING);
+	tempmapf[Nfields-1+k].Import(IntDens[i]);	
+      }   
     }
-    
-    // If requested, recover alms and/or Cls from this convergence:
-    RecoverAlmCls(IntDens, fieldlist, "DENS2KAPPA_ALM", "DENS2KAPPA_CLS", config);
-    free_vector(IntDens, 0,Nfields-1);  
+    // Pass restructured data to main variables:
+    free_vector(ftype, 0, Nfields-1); ftype = ftemp;
+    free_vector(mapf,  0, Nfields-1);  mapf = tempmapf;
+    fieldlist.Build(fName, zName, Nfields+Nintdens);
+    free_vector(fName, 0, Nfields+Nintdens-1);
+    free_vector(zName, 0, Nfields+Nintdens-1);
+    Nfields = fieldlist.Nfields(); 
+    Nf      = fieldlist.Nfs(); 
+    Nz      = fieldlist.Nzs();
+    Announce();
   } // End of IF compute convergence by density LoS integration.
+  else if (config.readi("DENS2KAPPA")!=0) warning("corrlnfields: unknown DENS2KAPPA option: skipping density LoS integration.");
+  
+  // Write final map to file as a table if requested:
+  GeneralOutput(mapf, config, "MAP_OUT", fieldlist);
+  // Map output to fits and/or tga files:
+  GeneralOutput(mapf, config, "MAPFITS_PREFIX", fieldlist, 1);
+  
   // Exit if this is the last output requested:
-  if (ExitAt=="DENS2KAPPA_ALM" || 
-      ExitAt=="DENS2KAPPA_CLS" || 
-      ExitAt=="DENS2KAPPA_OUT" ||
-      ExitAt=="DENS2KAPPA_STAT") {
+  if (ExitAt=="MAP_OUT" ||
+      ExitAt=="MAPFITS_PREFIX") {
     cout << "\nTotal number of warnings: " << warning("count") << endl;
     cout<<endl;
     return 0;

@@ -1,9 +1,11 @@
 #include "Utilities.hpp"
 #include "FieldsDatabase.hpp"
 
+
 /************************************/
 /*** Internal auxiliary functions ***/
 /************************************/
+
 
 // Return the position of entry in list or -1 of not found:
 int FZdatabase::GetPos(int ent, std::vector<entry> & list) {
@@ -127,14 +129,14 @@ int FZdatabase::Nfields() const {
 
 // Return number of redshift bins for a particular field index 'fi':
 int FZdatabase::Nz4f(int fi) const {
-  if (fi>Nf || fi<0) error("FZdatabase.Nz4f: requested field does not exist");
+  if (fi>Nf || fi<0) error("FZdatabase.Nz4f: requested field does not exist.");
   return f[fi].Ncopies;
 }
 
 
 // Return number of fields found at a particular redshift bin index 'zi':
 int FZdatabase::Nf4z(int zi) const {
-  if (zi>Nz || zi<0) error("FZdatabase.Nf4z: requested redshift bin does not exist");
+  if (zi>Nz || zi<0) error("FZdatabase.Nf4z: requested redshift bin does not exist.");
   return z[zi].Ncopies; 
 }
 
@@ -157,8 +159,8 @@ void FZdatabase::Index2zFixed(int n, int *fi, int *zi) const {
 // Return the index of the Field with z index 'zi' and f sub-index 'fi':
 // (This is for LOOPS over f with z fixed)
 int FZdatabase::zFixedIndex(int fi, int zi, int *n) const {
-  if (zi<0 || zi>Nz)            error("FZdatabase.zFixedIndex: unknown redshift index");
-  if (fi<0 || fi>z[zi].Ncopies) error("FZdatabase.zFixedIndex: unknown field sub-index");
+  if (zi<0 || zi>Nz)            error("FZdatabase.zFixedIndex: unknown redshift index.");
+  if (fi<0 || fi>z[zi].Ncopies) error("FZdatabase.zFixedIndex: unknown field sub-index.");
   if (n!=NULL) *n = z[zi].index[fi]; 
   return z[zi].index[fi];
 }
@@ -167,8 +169,8 @@ int FZdatabase::zFixedIndex(int fi, int zi, int *n) const {
 // Return the index of the Field with f index 'fi' and z sub-index 'zi':
 // (This is for LOOPS over z with f fixed)
 int FZdatabase::fFixedIndex(int fi, int zi, int *n) const {
-  if (fi<0 || fi>Nf)            error("FZdatabase.fFixedIndex: unknown field index");
-  if (zi<0 || zi>f[fi].Ncopies) error("FZdatabase.fFixedIndex: unknown redshift sub-index");
+  if (fi<0 || fi>Nf)            error("FZdatabase.fFixedIndex: unknown field index.");
+  if (zi<0 || zi>f[fi].Ncopies) error("FZdatabase.fFixedIndex: unknown redshift sub-index.");
   if (n!=NULL) *n = f[fi].index[zi]; 
   return f[fi].index[zi];
 }
@@ -192,7 +194,7 @@ int FZdatabase::Name2Index(int fName, int zName, int *n) const {
       return i;
     }
   
-  warning("FZdatabase.Name2Index: could not find requested field");  
+  warning("FZdatabase.Name2Index: could not find requested field.");  
   *n = failed;
   return failed;
 }
