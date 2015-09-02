@@ -131,6 +131,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
       NCls  = Nfields*(Nfields+1)/2;
       recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
       yesCl   = vector<bool>(0, NCls-1);
+#pragma omp parallel for schedule(dynamic) private(l, m, i, j)
       for (k=0; k<NCls; k++) {
 	l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
 	m = NCls-1-k-(l*(l+1))/2;
