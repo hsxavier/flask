@@ -37,6 +37,7 @@ int main (int argc, char *argv[]) {
   Cosmology cosmo;                                      // Cosmological parameters.
   FZdatabase fieldlist;
   char message[100];                                    // Handling warnings and errors.
+  bool yesShear;
   std::string filename, ExitAt;
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
@@ -299,6 +300,8 @@ int main (int argc, char *argv[]) {
   char opt1[]="-bar", val1[]="1";
   
 
+  /*** Part 5.1: Generate maps from auxiliar alm's ***/
+
   // Allocate memory for pixel maps:
   Announce("Allocating memory for pixel maps... "); 
   nside   = config.readi("NSIDE");
@@ -365,8 +368,10 @@ int main (int argc, char *argv[]) {
   if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
   free_vector(means, 0, Nfields-1);
 
+
+  /*** Part 5.2: Generate convergence maps by line of sight (LoS) integration ***/
   
-  // If requested, integrate density along the line of sight to get convergence:
+  // If requested, integrate density along the LoS to get convergence:
   if(config.readi("DENS2KAPPA")==1) {
     cout << "Will perform LoS integration over density fields:\n";
     double **KappaWeightTable;
@@ -506,10 +511,94 @@ int main (int argc, char *argv[]) {
   }
     
 
+  /*** Part 5.3: Compute shear maps if necessary ***/
+
+  Healpix_Map<MAP_PRECISION> *gamma1f, *gamma2f;    
+  yesShear = ComputeShearQ(config);
+
+  if (yesShear==1) {
+    gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    gamma2f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
+    arr<double> weight(2*mapf[0].Nside());                           // Temp memory
+    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
+  
+    // LOOP over convergence fields:
+    for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
+	fieldlist.Index2Name(i, &f, &z);
+	cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
+      
+	// Preparing memory:
+	Announce("   Allocating and cleaning memory... ");
+	gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
+	gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
+	Announce();
+      
+	// LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
+	if (dist==lognormal) {
+	  PrepRingWeights(1, weight, config);
+	  Announce("   Transforming convergence map to harmonic space... ");
+	  if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
+	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	  map2alm(mapf[i], Eflm, weight); // Get klm.
+	  Announce();
+	}
+ 
+	if (dist!=homogeneous) {
+	  // Calculate shear E-mode alm's from convergence alm's:
+	  Announce("   Computing shear harmonic coefficients from klm... ");
+	  if (dist==lognormal)     Kappa2ShearEmode(Eflm, Eflm);
+	  else if (dist==gaussian) Kappa2ShearEmode(Eflm, aflm[i]);
+	  Announce();
+	}
+	else {
+	  Announce("HOMOGENEOUS realizations: setting shear E-mode to zero... ");
+	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	  Announce();
+	}
+	fieldlist.Index2Name(i, &f, &z);
+	GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
+
+	// Go from shear E-mode alm's to gamma1 and gamma2 maps:
+	Announce("   Transforming harmonic coefficients into shear map... ");
+	alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
+	Announce();
+	// Write kappa, gamma1 and gamma2 to FITS file:
+	fieldlist.Index2Name(i, &f, &z);
+	GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
+
+      } // End of LOOP over convergence fields.
+
+    // Memory deallocation:
+    if (dist==gaussian) free_vector(aflm, 0, Nfields-1);
+    weight.dealloc();
+    Eflm.Set(0,0); 
+    Bflm.Set(0,0);
+
+    // Exit if this is the last output requested:
+    if (ExitAt=="SHEAR_ALM_PREFIX"  ||
+	ExitAt=="SHEAR_FITS_PREFIX") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+    }
+
+    // Output shear maps to TEXT tables:
+    GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fieldlist);
+    // Exit if this is the last output requested:
+    if (ExitAt=="SHEAR_MAP_OUT") {
+      cout << "\nTotal number of warnings: " << warning("count") << endl;
+      cout<<endl;
+      return 0;
+    }
+  } // End of IF we should compute shear.
+  
+
+
   /************************************/
   /*** Part 6: Maps to Observables  ***/
   /************************************/
-
+  
 
   /*** Galaxy fields ***/
   
@@ -566,77 +655,6 @@ int main (int argc, char *argv[]) {
   }
   else error ("corrlnfields: unknown POISSON option.");
   
-  
-  /*** Lensing fields ***/
-
-  double coeff;
-  Healpix_Map<MAP_PRECISION> *gamma1f, *gamma2f;
-  gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
-  gamma2f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
-  Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
-  arr<double> weight(2*mapf[0].Nside());                           // Temp memory
-  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
-  
-  // LOOP over convergence fields:
-  for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
-      fieldlist.Index2Name(i, &f, &z);
-      cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
-      
-      // Preparing memory:
-      Announce("   Allocating and cleaning memory... ");
-      gamma1f[i].SetNside(nside, RING); gamma1f[i].fill(0);
-      gamma2f[i].SetNside(nside, RING); gamma2f[i].fill(0);
-      Announce();
-      
-      // LOGNORMAL REALIZATIONS: get convergence alm's from lognormal convergence map:
-      if (dist==lognormal) {
-	PrepRingWeights(1, weight, config);
-	Announce("   Transforming convergence map to harmonic space... ");
-	if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
-	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
-	map2alm(mapf[i], Eflm, weight); // Get klm.
-	Announce();
-      }
- 
-      if (dist!=homogeneous) {
-	// Calculate shear E-mode alm's from convergence alm's:
-	Announce("   Computing shear harmonic coefficients from klm... ");
-	if (dist==lognormal)     Kappa2ShearEmode(Eflm, Eflm);
-	else if (dist==gaussian) Kappa2ShearEmode(Eflm, aflm[i]);
-	Announce();
-      }
-      else {
-	Announce("HOMOGENEOUS realizations: setting shear E-mode to zero... ");
-	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
-	Announce();
-      }
-      fieldlist.Index2Name(i, &f, &z);
-      GeneralOutput(Eflm, config, "SHEAR_ALM_PREFIX", f, z);
-
-      // Go from shear E-mode alm's to gamma1 and gamma2 maps:
-      Announce("   Transforming harmonic coefficients into shear map... ");
-      alm2map_spin(Eflm, Bflm, gamma1f[i], gamma2f[i], 2);
-      Announce();
-      // Write kappa, gamma1 and gamma2 to FITS file:
-      fieldlist.Index2Name(i, &f, &z);
-      GeneralOutput(mapf[i], gamma1f[i], gamma2f[i], config, "SHEAR_FITS_PREFIX", f, z);
-
-    } // End of LOOP over convergence fields.
-
-  // Memory deallocation:
-  if (dist==gaussian) free_vector(aflm, 0, Nfields-1);
-  weight.dealloc();
-  Eflm.Set(0,0); 
-  Bflm.Set(0,0);
-
-  // Exit if this is the last output requested:
-  if (ExitAt=="SHEAR_ALM_PREFIX"  ||
-      ExitAt=="SHEAR_FITS_PREFIX") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
-  }
-
   // Write final map to file as a table if requested:
   GeneralOutput(mapf, config, "MAPWER_OUT", fieldlist);
   // Map output to fits and/or tga files:
@@ -649,17 +667,10 @@ int main (int argc, char *argv[]) {
     return 0;
   }
 
-  // Output shear maps to TEXT tables:
-  GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fieldlist);
-  // Exit if this is the last output requested:
-  if (ExitAt=="SHEAR_MAP_OUT") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
-  }
+
 
   /**********************************/
-  /*** Part 6: Generate catalog   ***/
+  /*** Part 7: Generate catalog   ***/
   /**********************************/
 
   CAT_PRECISION **catalog;

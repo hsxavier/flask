@@ -15,6 +15,7 @@
 #include "FieldsDatabase.hpp"
 
 // Auxiliary functions for corrlnfields program:
+bool ComputeShearQ(const ParameterList & config);
 double MapMean(const Healpix_Map<MAP_PRECISION> & map);
 double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
 double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double variance);

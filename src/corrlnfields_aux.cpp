@@ -10,6 +10,36 @@
 #include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
 
 
+bool ComputeShearQ(const ParameterList & config) {
+  std::string CatalogHeader, ExitAt;
+  
+  // Only check if output is required if code does not stop before them:
+  ExitAt = config.reads("EXIT_AT");
+  if (ExitAt!="FLIST_OUT"       && ExitAt!="XIOUT_PREFIX"    && ExitAt!="GXIOUT_PREFIX"   && 
+      ExitAt!="GCLOUT_PREFIX"   && ExitAt!="COVL_PREFIX"     && ExitAt!="REG_COVL_PREFIX" && 
+      ExitAt!="REG_CL_PREFIX"   && ExitAt!="CHOLESKY_PREFIX" && ExitAt!="AUXALM_OUT"      && 
+      ExitAt!="AUXMAP_OUT"      && ExitAt!="MAP_OUT"         && ExitAt!="MAPFITS_PREFIX"  && 
+      ExitAt!="DENS2KAPPA_STAT" && ExitAt!="RECOVALM_OUT"    && ExitAt!="RECOVCLS_OUT"    ) {
+
+    // Return 1 if any shear output is required:
+    if (config.reads("SHEAR_ALM_PREFIX")  !="0") return 1;
+    if (config.reads("SHEAR_FITS_PREFIX") !="0") return 1;
+    if (config.reads("SHEAR_MAP_OUT")     !="0") return 1;
+    if (config.reads("CATALOG_OUT")       !="0") {
+      CatalogHeader = config.reads("CATALOG_COLS");
+      if (GetSubstrPos("gamma1" , CatalogHeader) != -1) return 1;
+      if (GetSubstrPos("gamma2" , CatalogHeader) != -1) return 1;
+      if (GetSubstrPos("ellip1" , CatalogHeader) != -1) return 1;
+      if (GetSubstrPos("ellip2" , CatalogHeader) != -1) return 1;
+    }
+  
+  } // End of IF stop code before shear output.
+
+  // If no shear related output is requested, return 0:
+  return 0;
+}
+
+
 double MapMean(const Healpix_Map<MAP_PRECISION> & map) {
   return map.average();
 }
@@ -169,7 +199,7 @@ void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config
   nside = config.readi("NSIDE");
 
   if (config.readi("USE_HEALPIX_WGTS")==1) {
-    Announce("Loading Healpix map weights... ");
+    Announce("   Loading Healpix map weights... ");
     tempweight = vector<double>(0, 2*nside-1);
     status = ReadHealpixWeights(col, nside, config, tempweight);
     if (status==0) for (i=0; i<2*nside; i++) weight[i]=1.0+tempweight[i];
