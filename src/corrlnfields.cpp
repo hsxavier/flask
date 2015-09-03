@@ -451,10 +451,13 @@ int main (int argc, char *argv[]) {
     // Join Integrated density to other maps:
     Announce("   Concatenating integrated density data to main data...");
     int *ftemp;
+    double **ztemp;
+
     // Allocate temporary memory:
     fName    = vector<int>(0, Nfields+Nintdens-1);
     zName    = vector<int>(0, Nfields+Nintdens-1);
     ftemp    = vector<int>(0, Nfields+Nintdens-1);
+    ztemp    = matrix<double>(0, Nfields+Nintdens-1, 0, 1);
     tempmapf = vector<Healpix_Map<MAP_PRECISION> >(0, Nfields+Nintdens-1);	  
     // Copy original maps and integrated density maps (and their infos) to same arrays:
     k=0;
@@ -462,6 +465,8 @@ int main (int argc, char *argv[]) {
       // Copy original:
       fieldlist.Index2Name(i, &(fName[i]), &(zName[i]));
       ftemp[i] = ftype[i];
+      ztemp[i][0] = zrange[i][0];
+      ztemp[i][1] = zrange[i][1];
       tempmapf[i].SetNside(nside, RING);
       tempmapf[i].Import(mapf[i]);
       mapf[i].SetNside(1, RING);
@@ -471,13 +476,16 @@ int main (int argc, char *argv[]) {
 	fName[Nfields-1+k] = Nf + fName[i];
 	zName[Nfields-1+k] =      zName[i];
 	ftemp[Nfields-1+k] = fshear;
+	ztemp[Nfields-1+k][0] = zrange[i][1];
+	ztemp[Nfields-1+k][1] = zrange[i][1];
 	tempmapf[Nfields-1+k].SetNside(nside, RING);
 	tempmapf[Nfields-1+k].Import(IntDens[i]);	
       }   
     }
     // Pass restructured data to main variables:
-    free_vector(ftype, 0, Nfields-1); ftype = ftemp;
-    free_vector(mapf,  0, Nfields-1);  mapf = tempmapf;
+    free_vector(ftype,  0, Nfields-1);       ftype  = ftemp;
+    free_vector(mapf,   0, Nfields-1);       mapf   = tempmapf;
+    free_matrix(zrange, 0, Nfields-1, 0, 1); zrange = ztemp;
     fieldlist.Build(fName, zName, Nfields+Nintdens);
     free_vector(fName, 0, Nfields+Nintdens-1);
     free_vector(zName, 0, Nfields+Nintdens-1);
@@ -677,7 +685,7 @@ int main (int argc, char *argv[]) {
   char **catSet;
   double esig, ellip1, ellip2, randz;
   int gali, cellNgal, ncols;
-  long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal;  
+  long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal, longNz;  
   pointing ang;
   int ziter, fiter;
   std::string CatalogHeader;
@@ -690,13 +698,14 @@ int main (int argc, char *argv[]) {
   // Partial count of galaxies for each thread (assuming the threads get the data in order):
   ThreadNgals = vector<long>(0, MaxThreads);       
   for(l=0; l<=MaxThreads; l++) ThreadNgals[l] = 0;
+  longNz  = (long)Nz;
+  Ncells  = ((long)npixels)*longNz; // Number of 3D cells.
   // Loop over 3D cells:
-  Ncells  = ((long)npixels)*((long)Nz); // Number of 3D cells.
 #pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
   for (kl=0; kl<Ncells; kl++) {
     l     = omp_get_thread_num();
-    j     = kl/Nz;     // angular pixel.
-    ziter = kl%Nz;     // z slice.
+    j     = kl/longNz;     // angular pixel.
+    ziter = kl%longNz;     // z slice.
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
       if (ftype[i]==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
@@ -733,6 +742,13 @@ int main (int argc, char *argv[]) {
     StrReplace(CatalogHeader, "phi", "ra");
   }
 
+  // Warning against multiple or none lensing fields at the same redshift:
+  k=0;
+  for(f=0; f<Nf; f++) if (ftype[fieldlist.fFixedIndex(f, 0)]==fshear) k++;
+  if (k>1) warning("corrlnfields: found multiple lensing fields, will leave last one in catalogue.");
+  if (k<1 && (kappa_pos!=-1 || gamma1_pos!=-1 || gamma2_pos!=-1 || ellip1_pos!=-1 || ellip1_pos!=-1)) 
+    warning("corrlnfields: missing lensing information required to build catalogue.");
+
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
   PartialNgal=0;                       // Counter of galaxies inside thread.
@@ -740,15 +756,15 @@ int main (int argc, char *argv[]) {
   // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
   for (kl=0; kl<Ncells; kl++) {
     l        = omp_get_thread_num();   // Processor number.
-    j        = kl/Nz;                  // pixel.
-    ziter    = kl%Nz;                  // z slice.
+    j        = kl/longNz;              // pixel.
+    ziter    = kl%longNz;              // z slice.
     gali     = 0;                      // Galaxy number inside cell.
     cellNgal = 0;                      // Total galaxy number inside cell.
 
     // Count total number of galaxies of all types inside cell:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) cellNgal++;
+      if (ftype[i]==fgalaxies) cellNgal += (int)mapf[i][j];
     }
     
     // LOOP over field IDs:
@@ -790,31 +806,19 @@ int main (int argc, char *argv[]) {
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   Announce();
 
+  // Memory deallocation: all required info from now on should be in catalog.
+  Announce("All but catalogue memory deallocation... ");
+  free_vector(ftype,   0, Nfields-1 );
+  free_matrix(zrange,  0, Nfields-1, 0,1);
+  free_vector(mapf,    0, Nfields-1 );
+  if (yesShear==1) free_vector(gamma1f, 0, Nfields-1);
+  if (yesShear==1) free_vector(gamma2f, 0, Nfields-1);
+  for (i=0; i<=MaxThreads; i++) gsl_rng_free(rnd[i]);
+  free_vector(rnd, 0,MaxThreads+1);
+  Announce();
+
   // Change angular coordinates if requested:
-  l = config.readi("ANGULAR_COORD");
-  if ((theta_pos!=-1 || phi_pos!=-1) && l!=0) {
-    Announce("Changing angular coordinates... ");
-    // Only change units:
-    if (l==1) {
-      if (theta_pos!=-1) // Theta:
-#pragma omp parallel for
-	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = rad2deg(catalog[theta_pos][kl]);
-      if (phi_pos  !=-1) // Phi:
-#pragma omp parallel for
-	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] = rad2deg(catalog[  phi_pos][kl]);    
-    }
-    // Change to RADEC:
-    else if (l==2) {
-      if (theta_pos!=-1) // Theta:
-#pragma omp parallel for
-	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = theta2dec(catalog[theta_pos][kl]);
-      if (phi_pos  !=-1) // Phi:
-#pragma omp parallel for
-	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] =    phi2ra(catalog[  phi_pos][kl]);    
-    }
-    else if (l!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
-    Announce();
-  }
+  ChangeCoord(catalog, theta_pos, phi_pos, Ngalaxies, config.readi("ANGULAR_COORD"));
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
@@ -851,13 +855,6 @@ int main (int argc, char *argv[]) {
   
 
   // End of the program
-  free_vector(ftype,   0, Nfields-1 );
-  free_matrix(zrange,  0, Nfields-1, 0,1);
-  free_vector(mapf,    0, Nfields-1 );
-  free_vector(gamma1f, 0, Nfields-1 );
-  free_vector(gamma2f, 0, Nfields-1 );
-  for (i=0; i<=MaxThreads; i++) gsl_rng_free(rnd[i]);
-  free_vector(rnd, 0,MaxThreads+1);
   cout << "\nTotal number of warnings: " << warning("count") << endl;
   cout<<endl;
   return 0;

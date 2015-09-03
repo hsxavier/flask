@@ -10,6 +10,35 @@
 #include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
 
 
+// Change angular coordinates in catalog if requested:
+void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype) {
+  long kl;
+  
+  if ((theta_pos!=-1 || phi_pos!=-1) && coordtype!=0) {
+    Announce("Changing angular coordinates... ");
+    // Only change units:
+    if (coordtype==1) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = rad2deg(catalog[theta_pos][kl]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] = rad2deg(catalog[  phi_pos][kl]);    
+    }
+    // Change to RADEC:
+    else if (coordtype==2) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = theta2dec(catalog[theta_pos][kl]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] =    phi2ra(catalog[  phi_pos][kl]);    
+    }
+    else if (coordtype!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
+    Announce();
+  }
+}
+
 bool ComputeShearQ(const ParameterList & config) {
   std::string CatalogHeader, ExitAt;
   
@@ -280,6 +309,15 @@ void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value, ch
   
   // Write to catalog:            v Count number of updates in cell (for bookkeeping).
   catalog[column][row] = value;   catSet[column][row]++;
+}
+
+// Unless column=-1, write value to catalog[column][row] and update catSet:
+// Note that the catalog is transposed to ease FITS outputting.
+void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value) {  
+  if(column==-1) return;
+  
+  // Write to catalog:            
+  catalog[column][row] = value;
 }
 
 

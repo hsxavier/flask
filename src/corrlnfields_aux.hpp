@@ -15,6 +15,7 @@
 #include "FieldsDatabase.hpp"
 
 // Auxiliary functions for corrlnfields program:
+void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype);
 bool ComputeShearQ(const ParameterList & config);
 double MapMean(const Healpix_Map<MAP_PRECISION> & map);
 double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
@@ -31,6 +32,7 @@ int FileFormat(std::string);
 int CountWords(const std::string header);
 int GetSubstrPos(const std::string field, const std::string header);
 void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value, char **catSet);
+void CatalogFill(CAT_PRECISION **catalog, long row, int column, double value);
 void Kappa2ShearEmode(Alm<xcomplex <ALM_PRECISION> > &Elm, Alm<xcomplex <ALM_PRECISION> > &Klm);
 void GenEllip(gsl_rng *r, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2);
 pointing RandAngInPix(gsl_rng *r, const Healpix_Map<MAP_PRECISION> & map, int pixel);
