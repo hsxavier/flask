@@ -454,9 +454,9 @@ int main (int argc, char *argv[]) {
     double **ztemp;
 
     // Allocate temporary memory:
-    fName    = vector<int>(0, Nfields+Nintdens-1);
-    zName    = vector<int>(0, Nfields+Nintdens-1);
-    ftemp    = vector<int>(0, Nfields+Nintdens-1);
+    fName    = vector<int>   (0, Nfields+Nintdens-1);
+    zName    = vector<int>   (0, Nfields+Nintdens-1);
+    ftemp    = vector<int>   (0, Nfields+Nintdens-1);
     ztemp    = matrix<double>(0, Nfields+Nintdens-1, 0, 1);
     tempmapf = vector<Healpix_Map<MAP_PRECISION> >(0, Nfields+Nintdens-1);	  
     // Copy original maps and integrated density maps (and their infos) to same arrays:
@@ -464,7 +464,7 @@ int main (int argc, char *argv[]) {
     for(i=0; i<Nfields; i++) {
       // Copy original:
       fieldlist.Index2Name(i, &(fName[i]), &(zName[i]));
-      ftemp[i] = ftype[i];
+      ftemp[i]    = ftype[i];
       ztemp[i][0] = zrange[i][0];
       ztemp[i][1] = zrange[i][1];
       tempmapf[i].SetNside(nside, RING);
@@ -473,11 +473,11 @@ int main (int argc, char *argv[]) {
       // Copy integrated densities:
       if (ftype[i]==fgalaxies) {
 	k++;
-	fName[Nfields-1+k] = Nf + fName[i];
-	zName[Nfields-1+k] =      zName[i];
-	ftemp[Nfields-1+k] = fshear;
-	ztemp[Nfields-1+k][0] = zrange[i][1];
-	ztemp[Nfields-1+k][1] = zrange[i][1];
+	fName[Nfields-1+k]    = Nf + fName[i];
+	zName[Nfields-1+k]    =      zName[i];
+	ftemp[Nfields-1+k]    = fshear;
+	ztemp[Nfields-1+k][0] = zrange[i][1];        // The convergence from integration applies to sources
+	ztemp[Nfields-1+k][1] = zrange[i][1];        // located sharply at the end of the bin.
 	tempmapf[Nfields-1+k].SetNside(nside, RING);
 	tempmapf[Nfields-1+k].Import(IntDens[i]);	
       }   
@@ -760,7 +760,7 @@ int main (int argc, char *argv[]) {
     ziter    = kl%longNz;              // z slice.
     gali     = 0;                      // Galaxy number inside cell.
     cellNgal = 0;                      // Total galaxy number inside cell.
-
+    
     // Count total number of galaxies of all types inside cell:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
@@ -786,12 +786,14 @@ int main (int argc, char *argv[]) {
       
       // Add entry of type SHEAR:
       else if (ftype[i]==fshear) for (m=0; m<cellNgal; m++) {
-	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma1_pos, gamma1f[i][j], catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma2_pos, gamma2f[i][j], catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip1_pos, ellip1       , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip2_pos, ellip2       , catSet);
+	  CatalogFill  (catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
+	  if (yesShear==1) {
+	    if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
+	    CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma1_pos, gamma1f[i][j], catSet);
+	    CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma2_pos, gamma2f[i][j], catSet);
+	    CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip1_pos, ellip1       , catSet);
+	    CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip2_pos, ellip2       , catSet);  
+	  }
 	}
     } // End of LOOP over field IDs.
     PartialNgal += (long)cellNgal;
@@ -807,7 +809,7 @@ int main (int argc, char *argv[]) {
   Announce();
 
   // Memory deallocation: all required info from now on should be in catalog.
-  Announce("All but catalogue memory deallocation... ");
+  Announce("Deallocating maps and fields info... ");
   free_vector(ftype,   0, Nfields-1 );
   free_matrix(zrange,  0, Nfields-1, 0,1);
   free_vector(mapf,    0, Nfields-1 );
