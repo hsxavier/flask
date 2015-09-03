@@ -681,137 +681,181 @@ int main (int argc, char *argv[]) {
   /*** Part 7: Generate catalog   ***/
   /**********************************/
 
-  CAT_PRECISION **buffer, **catalog;
+  CAT_PRECISION **catalog;
   char **catSet;
   double esig, ellip1, ellip2, randz;
   int gali, cellNgal, ncols;
   long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal;  
   pointing ang;
-  int ziter, fiter, Nkappas;
+  int ziter, fiter;
   std::string CatalogHeader;
   int theta_pos, phi_pos, z_pos, galtype_pos, kappa_pos, gamma1_pos, gamma2_pos, 
     ellip1_pos, ellip2_pos, pixel_pos, maskbit_pos;
 
+  esig = config.readd("ELLIP_SIGMA");
+  
+  Announce("Counting galaxies... ");
+  // Partial count of galaxies for each thread (assuming the threads get the data in order):
+  ThreadNgals = vector<long>(0, MaxThreads);       
+  for(l=0; l<=MaxThreads; l++) ThreadNgals[l] = 0;
+  // Loop over 3D cells:
+  Ncells  = ((long)npixels)*((long)Nz); // Number of 3D cells.
+#pragma omp parallel for schedule(static) private(l, j, ziter, fiter, i)
+  for (kl=0; kl<Ncells; kl++) {
+    l     = omp_get_thread_num();
+    j     = kl/Nz;     // angular pixel.
+    ziter = kl%Nz;     // z slice.
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
+      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
+    }
+  }
+  for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
+  Ngalaxies = ThreadNgals[MaxThreads];
+  Announce();     
+  cout << "# of galaxies: "<<Ngalaxies<<endl;
+  if (Ngalaxies>INT_MAX) warning("corrlnfields: catalogue generation not tested for this amount of galaxies");
+  
+  // Using transposed catalog (catalog[col][row]), better for FITS outputting:
+  CatalogHeader = config.reads("CATALOG_COLS");
+  ncols         = CountWords(CatalogHeader);
+  catalog       = matrix<CAT_PRECISION>(0,ncols-1, 0,Ngalaxies-1); 
+  catSet        = matrix<char>         (0,ncols-1, 0,Ngalaxies-1);
+  for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) catSet[j][kl]=0;
+  
+  // Find position of entries according to catalog header:
+  theta_pos   = GetSubstrPos("theta"  , CatalogHeader); 
+  phi_pos     = GetSubstrPos("phi"    , CatalogHeader);  
+  z_pos       = GetSubstrPos("z"      , CatalogHeader);  
+  galtype_pos = GetSubstrPos("galtype", CatalogHeader);  
+  kappa_pos   = GetSubstrPos("kappa"  , CatalogHeader);  
+  gamma1_pos  = GetSubstrPos("gamma1" , CatalogHeader);  
+  gamma2_pos  = GetSubstrPos("gamma2" , CatalogHeader);  
+  ellip1_pos  = GetSubstrPos("ellip1" , CatalogHeader);  
+  ellip2_pos  = GetSubstrPos("ellip2" , CatalogHeader);  
+  pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
+  maskbit_pos = GetSubstrPos("maskbit", CatalogHeader);
+  // Reaname 'theta' and 'phi' to 'dec' and 'ra' if change of coords. was requested:
+  if (config.readi("ANGULAR_COORD")==2) {
+    StrReplace(CatalogHeader, "theta", "dec");
+    StrReplace(CatalogHeader, "phi", "ra");
+  }
+
+  // LOOP over 3D cells (pixels and redshifts):
+  Announce("Generating catalog... ");
+  PartialNgal=0;                       // Counter of galaxies inside thread.
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, cellNgal) firstprivate(PartialNgal)
+  // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
+  for (kl=0; kl<Ncells; kl++) {
+    l        = omp_get_thread_num();   // Processor number.
+    j        = kl/Nz;                  // pixel.
+    ziter    = kl%Nz;                  // z slice.
+    gali     = 0;                      // Galaxy number inside cell.
+    cellNgal = 0;                      // Total galaxy number inside cell.
+
+    // Count total number of galaxies of all types inside cell:
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
+      if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) cellNgal++;
+    }
+    
+    // LOOP over field IDs:
+    for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
+      i = fieldlist.zFixedIndex(fiter, ziter);
+      
+      // Add entry of type GALAXY:      
+      if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
+	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l+1], mapf[i], j);
+	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l+1],i,j);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta           , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi             , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz               , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, fiter               , catSet);	    
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, pixel_pos  , j                   , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, maskbit_pos, selection.MaskBit(j), catSet);
+	  gali++;
+	}
+      
+      // Add entry of type SHEAR:
+      else if (ftype[i]==fshear) for (m=0; m<cellNgal; m++) {
+	  if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma1_pos, gamma1f[i][j], catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, gamma2_pos, gamma2f[i][j], catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip1_pos, ellip1       , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+m, ellip2_pos, ellip2       , catSet);
+	}
+    } // End of LOOP over field IDs.
+    PartialNgal += (long)cellNgal;
+  } // End of LOOP over cells.  
+  free_vector(ThreadNgals, 0, MaxThreads);
+
+  // Check if every entry was set once and only once:
+  for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) {
+      if (catSet[j][kl]<1)     error("corrlnfields: Catalog has missing information.");
+      if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
+    }
+  free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
+  Announce();
+
+  // Change angular coordinates if requested:
+  l = config.readi("ANGULAR_COORD");
+  if ((theta_pos!=-1 || phi_pos!=-1) && l!=0) {
+    Announce("Changing angular coordinates... ");
+    // Only change units:
+    if (l==1) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = rad2deg(catalog[theta_pos][kl]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] = rad2deg(catalog[  phi_pos][kl]);    
+    }
+    // Change to RADEC:
+    else if (l==2) {
+      if (theta_pos!=-1) // Theta:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[theta_pos][kl] = theta2dec(catalog[theta_pos][kl]);
+      if (phi_pos  !=-1) // Phi:
+#pragma omp parallel for
+	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] =    phi2ra(catalog[  phi_pos][kl]);    
+    }
+    else if (l!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
+    Announce();
+  }
+
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
-    esig = config.readd("ELLIP_SIGMA");
-    
-    // Find position of entries according to catalog header:
-    CatalogHeader = config.reads("CATALOG_COLS");
-    ncols         = CountWords(CatalogHeader);
-    theta_pos     = GetSubstrPos("theta"  , CatalogHeader); 
-    phi_pos       = GetSubstrPos("phi"    , CatalogHeader);  
-    z_pos         = GetSubstrPos("z"      , CatalogHeader);  
-    galtype_pos   = GetSubstrPos("galtype", CatalogHeader);  
-    kappa_pos     = GetSubstrPos("kappa"  , CatalogHeader);  
-    gamma1_pos    = GetSubstrPos("gamma1" , CatalogHeader);  
-    gamma2_pos    = GetSubstrPos("gamma2" , CatalogHeader);  
-    ellip1_pos    = GetSubstrPos("ellip1" , CatalogHeader);  
-    ellip2_pos    = GetSubstrPos("ellip2" , CatalogHeader);  
-    pixel_pos     = GetSubstrPos("pixel"  , CatalogHeader); 
-    maskbit_pos   = GetSubstrPos("maskbit", CatalogHeader);
-    // Rename 'theta' and 'phi' to 'dec' and 'ra' if change of coords. was requested:
-    if (config.readi("ANGULAR_COORD")==2) {
-      StrReplace(CatalogHeader, "theta", "dec");
-      StrReplace(CatalogHeader, "phi", "ra");
-    }
-    // Consistency checks regarding lensing output:
-    k=0;
-    for (f=0; f<Nf; f++) if(ftype[fieldlist.fFixedIndex(f, 0)]==fshear) k++;
-    if (k>1) warning("corrlnfields: found multiple convergence fields, not sure which to use.");
-    if (k<1 && (kappa_pos!=-1 || gamma1_pos!=-1 || gamma2_pos!=-1 || ellip1_pos!=-1 || ellip2_pos!=-1))
-      warning("corrlnfields: lensing ouput requested but no input was supplied.");
-    // Allocate memory to buffer:
-    buffer = matrix<CAT_PRECISION>(0, MaxGalsInCell-1, 0, ncols-1);
-    // Read filename:
     filename = config.reads("CATALOG_OUT");
     k        = FileFormat(filename);
     switch (k) {
-
-      /*** Write catalogue to TEXT file ***/
+      // TEXT file:
     case ascii_format: 
       outfile.open(filename.c_str());
       if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
       else {
-	Announce("Generating and writing catalog... ");
-	// Write header:
 	outfile << "# "<< CatalogHeader <<endl;
-	
-	// LOOP over cells:
-	for(z=0; z<Nz; z++) for(j=0; j<npixels; j++) {
-	    cellNgal = 0;
-	    // Loop over galaxy fields:
-	    for(f=0; f<fieldlist.Nf4z(z); f++) {
-	      i = fieldlist.zFixedIndex(f, z);
-	      if (ftype[i]==fgalaxies) {
-		// If field in cell is galaxies, generate a galaxy for each count:
-		PartialNgal = (int)mapf[i][j];
-		if (cellNgal+PartialNgal>MaxGalsInCell) 
-		  error("corrlnfields: too many galaxies in one cell. Increase MaxGalsInCell in code.");
-		for (l=cellNgal; l<PartialNgal; l++) {
-		  // Write angular position:
-		  if (theta_pos!=-1 || phi_pos!=-1) {
-		    ang = RandAngInPix(rnd[0], mapf[i], j);
-		    if (theta_pos!=-1) buffer[l][theta_pos] = ang.theta;
-		    if (phi_pos!=-1)   buffer[l][phi_pos]   = ang.phi;
-		  }
-		  // Write redshift:
-		  if (z_pos!=-1) buffer[l][z_pos] = selection.RandRedshift(rnd[0],i,j);
-		  // Write galaxy type:
-		  if (galtype_pos!=-1) { fieldlist.Index2Name(i, &gali, &m); buffer[l][galtype_pos] = gali; }
-		  // Write pixel id:
-		  if (pixel_pos!=-1)   buffer[l][pixel_pos]   = j;
-		  // Write maskbit:
-		  if (maskbit_pos!=-1) buffer[l][maskbit_pos] = selection.MaskBit(j);
-		} // End of LOOP over a particular galaxy type.
-		cellNgal += PartialNgal;	
-	      } // End of IF is galaxy field.
-	    }   // End of LOOP over galaxy fields.
-	    // Loop over lensing fields:
-	    for(f=0; f<fieldlist.Nf4z(z); f++) {
-	      i = fieldlist.zFixedIndex(f, z);
-	      if (ftype[i]==fshear) {
-		// Loop over galaxies placed in buffer:
-		for (l=0; l<cellNgal; l++) {
-		  if (ellip1_pos!=-1 || ellip2_pos!=-1) 
-		    GenEllip(rnd[0], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
-		  if (kappa_pos !=-1) buffer[l][kappa_pos]  =    mapf[i][j];
-		  if (gamma1_pos!=-1) buffer[l][gamma1_pos] = gamma1f[i][j];
-		  if (gamma2_pos!=-1) buffer[l][gamma2_pos] = gamma2f[i][j];
-		  if (ellip1_pos!=-1) buffer[l][ellip1_pos] = ellip1;
-		  if (ellip2_pos!=-1) buffer[l][ellip2_pos] = ellip2;		     
-		} // End of loops over galaxies in buffer.
-	      }   // End of IF is lensing field.
-	    }     // End of LOOP over lensing fields.
-	    // Change coordinates if requested:
-	    ChangeCoord(buffer, theta_pos, phi_pos, cellNgal, config.readi("ANGULAR_COORD"));
-	    // Write buffer (which contains all info about one cell) to file:
-	    PrintTable(buffer, cellNgal, ncols, &outfile);
-	  } // End of LOOP over cells.
+	PrintVecs(catalog, Ngalaxies, ncols, &outfile); 
 	outfile.close();
-	Announce();
 	cout << ">> Catalog written to " << filename << endl;
       }
       break;
-
-      /*** Write catalog to FITS file ***/
+      // FITS file:
     case fits_format: 
-      //WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
+      WriteCatalog2Fits(filename, catalog, Ngalaxies, config);
       cout << ">> Catalog written to " << filename << endl;
       break;
-
-      /*** Other non-conforming cases ***/ 
       // Unknown: 
     case unknown_format: 
-      warning("corrlnfields: unknown catalogue file format, no output performed.");
+      warning("corrlnfields: unknown catalogue file format, no output performed");
       break;
       // Weird: 
     default:
-      warning("corrlnfields: uninplemented catalogue file format, check code.");
+      warning("corrlnfields: uninplemented catalogue file format, check code");
       break;
     }
   }  
-  free_matrix(buffer, 0,MaxGalsInCell-1, 0,ncols-1);
+  free_matrix(catalog, 0,ncols-1, 0,Ngalaxies-1);
   
 
   // End of the program

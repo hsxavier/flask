@@ -10,6 +10,29 @@
 #include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
 
 
+// Change angular coordinates in catalogue if requested:
+void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype) {
+  long i;
+  
+  if ((theta_pos!=-1 || phi_pos!=-1) && coordtype!=0) {
+    // Only change units:
+    if (coordtype==1) {
+      if (theta_pos!=-1) // Theta:
+	for (i=0; i<Ngalaxies; i++) catalog[i][theta_pos] = rad2deg(catalog[i][theta_pos]);
+      if (phi_pos  !=-1) // Phi:
+	for (i=0; i<Ngalaxies; i++) catalog[i][  phi_pos] = rad2deg(catalog[i][  phi_pos]);    
+    }
+    // Change to RADEC:
+    else if (coordtype==2) {
+      if (theta_pos!=-1) // Theta:
+	for (i=0; i<Ngalaxies; i++) catalog[i][theta_pos] = theta2dec(catalog[i][theta_pos]);
+      if (phi_pos  !=-1) // Phi:
+	for (i=0; i<Ngalaxies; i++) catalog[i][  phi_pos] =    phi2ra(catalog[i][  phi_pos]);    
+    }
+    else if (coordtype!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
+  }
+}
+
 bool ComputeShearQ(const ParameterList & config) {
   std::string CatalogHeader, ExitAt;
   

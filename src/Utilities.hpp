@@ -239,10 +239,10 @@ void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &st
   long i, j;
   
   //(*output).setf(std::ios_base::showpoint);
-  (*output).precision(6);
+  (*output).precision(8);
   for (i=offset; i<nrows+offset; i++) {
     for (j=offset; j<ncols+offset; j++) {
-      (*output).width(12); *output << table[i][j] << " ";
+      (*output).width(14); *output << table[i][j] << " ";
     }
     *output << std::endl;
   }      

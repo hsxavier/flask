@@ -15,6 +15,7 @@
 #include "FieldsDatabase.hpp"
 
 // Auxiliary functions for corrlnfields program:
+void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype);
 bool ComputeShearQ(const ParameterList & config);
 double MapMean(const Healpix_Map<MAP_PRECISION> & map);
 double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
