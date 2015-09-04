@@ -548,7 +548,7 @@ int main (int argc, char *argv[]) {
 	  Announce("   Transforming convergence map to harmonic space... ");
 	  if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
 	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
-	  map2alm(mapf[i], Eflm, weight); // Get klm.
+	  map2alm_iter(mapf[i], Eflm, 1, weight); // Get klm.
 	  Announce();
 	}
  
@@ -752,7 +752,7 @@ int main (int argc, char *argv[]) {
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
   PartialNgal=0;                       // Counter of galaxies inside thread.
-#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, cellNgal) firstprivate(PartialNgal)
+#pragma omp parallel for schedule(static) private(l, j, ziter, gali, fiter, i, m, ang, ellip1, ellip2, randz, cellNgal, f, z) firstprivate(PartialNgal)
   // Since this FOR has the same parameters as the one above for counting, thread assignment should be the same. 
   for (kl=0; kl<Ncells; kl++) {
     l        = omp_get_thread_num();   // Processor number.
@@ -770,6 +770,7 @@ int main (int argc, char *argv[]) {
     // LOOP over field IDs:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
+      fieldlist.Index2Name(i, &f, &z);
       
       // Add entry of type GALAXY:      
       if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
@@ -778,7 +779,7 @@ int main (int argc, char *argv[]) {
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta           , catSet);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi             , catSet);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz               , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, fiter               , catSet);	    
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, f                   , catSet);	    
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, pixel_pos  , j                   , catSet);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, maskbit_pos, selection.MaskBit(j), catSet);
 	  gali++;

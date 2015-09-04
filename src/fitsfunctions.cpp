@@ -42,7 +42,7 @@ int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries
     else if (strcmp(columnNames[i],"dec"    )==0) {sprintf(columnTypes[i],"%s", "F9.5" ); sprintf(columnUnits[i],"%s", "Degrees");}
     else if (strcmp(columnNames[i],"z"      )==0) {sprintf(columnTypes[i],"%s", "F8.5" ); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"galtype")==0) {sprintf(columnTypes[i],"%s", "I3"   ); sprintf(columnUnits[i],"%s", "\0");}
-    else if (strcmp(columnNames[i],"kappa"  )==0) {sprintf(columnTypes[i],"%s", "E11.5"); sprintf(columnUnits[i],"%s", "\0");}
+    else if (strcmp(columnNames[i],"kappa"  )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"gamma1" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"gamma2" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"ellip1" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
