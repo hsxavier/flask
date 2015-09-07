@@ -176,6 +176,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
       NentMat[i][j] = Nentries[k];
       IsSet[i][j]=1; 
     };
+  if (config.readi("ALLOW_MISS_CL")==1) cout << "ALLOW_MISS_CL=1: will set totally missing Cl's to zero.\n";
   free_vector(Nentries, 0, NinputCls-1);
   free_vector(filelist, 0, NinputCls-1);
 
@@ -321,12 +322,18 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
     
   // Set Cov(l)[i,j] = Cov(l)[j,i]
   Announce("Set remaining cov. matrices elements based on symmetry... ");
+  k = config.readi("ALLOW_MISS_CL");
+  if (k!=1 && k!=0) error("ClProcess: unknown option for ALLOW_MISS_CL.");
   for(i=0; i<Nfields; i++)
-    for(j=0; j<Nfields; j++) 
+    for(j=0; j<Nfields; j++)
+      // Look for empty entries in Cov:
       if (IsSet[i][j]==0) {
+	// If transpose is empty too:
 	if (IsSet[j][i]==0) {
-	  sprintf(message,"ClProcess: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i);
-	  error(message);
+	  // Set transpose to zero if this is allowed:
+	  if (k==1) { for (l=0; l<Nls; l++) CovByl[l]->data[j*Nfields+i] = 0.0; IsSet[j][i]=1; }
+	  // If not allowed, return error:
+	  else { sprintf(message,"ClProcess: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i); error(message); }
 	}
 	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
