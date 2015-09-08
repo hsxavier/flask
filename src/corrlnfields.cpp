@@ -23,6 +23,7 @@
 #include "lognormal.hpp"
 #include "FieldsDatabase.hpp"
 #include <unistd.h> // debugging
+#include <ctime> // For timing full code run with StartAll.
 
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
 
@@ -37,6 +38,8 @@ int main (int argc, char *argv[]) {
   Cosmology cosmo;                                      // Cosmological parameters.
   FZdatabase fieldlist;
   char message[100];                                    // Handling warnings and errors.
+  time_t StartAll;                                      // For timing the code run.
+  double TotalTime;                                     // For timing the code run.
   bool yesShear;
   std::string filename, ExitAt;
   std::ofstream outfile;                                // File for output.
@@ -53,6 +56,7 @@ int main (int argc, char *argv[]) {
   /**********************************************/
 
   // Testing the code:
+  StartAll = time(NULL);
   Announce("Testing the code... "); 
   // Verify that max. value for INT is not smaller than expected:
   sprintf(message, "%d", INT_MAX); filename.assign(message);
@@ -148,9 +152,7 @@ int main (int argc, char *argv[]) {
       // Load C(l)s and compute auxiliary Gaussian cov. matrices:
       status = ClProcess(&CovByl, means, shifts, &Nls, fieldlist, config);
       if (status==1) { // Exit if fast output was inside ClProcess.
-	cout << "\nTotal number of warnings: " << warning("count") << endl;
-	cout<<endl;
-	return 0; 
+	PrepareEnd(StartAll); return 0; 
       }
       cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
       cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
@@ -194,9 +196,7 @@ int main (int argc, char *argv[]) {
  
   // Exit if dealing with mixing matrices was the last task:
   if (ExitAt=="CHOLESKY_PREFIX") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
+    PrepareEnd(StartAll); return 0;
   }
   
   
@@ -283,9 +283,7 @@ int main (int argc, char *argv[]) {
 
   // Exit if this is the last output requested:
   if (ExitAt=="AUXALM_OUT") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
+    PrepareEnd(StartAll); return 0;
   }
   
 
@@ -504,18 +502,14 @@ int main (int argc, char *argv[]) {
   // Exit if this is the last output requested:
   if (ExitAt=="MAP_OUT" ||
       ExitAt=="MAPFITS_PREFIX") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
+    PrepareEnd(StartAll); return 0;
   }
 
   // If requested, recover alms and/or Cls from maps:
   RecoverAlmCls(mapf, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config);
   // Exit if this is the last output requested:
   if (ExitAt=="RECOVALM_OUT" || ExitAt=="RECOVCLS_OUT") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
+    PrepareEnd(StartAll); return 0;
   }
     
 
@@ -670,9 +664,7 @@ int main (int argc, char *argv[]) {
   // Exit if this is the last output requested:
   if (ExitAt=="MAPWER_OUT" ||
       ExitAt=="MAPWERFITS_PREFIX") {
-    cout << "\nTotal number of warnings: " << warning("count") << endl;
-    cout<<endl;
-    return 0;
+    PrepareEnd(StartAll); return 0;
   }
 
 
@@ -803,7 +795,7 @@ int main (int argc, char *argv[]) {
 
   // Check if every entry was set once and only once:
   for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) {
-      if (catSet[j][kl]<1)     error("corrlnfields: Catalog has missing information.");
+      if (catSet[j][kl]<1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog has missing information.");}
       if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
@@ -858,7 +850,5 @@ int main (int argc, char *argv[]) {
   
 
   // End of the program
-  cout << "\nTotal number of warnings: " << warning("count") << endl;
-  cout<<endl;
-  return 0;
+  PrepareEnd(StartAll); return 0;
 }

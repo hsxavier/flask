@@ -10,6 +10,18 @@
 #include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
 
 
+// Print some stats before finish the code run: 
+void PrepareEnd(time_t StartAll) {
+  double TotalTime;
+  int min, sec;
+
+  TotalTime = difftime(time(NULL), StartAll);
+  min       = ((int)TotalTime)/60;
+  sec       = ((int)TotalTime)%60;
+  printf("\nTotal running time:       %d min, %d sec.\n", min, sec);
+  printf(  "Total number of warnings: %d\n\n", warning("count"));
+}
+
 // Change angular coordinates in catalog if requested:
 void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype) {
   long kl;
@@ -50,18 +62,18 @@ bool ComputeShearQ(const ParameterList & config) {
       ExitAt!="AUXMAP_OUT"      && ExitAt!="MAP_OUT"         && ExitAt!="MAPFITS_PREFIX"  && 
       ExitAt!="DENS2KAPPA_STAT" && ExitAt!="RECOVALM_OUT"    && ExitAt!="RECOVCLS_OUT"    ) {
 
-    // Return 1 if any shear output is required:
+    // Compute shear if any shear output is required:
     if (config.reads("SHEAR_ALM_PREFIX")  !="0") return 1;
     if (config.reads("SHEAR_FITS_PREFIX") !="0") return 1;
     if (config.reads("SHEAR_MAP_OUT")     !="0") return 1;
-    if (config.reads("CATALOG_OUT")       !="0") {
+    // Compute shear if it goes into catalog:
+    if (ExitAt=="CATALOG_OUT" || ExitAt=="0") {
       CatalogHeader = config.reads("CATALOG_COLS");
       if (GetSubstrPos("gamma1" , CatalogHeader) != -1) return 1;
       if (GetSubstrPos("gamma2" , CatalogHeader) != -1) return 1;
       if (GetSubstrPos("ellip1" , CatalogHeader) != -1) return 1;
       if (GetSubstrPos("ellip2" , CatalogHeader) != -1) return 1;
     }
-  
   } // End of IF stop code before shear output.
 
   // If no shear related output is requested, return 0:
