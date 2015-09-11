@@ -302,7 +302,8 @@ int main (int argc, char *argv[]) {
 
   // Allocate memory for pixel maps:
   Announce("Allocating memory for pixel maps... "); 
-  nside   = config.readi("NSIDE");
+  nside    = config.readi("NSIDE");
+  yesShear = ComputeShearQ(config);
   if (nside>sqrt(INT_MAX/12)) warning("corrlnfields: NSIDE too large, number of pixels will overflow INT variables");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<MAP_PRECISION> >(0,Nfields-1);
@@ -312,7 +313,11 @@ int main (int argc, char *argv[]) {
   // Generate maps from alm's for each field if not creating homogeneous uncorrelated fields:
   if (dist!=homogeneous) {
     Announce("Generating maps from alm's... ");
-    for(i=0; i<Nfields; i++) alm2map(aflm[i], mapf[i]);
+    for(i=0; i<Nfields; i++) {
+      alm2map(aflm[i], mapf[i]);
+      // Free alm's after making map if they are not needed (see below at **):
+      if (dist==lognormal || (dist==gaussian && yesShear==0)) aflm[i].Set(0,0); 
+    }
     Announce();
   }
   // Generate mean maps if creating homogeneous fields:
@@ -322,8 +327,8 @@ int main (int argc, char *argv[]) {
     Announce();
   }
   
-  // If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
-  if (dist==lognormal) free_vector(aflm, 0, Nfields-1);
+  // ** If generating lognormal, alm's are not needed anymore (for gaussian the klm's are used to generate shear):
+  if (dist==lognormal || (dist==gaussian && yesShear==0)) free_vector(aflm, 0, Nfields-1);
   // Write auxiliary map to file as a table if requested:
   GeneralOutput(mapf, config, "AUXMAP_OUT", fieldlist);
   
@@ -477,13 +482,15 @@ int main (int argc, char *argv[]) {
 	ztemp[Nfields-1+k][0] = zrange[i][1];        // The convergence from integration applies to sources
 	ztemp[Nfields-1+k][1] = zrange[i][1];        // located sharply at the end of the bin.
 	tempmapf[Nfields-1+k].SetNside(nside, RING);
-	tempmapf[Nfields-1+k].Import(IntDens[i]);	
+	tempmapf[Nfields-1+k].Import(IntDens[i]);
+	IntDens[i].SetNside(1, RING);
       }   
     }
     // Pass restructured data to main variables:
-    free_vector(ftype,  0, Nfields-1);       ftype  = ftemp;
-    free_vector(mapf,   0, Nfields-1);       mapf   = tempmapf;
-    free_matrix(zrange, 0, Nfields-1, 0, 1); zrange = ztemp;
+    free_vector(ftype,   0, Nfields-1);       ftype  = ftemp;
+    free_vector(mapf,    0, Nfields-1);       mapf   = tempmapf;
+    free_vector(IntDens, 0, Nfields-1);
+    free_matrix(zrange,  0, Nfields-1, 0, 1); zrange = ztemp;
     fieldlist.Build(fName, zName, Nfields+Nintdens);
     free_vector(fName, 0, Nfields+Nintdens-1);
     free_vector(zName, 0, Nfields+Nintdens-1);
@@ -516,7 +523,6 @@ int main (int argc, char *argv[]) {
   /*** Part 5.3: Compute shear maps if necessary ***/
 
   Healpix_Map<MAP_PRECISION> *gamma1f, *gamma2f;    
-  yesShear = ComputeShearQ(config);
 
   if (yesShear==1) {
     gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
@@ -572,7 +578,7 @@ int main (int argc, char *argv[]) {
       } // End of LOOP over convergence fields.
 
     // Memory deallocation:
-    if (dist==gaussian) free_vector(aflm, 0, Nfields-1);
+    if (dist==gaussian && yesShear==1) free_vector(aflm, 0, Nfields-1);
     weight.dealloc();
     Eflm.Set(0,0); 
     Bflm.Set(0,0);

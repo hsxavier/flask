@@ -171,13 +171,16 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     nside   = config.readi("NSIDE");
     lmin    = config.readi("LMIN");
     lmax    = config.readi("LMAX");  
-    
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverAlmCls: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
+    if (lminout < lmin) { lminout=lmin; warning("RecoverAlmCls: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
 
     // Allocate and clear variables to receive new alm's:
     bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if(mapf[i].Nside()!=0) {
-	bflm[i].Set(lmax,lmax);
-	for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
+	bflm[i].Set(lmaxout,lmaxout);
+	for(l=0; l<=lmaxout; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
       }    
     // Load map ring weights:
     arr<double> weight(2*nside);
@@ -193,13 +196,9 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     // Compute Cl's if requested:
     if (config.reads(clsKey)!="0") {
       Announce("Recovering Cl's from maps... ");
-      lminout = config.readi("LRANGE_OUT", 0);
-      lmaxout = config.readi("LRANGE_OUT", 1);
-      if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverAlmCls: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
-      if (lminout < lmin) { lminout=lmin; warning("RecoverAlmCls: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
       mmax    = config.readi("MMAX_OUT");
       if (mmax>lminout) error("RecoverAlmCls: current code only allows MMAX_OUT <= LMIN_OUT.");
-      NCls  = Nfields*(Nfields+1)/2;
+      NCls    = Nfields*(Nfields+1)/2;
       recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
       yesCl   = vector<bool>(0, NCls-1);
 #pragma omp parallel for schedule(dynamic) private(l, m, i, j)
