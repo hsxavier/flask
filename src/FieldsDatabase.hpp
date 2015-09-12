@@ -13,21 +13,26 @@ struct entry {
 
 class FZdatabase {
 private:
-  // Information storage:
-  int *fullF, *fullZ;                       // For an index 'n' store the fields and redshift bin names here.
-  std::vector<entry>f, z;                   // Individual lists for every field or z, used for looping.
+  // Field names storage:
+  int *fullF, *fullZ;                        // For an index 'n' store the fields and redshift bin names here.
+  std::vector<entry>f, z;                    // Individual lists for every field or z, used for looping.
   int **ifsubz;
   int **izsubf;
   int Nf, Nz, Nfield;                       // Number of fields (small f), number of redshift bins, total number of Fields (Nf*Nz)
+  // Fields info:
+  double *means, *shifts, **zrange;
+  int *ftypes;
   // Auxiliary functions:
   int GetPos(int ent, std::vector<entry> & list);
   void RegisterEntry(int *full, int i, std::vector<entry> & vec, int **ixsuby);
-  void Init(int *fullF0, int *fullZ0, int Nfield0);
+  void Init(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0);
 public:
   // Structural functions:
   FZdatabase();
-  FZdatabase(int *fullF0, int *fullZ0, int Nfield0);
-  void Build(int *fullF0, int *fullZ0, int Nfield0);
+  FZdatabase(const std::string & filename);
+  FZdatabase(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0);
+  void Load(const std::string & filename);
+  void Build(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0);
   ~FZdatabase();
   // Data size functions:
   int Nzs() const;                                // Return the number of distinct redshift bins, no matter the field (small f).
@@ -45,6 +50,12 @@ public:
   void Index2Name(int n,          int *fName, int *zName) const;
   void zFixedName(int fi, int zi, int *fName, int *zName) const;
   void fFixedName(int fi, int zi, int *fName, int *zName) const;
+  // Field info functions:
+  double mean(int n)  const;
+  double shift(int n) const;
+  int    ftype(int n) const;
+  double zmin(int n)  const;
+  double zmax(int n)  const;
 };
 
 

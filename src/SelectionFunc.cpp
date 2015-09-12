@@ -14,7 +14,7 @@ SelectionFunction::SelectionFunction () {
 }
 
 // Load selection functions:
-void SelectionFunction::load(const ParameterList & config, int *ftype0, double **fzrange, const FZdatabase & fieldlist) {
+void SelectionFunction::load(const ParameterList & config, const FZdatabase & fieldlist) {
   using namespace definitions;
   std::string tempstr, filename, starfile;
   char message[100];
@@ -34,9 +34,9 @@ void SelectionFunction::load(const ParameterList & config, int *ftype0, double *
   fieldZrange   = matrix<double>(0, Nfields-1, 0, 1);
   ftype         = vector<int>   (0, Nfields-1);
   for (i=0; i<Nfields; i++) {
-    fieldZrange[i][0] = fzrange[i][0];
-    fieldZrange[i][1] = fzrange[i][1];
-    ftype[i] = ftype0[i];
+    fieldZrange[i][0] = fieldlist.zmin(i);
+    fieldZrange[i][1] = fieldlist.zmax(i);
+    ftype[i] = fieldlist.ftype(i);
   }
   // No selection options:
   if (tempstr =="0") UseAngularMask=0; else UseAngularMask=1;
@@ -312,10 +312,10 @@ double SelectionFunction::operator()(int fz, int pix) {
 
 
 // Function to test for memory leackage by loading and unloading selection functions:
-void SelectionMemTest1(const ParameterList & config, int *ftype0, double **fzrange, const FZdatabase & fieldlist) {
+void SelectionMemTest1(const ParameterList & config, const FZdatabase & fieldlist) {
   SelectionFunction test;
 
   // Load Selection function to allocate memory:
-  test.load(config, ftype0, fzrange, fieldlist);
+  test.load(config, fieldlist);
   // Destructor should be called when exiting this function.
 }

@@ -33,51 +33,17 @@ Cosmology::Cosmology() {
   galdens = NOTSETd;
 }
 
-void Cosmology::load(ParameterList *config) {
+void Cosmology::load(const ParameterList & config) {
   using namespace ParDef;
-  //Omh2    = config->readd("OMEGA_mh2");
-  Om      = config->readd("OMEGA_m");
-  //Odeh2   = config->readd("OMEGA_Lh2");
-  Ode     = config->readd("OMEGA_L");
-  wde     = config->readd("W_de");
-  //Obh2    = config->readd("OMEGA_bh2");
-  //Onuh2   = config->readd("OMEGA_nuh2");
-  //Nnu     = config->readi("N_nu");
-  //h       = config->readd("HUBBLE");
-  //deltaH2 = config->readd("PK_DELTAH")*config->readd("PK_DELTAH");
-  //ns      = config->readd("PK_NS");
-  galdens   = config->readd("GALDENSITY");
+  Om      = config.readd("OMEGA_m");
+  Ode     = config.readd("OMEGA_L");
+  wde     = config.readd("W_de");
+  galdens = config.readd("GALDENSITY");
   SetOther();
 }
 
 void Cosmology::SetOther() {
-  //if (h==NOTSETd)       error("Cosmology::SetOther: Hubble constant must be set.");
   if (wde==NOTSETd)     error("Cosmology::SetOther: equation of state wde must be set.");
-  //if (Nnu==NOTSETi)     error("Cosmology::SetOther: number of massive neutrinos Nnu must be set.");
-  //if (deltaH2==NOTSETi) error("Cosmology::SetOther: power spectrum normalization deltaH2 must be set.");
-  //if (ns==NOTSETi)      error("Cosmology::SetOther: power spectrum index ns must be set.");
-  /*
-  // Set Omega_matter:
-  if (Om==NOTSETd && Omh2==NOTSETd) error("Cosmology::SetOther: Om or Omh2 must be set.");
-  if (Om!=NOTSETd && Omh2!=NOTSETd && Om!=Omh2/h/h) error("Cosmology::SetOther: conflicting values of Om and Omh2.");
-  if (Om==NOTSETd) Om   = Omh2/h/h;
-  else             Omh2 = Om  *h*h;
-  // Set Omega_DE:
-  if (Ode==NOTSETd && Odeh2==NOTSETd) error("Cosmology::SetOther: Ode or Odeh2 must be set.");
-  if (Ode!=NOTSETd && Odeh2!=NOTSETd && Ode!=Odeh2/h/h) error("Cosmology::SetOther: conflicting values of Ode and Odeh2.");
-  if (Ode==NOTSETd) Ode   = Odeh2/h/h;
-  else              Odeh2 = Ode  *h*h;
-  // Set Omega_barion:
-  if (Ob==NOTSETd && Obh2==NOTSETd) error("Cosmology::SetOther: Ob or Obh2 must be set.");
-  if (Ob!=NOTSETd && Obh2!=NOTSETd && Ob!=Obh2/h/h) error("Cosmology::SetOther: conflicting values of Ob and Obh2.");
-  if (Ob==NOTSETd) Ob   = Obh2/h/h;
-  else             Obh2 = Ob  *h*h;
-  // Set Omega_neutrino:
-  if (Onu==NOTSETd && Onuh2==NOTSETd) error("Cosmology::SetOther: Onu or Onuh2 must be set.");
-  if (Onu!=NOTSETd && Onuh2!=NOTSETd && Onu!=Onuh2/h/h) error("Cosmology::SetOther: conflicting values of Onu and Onuh2.");
-  if (Onu==NOTSETd) Onu   = Onuh2/h/h;
-  else              Onuh2 = Onu  *h*h;
-  */
   // Set Omega_curvature:
   if (Om!=NOTSETd && Ode!=NOTSETd) Ok = 1.0-Om-Ode;
   else error("Cosmology::SetOther: cannot set curvature due to missing Om and/or Ode.");

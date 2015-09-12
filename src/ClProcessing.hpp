@@ -5,7 +5,7 @@
 #include "FieldsDatabase.hpp"
 #include "ParameterList.hpp"
 
-int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *Nls, const FZdatabase & fieldslist, const ParameterList & config);
+int ClProcess(gsl_matrix ***CovBylAddr, int *Nls, const FZdatabase & fieldslist, const ParameterList & config);
 
 std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & filelist, double *x, double *y, int length);
 void CountEntries(std::string filename, long *nr, long *nc);

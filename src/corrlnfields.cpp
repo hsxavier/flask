@@ -45,8 +45,7 @@ int main (int argc, char *argv[]) {
   std::ofstream outfile;                                // File for output.
   simtype dist;                                         // For specifying simulation type.
   gsl_matrix **CovByl; 
-  int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, *ftype, Nls, MaxThreads;
-  double *means, *shifts, **zrange; 
+  int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, Nls, MaxThreads;
   long long1, long2;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
@@ -77,7 +76,7 @@ int main (int argc, char *argv[]) {
   config.lineload(argc, argv);
   config.show();
   cout << endl;
-  cosmo.load(&config);
+  cosmo.load(config);
   ExitAt = config.reads("EXIT_AT");
   if (ExitAt!="0") config.findpar(ExitAt+":"); // Produce warning if last output is unknown.
   // - Lognormal or Gausian realizations:
@@ -94,43 +93,12 @@ int main (int argc, char *argv[]) {
   double **aux;
 
   // Load means, shifts, type and z range data file:
-  Announce("Loading means and shifts from file "+config.reads("FIELDS_INFO")+"... ");
-  aux     = LoadTable<double>(config.reads("FIELDS_INFO"), &long1, &long2);
-  Nfields = (int)long1;
-  fName   = vector<int>      (0, Nfields-1);
-  zName   = vector<int>      (0, Nfields-1);
-  means   = vector<double>   (0, Nfields-1);
-  ftype   = vector<int>      (0, Nfields-1);
-  zrange  = matrix<double>   (0, Nfields-1, 0,1);
-  if (dist==lognormal) shifts = vector<double>(0, Nfields-1);
-  
-  // Parse information to separate arrays:
-  for (i=0; i<Nfields; i++) {
-    fName[i]     = (int)aux[i][0];
-    zName[i]     = (int)aux[i][1];
-    means[i]     =      aux[i][2];  
-    ftype[i]     = (int)aux[i][4];
-    zrange[i][0] =      aux[i][5];
-    zrange[i][1] =      aux[i][6]; 
-    if (dist==lognormal) shifts[i] = aux[i][3];    
-  }
-  // A few checks on the input:
-  for (i=0; i<Nfields; i++) {
-    if (zrange[i][0]>zrange[i][1])  error("corrlnfields: zmin > zmax for a field.");
-    if (ftype[i]!=1 && ftype[i]!=2) error("corrlnfields: unknown field type in FIELDS_INFO file.");
-  }
-  if (dist==lognormal) for (i=0; i<Nfields; i++) if(means[i]+shifts[i]<=0) {
-	printf(message, "corrlnfields: mean+shift at position %d must be greater than zero.", i); error(message);
-      }
-  free_matrix(aux, 0, long1-1, 0, long2-1);
-  // Pass field list to FZdatabase:
-  fieldlist.Build(fName, zName, Nfields);
-  free_vector(fName, 0, Nfields-1);
-  free_vector(zName, 0, Nfields-1);
+  Announce("Loading fields information from file "+config.reads("FIELDS_INFO")+"... ");
+  fieldlist.Load(config.reads("FIELDS_INFO"));
   Announce();
-  
-  Nf = fieldlist.Nfs();
-  Nz = fieldlist.Nzs();
+  Nfields = fieldlist.Nfields();
+  Nf      = fieldlist.Nfs();
+  Nz      = fieldlist.Nzs();
   cout << "Infered from FIELDS_INFO file:  Nf = " << Nf << "   Nz = " << Nz << endl;
 
 
@@ -150,7 +118,7 @@ int main (int argc, char *argv[]) {
     // If input triangular mixing matrices unspecified, compute them from input Cls:
     if (CholeskyInPrefix=="0") {
       // Load C(l)s and compute auxiliary Gaussian cov. matrices:
-      status = ClProcess(&CovByl, means, shifts, &Nls, fieldlist, config);
+      status = ClProcess(&CovByl, &Nls, fieldlist, config);
       if (status==1) { // Exit if fast output was inside ClProcess.
 	PrepareEnd(StartAll); return 0; 
       }
@@ -225,7 +193,6 @@ int main (int argc, char *argv[]) {
     gsl_rng_set(rnd[i], i*RAND_OFFSET+rndseed0);    // set random seed
   }
   Announce();
-  cout << "First random numbers: "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<" "<<gsl_rng_uniform(rnd[0])<<endl;
 
   // Skip alm generation if creating homogeneous uncorrelated fields: all would be zero:
   if (dist!=homogeneous) {
@@ -323,7 +290,7 @@ int main (int argc, char *argv[]) {
   // Generate mean maps if creating homogeneous fields:
   else {
     Announce("HOMOGENEOUS realizations: filing maps with mean values... ");
-    for(i=0; i<Nfields; i++) mapf[i].fill(means[i]);
+    for(i=0; i<Nfields; i++) mapf[i].fill(fieldlist.mean(i));
     Announce();
   }
   
@@ -350,9 +317,9 @@ int main (int argc, char *argv[]) {
 #pragma omp parallel for reduction(+:gvar)
       for (j=0; j<npixels; j++) gvar += pow(mapf[i][j]-gmean, 2);
       gvar = gvar/(npixels-1);
-      expmu=(means[i]+shifts[i])/exp(gvar/2);
+      expmu=(fieldlist.mean(i)+fieldlist.shift(i))/exp(gvar/2);
 #pragma omp parallel for
-      for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-shifts[i];
+      for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-fieldlist.shift(i);
     }
     Announce();
   }
@@ -360,16 +327,13 @@ int main (int argc, char *argv[]) {
   else if (dist==gaussian) {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");
     for (i=0; i<Nfields; i++) {
-      if (means[i]!=0.0) {
+      if (fieldlist.mean(i)!=0.0) {
 #pragma omp parallel for 
-	for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + means[i];
+	for(j=0; j<npixels; j++) mapf[i][j] = mapf[i][j] + fieldlist.mean(i);
       }
     }
     Announce();
   }
-  // Free memory for means and shifts:
-  if (dist==lognormal) free_vector(shifts, 0, Nfields-1);
-  free_vector(means, 0, Nfields-1);
 
 
   /*** Part 5.2: Generate convergence maps by line of sight (LoS) integration ***/
@@ -385,11 +349,11 @@ int main (int argc, char *argv[]) {
     k=0; m=0;
     for (f=0; f<Nf; f++) {
       i = fieldlist.fFixedIndex(f, 0);
-      if (ftype[i]==fgalaxies) {
+      if (fieldlist.ftype(i)==fgalaxies) {
 	k++; // Count density fields.
 	for (z=1; z<fieldlist.Nz4f(f); z++) {
 	  fieldlist.fFixedIndex(f, z-1, &i); fieldlist.fFixedIndex(f, z, &j); 
-	  if (zrange[i][1] != zrange[j][0])                 // Check if z bins are sequential and contiguous.
+	  if (fieldlist.zmax(i) != fieldlist.zmin(j)) // Check if z bins are sequential and contiguous.
 	    warning("corrlnfields: expecting sequential AND contiguous redshift slices for galaxies");
 	}
       }
@@ -402,13 +366,14 @@ int main (int argc, char *argv[]) {
     KappaWeightTable = matrix<double>(0, Nfields-1, 0, Nfields-1);    
     for (i=0; i<Nfields; i++) 
       for (j=0; j<Nfields; j++) 
-	KappaWeightTable[i][j] = KappaWeightByZ(&cosmo, (zrange[j][0]+zrange[j][1])/2.0, zrange[i][1]) * (zrange[j][1]-zrange[j][0]);
+	KappaWeightTable[i][j] = KappaWeightByZ(&cosmo, (fieldlist.zmin(j)+fieldlist.zmax(j))/2.0, fieldlist.zmax(i)) 
+	  * (fieldlist.zmax(j)-fieldlist.zmin(j));
     Announce();
     
     // Do the integration:
     Announce("   Integrating densities... ");
     IntDens = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {        // LOOP over galaxy fields and redshift bins (as sources).
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) { // LOOP over galaxy fields and redshift bins (as sources).
 	Nintdens++;
 	IntDens[i].SetNside(nside, RING); IntDens[i].fill(0);   // Allocate map at intdens(f,z=z_source) to receive delta(f,z) integral. 
 	fieldlist.Index2fFixed(i, &f, &zsource);
@@ -454,12 +419,14 @@ int main (int argc, char *argv[]) {
     // Join Integrated density to other maps:
     Announce("   Concatenating integrated density data to main data...");
     int *ftemp;
-    double **ztemp;
+    double **ztemp, *mtemp, *stemp;
 
     // Allocate temporary memory:
     fName    = vector<int>   (0, Nfields+Nintdens-1);
     zName    = vector<int>   (0, Nfields+Nintdens-1);
     ftemp    = vector<int>   (0, Nfields+Nintdens-1);
+    mtemp    = vector<double>(0, Nfields+Nintdens-1);
+    stemp    = vector<double>(0, Nfields+Nintdens-1);
     ztemp    = matrix<double>(0, Nfields+Nintdens-1, 0, 1);
     tempmapf = vector<Healpix_Map<MAP_PRECISION> >(0, Nfields+Nintdens-1);	  
     // Copy original maps and integrated density maps (and their infos) to same arrays:
@@ -467,33 +434,37 @@ int main (int argc, char *argv[]) {
     for(i=0; i<Nfields; i++) {
       // Copy original:
       fieldlist.Index2Name(i, &(fName[i]), &(zName[i]));
-      ftemp[i]    = ftype[i];
-      ztemp[i][0] = zrange[i][0];
-      ztemp[i][1] = zrange[i][1];
+      ftemp[i]    = fieldlist.ftype(i);
+      mtemp[i]    = fieldlist.mean(i);
+      stemp[i]    = fieldlist.shift(i);
+      ztemp[i][0] = fieldlist.zmin(i);
+      ztemp[i][1] = fieldlist.zmax(i);
       tempmapf[i].SetNside(nside, RING);
       tempmapf[i].Import(mapf[i]);
       mapf[i].SetNside(1, RING);
       // Copy integrated densities:
-      if (ftype[i]==fgalaxies) {
+      if (fieldlist.ftype(i)==fgalaxies) {
 	k++;
 	fName[Nfields-1+k]    = Nf + fName[i];
 	zName[Nfields-1+k]    =      zName[i];
-	ftemp[Nfields-1+k]    = fshear;
-	ztemp[Nfields-1+k][0] = zrange[i][1];        // The convergence from integration applies to sources
-	ztemp[Nfields-1+k][1] = zrange[i][1];        // located sharply at the end of the bin.
+	ftemp[Nfields-1+k]    = fshear;              // NOTE: means and shifts are not being set for integrated densities.     
+	ztemp[Nfields-1+k][0] = fieldlist.zmax(i);   // The convergence from integration applies to sources
+	ztemp[Nfields-1+k][1] = fieldlist.zmax(i);   // located sharply at the end of the bin.
 	tempmapf[Nfields-1+k].SetNside(nside, RING);
 	tempmapf[Nfields-1+k].Import(IntDens[i]);
 	IntDens[i].SetNside(1, RING);
       }   
     }
     // Pass restructured data to main variables:
-    free_vector(ftype,   0, Nfields-1);       ftype  = ftemp;
-    free_vector(mapf,    0, Nfields-1);       mapf   = tempmapf;
+    free_vector(mapf,    0, Nfields-1); mapf = tempmapf;
     free_vector(IntDens, 0, Nfields-1);
-    free_matrix(zrange,  0, Nfields-1, 0, 1); zrange = ztemp;
-    fieldlist.Build(fName, zName, Nfields+Nintdens);
+    fieldlist.Build(fName, zName, Nfields+Nintdens, ftemp, ztemp, mtemp, stemp);
     free_vector(fName, 0, Nfields+Nintdens-1);
     free_vector(zName, 0, Nfields+Nintdens-1);
+    free_vector(ftemp, 0, Nfields+Nintdens-1);
+    free_vector(mtemp, 0, Nfields+Nintdens-1);
+    free_vector(stemp, 0, Nfields+Nintdens-1);
+    free_matrix(ztemp, 0, Nfields+Nintdens-1, 0, 1);
     Nfields = fieldlist.Nfields(); 
     Nf      = fieldlist.Nfs(); 
     Nz      = fieldlist.Nzs();
@@ -532,7 +503,7 @@ int main (int argc, char *argv[]) {
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
   
     // LOOP over convergence fields:
-    for (i=0; i<Nfields; i++) if (ftype[i]==fshear) {
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fshear) {
 	fieldlist.Index2Name(i, &f, &z);
 	cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
       
@@ -618,7 +589,7 @@ int main (int argc, char *argv[]) {
   
   // Read in selection functions from FITS files and possibly text files (for radial part):
   Announce("Reading selection functions from files... ");
-  selection.load(config, ftype, zrange, fieldlist); 
+  selection.load(config, fieldlist); 
   if (selection.Nside()!=-2 && selection.Nside()!=mapf[0].Nside())
     error("corrlnfields: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=-2 && selection.Scheme()!=mapf[0].Scheme()) 
@@ -629,12 +600,12 @@ int main (int argc, char *argv[]) {
   if (config.readi("POISSON")==1) {
     counter = vector<int>(1, MaxThreads);
     // LOOP over fields:
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
 	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
-	dwdz    = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	dwdz    = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 	// LOOP over pixels of field 'i':
 #pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
@@ -651,11 +622,11 @@ int main (int argc, char *argv[]) {
   
   // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
 	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
 	Announce(message);
-	dwdz = PixelSolidAngle*(zrange[i][1]-zrange[i][0]);
+	dwdz = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 #pragma omp parallel for
 	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
 	Announce();
@@ -706,7 +677,7 @@ int main (int argc, char *argv[]) {
     ziter = kl%longNz;     // z slice.
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (ftype[i]==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
+      if (fieldlist.ftype(i)==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
     }
   }
   for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
@@ -742,7 +713,7 @@ int main (int argc, char *argv[]) {
 
   // Warning against multiple or none lensing fields at the same redshift:
   k=0;
-  for(f=0; f<Nf; f++) if (ftype[fieldlist.fFixedIndex(f, 0)]==fshear) k++;
+  for(f=0; f<Nf; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==fshear) k++;
   if (k>1) warning("corrlnfields: found multiple lensing fields, will leave last one in catalogue.");
   if (k<1 && (kappa_pos!=-1 || gamma1_pos!=-1 || gamma2_pos!=-1 || ellip1_pos!=-1 || ellip1_pos!=-1)) 
     warning("corrlnfields: missing lensing information required to build catalogue.");
@@ -762,7 +733,7 @@ int main (int argc, char *argv[]) {
     // Count total number of galaxies of all types inside cell:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (ftype[i]==fgalaxies) cellNgal += (int)mapf[i][j];
+      if (fieldlist.ftype(i)==fgalaxies) cellNgal += (int)mapf[i][j];
     }
     
     // LOOP over field IDs:
@@ -771,7 +742,7 @@ int main (int argc, char *argv[]) {
       fieldlist.Index2Name(i, &f, &z);
       
       // Add entry of type GALAXY:      
-      if (ftype[i]==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
+      if (fieldlist.ftype(i)==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
 	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l+1], mapf[i], j);
 	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l+1],i,j);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta           , catSet);
@@ -784,7 +755,7 @@ int main (int argc, char *argv[]) {
 	}
       
       // Add entry of type SHEAR:
-      else if (ftype[i]==fshear) for (m=0; m<cellNgal; m++) {
+      else if (fieldlist.ftype(i)==fshear) for (m=0; m<cellNgal; m++) {
 	  CatalogFill  (catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
 	  if (yesShear==1) {
 	    if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);
@@ -809,8 +780,6 @@ int main (int argc, char *argv[]) {
 
   // Memory deallocation: all required info from now on should be in catalog.
   Announce("Deallocating maps and fields info... ");
-  free_vector(ftype,   0, Nfields-1 );
-  free_matrix(zrange,  0, Nfields-1, 0,1);
   free_vector(mapf,    0, Nfields-1 );
   if (yesShear==1) free_vector(gamma1f, 0, Nfields-1);
   if (yesShear==1) free_vector(gamma2f, 0, Nfields-1);

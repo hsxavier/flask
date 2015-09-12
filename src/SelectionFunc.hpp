@@ -19,7 +19,7 @@ private:
   int IndexGalTypes(const FZdatabase & fieldlist);
 public:
   SelectionFunction();
-  void load(const ParameterList & config, int *ftype0, double **fzrange, const FZdatabase & fieldlist);
+  void load(const ParameterList & config, const FZdatabase & fieldlist);
   int Nside();
   int Scheme();
   double operator()(int fz, int pix);

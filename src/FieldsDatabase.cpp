@@ -1,6 +1,6 @@
 #include "Utilities.hpp"
 #include "FieldsDatabase.hpp"
-
+#include "definitions.hpp" // For ftype possibilities.
 
 /************************************/
 /*** Internal auxiliary functions ***/
@@ -41,10 +41,8 @@ void FZdatabase::RegisterEntry(int *full, int i, std::vector<entry> & vec, int *
 
 
 // Initialize an empty FZdatabase:
-void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0) {
-  int i, j, pos;
-  bool fDejavu, zDejavu;
-  entry aux;
+void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0) {
+  int i;
 
   // Allocate memory for field and redshift list from input:
   Nfield = Nfield0;
@@ -52,15 +50,25 @@ void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0) {
   fullZ  = vector<int>(0, Nfield-1);
   ifsubz = matrix<int>(0, Nfield-1, 0, 1);
   izsubf = matrix<int>(0, Nfield-1, 0, 1);
- 
+  // Field info:
+  ftypes = vector<int>   (0, Nfield-1);
+  zrange = matrix<double>(0, Nfield-1, 0, 1);
+  means  = vector<double>(0, Nfield-1);
+  shifts = vector<double>(0, Nfield-1);
+
+
   // Copy list to internal memory, organizing in database:
   for (i=0; i<Nfield; i++) {
     fullF[i] = fullF0[i]; 
     fullZ[i] = fullZ0[i];
     RegisterEntry(fullF, i, f, ifsubz);
     RegisterEntry(fullZ, i, z, izsubf);
+    ftypes[i]    = ftype0[i];
+    zrange[i][0] = zrange0[i][0];
+    zrange[i][1] = zrange0[i][1];
+    means[i]     = mean0[i];
+    shifts[i]    = shift0[i];
   }
-
   Nf = f.size();
   Nz = z.size();  
 }
@@ -80,30 +88,95 @@ FZdatabase::FZdatabase() {
 
 
 // Constructor with input:
-FZdatabase::FZdatabase(int *fullF0, int *fullZ0, int Nfield0) {
-  Init(fullF0, fullZ0, Nfield0);
+FZdatabase::FZdatabase(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0) {
+  Init(fullF0, fullZ0, Nfield0, ftype0, zrange0, mean0, shift0);
+}
+// Constructor with input:
+FZdatabase::FZdatabase(const std::string & filename) {
+  Nf     = 0;
+  Nz     = 0;
+  Nfield = 0;   
+  Load(filename);
 }
 
 
-// Build fields and redshifts database erasing previous one:
-void FZdatabase::Build(int *fullF0, int *fullZ0, int Nfield0) {
-  int i, j, pos;
-  bool fDejavu, zDejavu;
-  entry aux;
+void FZdatabase::Load(const std::string & filename) {
+  using namespace definitions;
+  char message[200];
+  int i, *fName, *zName;
+  long long1, long2;
+  double **aux;
+  
+  // Safe guard against double loading:
+  if (Nfield>0) error("FZdatabase.Load: second time loading not implemented.");
 
+  // Load info file:
+  aux    = LoadTable<double>(filename, &long1, &long2);
+  // Field names:
+  Nfield = (int)long1;
+  fullF  = vector<int>   (0, Nfield-1);
+  fullZ  = vector<int>   (0, Nfield-1);
+  ifsubz = matrix<int>   (0, Nfield-1, 0, 1);
+  izsubf = matrix<int>   (0, Nfield-1, 0, 1);
+  // Field info:
+  means  = vector<double>(0, Nfield-1);
+  shifts = vector<double>(0, Nfield-1);
+  ftypes = vector<int>   (0, Nfield-1);
+  zrange = matrix<double>(0, Nfield-1, 0, 1);
+  
+  // Parse information to separate arrays:
+  for (i=0; i<Nfield; i++) {
+    // Field names:
+    fullF[i]     = (int)aux[i][0]; 
+    fullZ[i]     = (int)aux[i][1];
+    RegisterEntry(fullF, i, f, ifsubz);
+    RegisterEntry(fullZ, i, z, izsubf);
+    // Field info:
+    means[i]     =      aux[i][2];  
+    shifts[i]    =      aux[i][3];    
+    ftypes[i]    = (int)aux[i][4];
+    zrange[i][0] =      aux[i][5];
+    zrange[i][1] =      aux[i][6]; 
+  }
+  free_matrix(aux, 0, long1-1, 0, long2-1);
+  Nf = f.size();
+  Nz = z.size();  
+
+  // A few checks on the input:
+  for (i=0; i<Nfield; i++) {
+    if (zrange[i][0]>zrange[i][1])    warning("FZdatabase.Load: zmin > zmax for a field.");
+    if (ftypes[i]!=fgalaxies && ftypes[i]!=fshear) warning("FZdatabase.Load: unknown field type in FIELDS_INFO file.");
+    if(means[i]+shifts[i]<=0) {
+      printf(message, "FZdatabase.Load: mean+shift at position %d must be greater than zero (LOGNORMAL realizations only).", i); 
+      warning(message);
+    }
+  }
+}
+
+// Build fields and redshifts database erasing previous one:
+void FZdatabase::Build(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double **zrange0, double *mean0, double *shift0) {
   // Destroy previous allocation if existent:
   if (Nf>0) { free_vector(fullF, 0, Nf); f.resize(0); }
   if (Nz>0) { free_vector(fullZ, 0, Nz); z.resize(0); }
-
+  if (Nfield>0) {
+    free_vector(ftypes, 0, Nfield-1);
+    free_matrix(zrange, 0, Nfield-1, 0, 1);
+    free_vector(means,  0, Nfield-1);
+    free_vector(shifts, 0, Nfield-1);
+  }
   // Initialize with new information:
-  Init(fullF0, fullZ0, Nfield0);
+  Init(fullF0, fullZ0, Nfield0, ftype0, zrange0, mean0, shift0);
 }
 
 
 // Destructor:
 FZdatabase::~FZdatabase() {
-  if (Nf>0) free_vector(fullF, 0, Nf);
-  if (Nz>0) free_vector(fullZ, 0, Nz); 
+  if (Nf>0)     free_vector(fullF,  0, Nf);
+  if (Nz>0)     free_vector(fullZ,  0, Nz);
+  if (Nfield>0) free_vector(means,  0, Nfield-1);
+  if (Nfield>0) free_vector(shifts, 0, Nfield-1);
+  if (Nfield>0) free_vector(ftypes, 0, Nfield-1);
+  if (Nfield>0) free_matrix(zrange, 0, Nfield-1, 0, 1);
   if (Nfield>0) free_matrix(ifsubz, 0, Nfield-1, 0, 1);
   if (Nfield>0) free_matrix(izsubf, 0, Nfield-1, 0, 1);
 }
@@ -211,3 +284,10 @@ void FZdatabase::fFixedName(int fi, int zi, int *fName, int *zName) const {
   Index2Name(fFixedIndex(fi, zi), fName, zName);
 }
 
+
+// Return info for a Field index:
+double FZdatabase::mean(int n)  const { return means[n];    }
+double FZdatabase::shift(int n) const { return shifts[n];   }
+int    FZdatabase::ftype(int n) const { return ftypes[n];   }
+double FZdatabase::zmin(int n)  const { return zrange[n][0];}
+double FZdatabase::zmax(int n)  const { return zrange[n][1];}

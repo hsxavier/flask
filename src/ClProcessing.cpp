@@ -91,7 +91,7 @@ std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldl
 
 
 /*** Wraps all processing of the input Cls up to the gaussian covariance matrices for each l ***/
-int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsOut, const FZdatabase & fieldlist, const ParameterList & config) {
+int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlist, const ParameterList & config) {
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
   simtype dist;                                         // For specifying simulation type.
@@ -135,7 +135,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
   }
   
   // Find out the number of lines and columns in C(l) files:  
-  Nlinput=0;
+  Nlinput  = 0;
   Nentries = vector<long>(0,NinputCls-1);
   for (k=0; k<NinputCls; k++) {
     if (filelist[k].size()>0) {
@@ -276,7 +276,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
 	}
 
 	// Transform Xi(theta) to auxiliary gaussian Xi(theta):
-	status=GetGaussCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
+	status=GetGaussCorr(xi, xi, 2*Nls, fieldlist.mean(i), fieldlist.shift(i), fieldlist.mean(j), fieldlist.shift(j));
 	if (status==EDOM) error("ClProcess: GetGaussCorr found bad log arguments.");
 	if (i==j && xi[0]<0) warning("ClProcess: auxiliary field variance is negative.");
 	if (config.reads("GXIOUT_PREFIX")!="0") { // Write it out if requested:
@@ -442,9 +442,6 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
 	m = NCls-1-k-(l*(l+1))/2;
 	i = Nfields-1-l;
 	j = Nfields-1-m;
-	//i=k/Nfields;  j=k%Nfields;
-	
-	//cout << "** Transforming C(l) in ["<<i<<", "<<j<<"]:\n";
 
 	// Temporary memory allocation:
 	tempCl    = vector<double>(0, lastl);
@@ -454,22 +451,15 @@ int ClProcess(gsl_matrix ***CovBylAddr, double *means, double *shifts, int *NlsO
 	// Copy the Cl to a vector:
 	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
 	// Compute correlation function Xi(theta):
-	//cout << "   DLT (inverse) to obtain the correlation function...     "; cout.flush();
 	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
 	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
-	//cout << "done.\n";
 	// Get Xi(theta) for lognormal variables:
-	//cout << "   Getting correlation function for lognormal variables... "; cout.flush();
-	GetLNCorr(xi, xi, 2*Nls, means[i], shifts[i], means[j], shifts[j]);
-	//cout << "done.\n";
+	GetLNCorr(xi, xi, 2*Nls, fieldlist.mean(i), fieldlist.shift(i), fieldlist.mean(j), fieldlist.shift(j));
 	// Compute the Cls:
-	//cout << "   DLT (forward) to obtain the angular power spectrum...   "; cout.flush(); 
 	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
 	ApplyClFactors(tempCl, Nls, lsup, supindex);
-	//cout << "done.\n";
 	// Output:
 	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
-	//cout << ">> Regularized lognormal C(l) written to "+filename<<endl;
 	
 	// Temporary memory deallocation:
 	free_vector(tempCl, 0, lastl);

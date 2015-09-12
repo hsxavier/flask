@@ -29,7 +29,7 @@ public:
   double ns;      // Power spectrum spectral index.
   double galdens; // 3D comoving galaxy density in (h^-1 Mpc)^3.
   Cosmology();
-  void load(ParameterList *config);
+  void load(const ParameterList & config);
   void show (std::ostream * output = &std::cout);
   void SetOther();
 };
