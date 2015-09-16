@@ -37,35 +37,6 @@ int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double s
 }
 
 
-
-/*** Find out number of columns and rows in file ***/
-void CountEntries(std::string filename, long *nr, long *nc) {
-  using std::ifstream;
-  using std::string;
-  using std::istringstream;
-  using std::ostringstream;
-  long nrows=0, ncols=0;
-  ifstream file;
-  istringstream inputline; ostringstream outputline;
-  string word, phrase;
-  
-  // Open file
-  file.open(filename.c_str());
-  if (!file.is_open()) error("CountEntries: cannot open file.");
-  
-  // Count lines and columns:
-  getline(file,phrase);
-  outputline << phrase;
-  inputline.str(outputline.str());
-  while (inputline >> word) ncols++;
-  while(!file.eof()) {getline(file,phrase); if (phrase.length()>0) nrows++;}
-
-  file.close();
-  *nr=nrows+1;
-  *nc=ncols;
-}
-
-
 /*** Export function y(x) for the field combination [i,j] to file ***/
 std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldlist, double *x, double *y, int length) {
   int af, az, bf, bz;
@@ -99,7 +70,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
   int i, j, k, l, m, status, Nfields, Nf, Nz, Nls, lmin, lmax;
-  std::string filename, ExitAt;
+  std::string filename, ExitAt, prefix;
   bool *fnzSet;
   gsl_matrix **CovByl;
   
@@ -123,6 +94,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   bool **IsSet;
 
   // Get list of the necessary C(l) files:
+  prefix    = config.reads("CL_PREFIX"); 
   NinputCls = Nfields*Nfields;
   filelist  = vector<std::string>(0,NinputCls-1);
   // LOOP over all C(l)s:
@@ -130,7 +102,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     i = k/Nfields;      j = k%Nfields;
     fieldlist.Index2Name(i, &af, &az);
     fieldlist.Index2Name(j, &bf, &bz);
-    sprintf(message, "%sf%dz%df%dz%d.dat", config.reads("CL_PREFIX").c_str(), af, az, bf, bz);
+    sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(), af, az, bf, bz);
     if(access(message, R_OK) == 0) filelist[k].assign(message);
   }
   

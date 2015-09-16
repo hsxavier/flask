@@ -8,6 +8,48 @@
 #include <iomanip>   // for setw()
 #include <ctime>
 
+
+// Print some stats before finish the code run: 
+void PrepareEnd(time_t StartAll) {
+  double TotalTime;
+  int min, sec;
+
+  TotalTime = difftime(time(NULL), StartAll);
+  min       = ((int)TotalTime)/60;
+  sec       = ((int)TotalTime)%60;
+  printf("\nTotal running time:       %d min, %d sec.\n", min, sec);
+  printf(  "Total number of warnings: %d\n\n", warning("count"));
+}
+
+
+/*** Find out number of columns and rows in file ***/
+void CountEntries(std::string filename, long *nr, long *nc) {
+  using std::ifstream;
+  using std::string;
+  using std::istringstream;
+  using std::ostringstream;
+  long nrows=0, ncols=0;
+  ifstream file;
+  istringstream inputline; ostringstream outputline;
+  string word, phrase;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("CountEntries: cannot open file.");
+  
+  // Count lines and columns:
+  getline(file,phrase);
+  outputline << phrase;
+  inputline.str(outputline.str());
+  while (inputline >> word) ncols++;
+  while(!file.eof()) {getline(file,phrase); if (phrase.length()>0) nrows++;}
+
+  file.close();
+  *nr=nrows+1;
+  *nc=ncols;
+}
+
+
 /****** Replace substring 'from' to 'to' in string 'str' ******/
 bool StrReplace(std::string& str, const std::string& from, const std::string& to) {
     size_t start_pos = str.find(from);

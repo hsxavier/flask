@@ -18,13 +18,20 @@ CXXFITS = -I/usr/include/cfitsio
 endif
 
 # General instructions:
-all: $(BIN)/corrlnfields $(BIN)/GenStarMask $(BIN)/XiCalculator
+all: $(BIN)/corrlnfields $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 
 # Executables:
+
+$(BIN)/Dens2KappaCls: $(OBJ)/Dens2KappaCls.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+			$(OBJ)/Cosmology.o $(OBJ)/FieldsDatabase.o $(OBJ)/Integral.o \
+			$(OBJ)/interpol.o
+	$(COMP) $(OBJ)/Dens2KappaCls.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+		$(OBJ)/Cosmology.o $(OBJ)/FieldsDatabase.o $(OBJ)/Integral.o \
+		$(OBJ)/interpol.o -o $@ -lgomp
 
 $(BIN)/XiCalculator: $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o 
 	$(COMP) $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o -o $@ -lgomp
@@ -46,6 +53,10 @@ $(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utiliti
 			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o -o $@ $(LIBS)
 
 # Objects:
+
+$(OBJ)/Dens2KappaCls.o: $(SRC)/Dens2KappaCls.cpp $(SRC)/Utilities.hpp $(SRC)/ParameterList.hpp \
+			$(SRC)/Cosmology.hpp $(SRC)/FieldsDatabase.hpp $(SRC)/definitions.hpp
+	$(COMP) -c $(SRC)/Dens2KappaCls.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/XiCalculator.o: $(SRC)/XiCalculator.cpp Utilities.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/XiCalculator.cpp -o $@ $(CXXOMP)

@@ -291,3 +291,23 @@ double FZdatabase::shift(int n) const { return shifts[n];   }
 int    FZdatabase::ftype(int n) const { return ftypes[n];   }
 double FZdatabase::zmin(int n)  const { return zrange[n][0];}
 double FZdatabase::zmax(int n)  const { return zrange[n][1];}
+
+
+// Error checking for LoS integration (density fields must have continuous redshift coverage):
+int FZdatabase::CheckZ4Int() const {
+  using namespace definitions;
+  int k=0, f, z, i, j;
+
+  for (f=0; f<Nf; f++) {
+    i = fFixedIndex(f, 0);
+    if (ftypes[i]==fgalaxies) {
+      k++; // Count density fields.
+      for (z=1; z<Nz4f(f); z++) {
+	fFixedIndex(f, z-1, &i); fFixedIndex(f, z, &j); 
+	if (zmax(i) != zmin(j)) // Check if z bins are sequential and contiguous.
+	  warning("FZdatabase.CheckZ4Int: expecting sequential AND contiguous redshift slices for galaxies");
+      }
+    }
+  }
+  return k;
+}

@@ -10,17 +10,17 @@
 #include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
 
 
-// Print some stats before finish the code run: 
-void PrepareEnd(time_t StartAll) {
-  double TotalTime;
-  int min, sec;
 
-  TotalTime = difftime(time(NULL), StartAll);
-  min       = ((int)TotalTime)/60;
-  sec       = ((int)TotalTime)%60;
-  printf("\nTotal running time:       %d min, %d sec.\n", min, sec);
-  printf(  "Total number of warnings: %d\n\n", warning("count"));
+void TabulateKappaWeight(double **KappaWeightTable, const Cosmology & cosmo, const FZdatabase & fieldlist) {
+  int Nfields, i, j;
+
+  Nfields = fieldlist.Nfields();
+  for (i=0; i<Nfields; i++) 
+    for (j=0; j<Nfields; j++) 
+      KappaWeightTable[i][j] = KappaWeightByZ(cosmo, (fieldlist.zmin(j)+fieldlist.zmax(j))/2.0, fieldlist.zmax(i)) 
+	* (fieldlist.zmax(j)-fieldlist.zmin(j));
 }
+
 
 // Change angular coordinates in catalog if requested:
 void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype) {
@@ -447,56 +447,6 @@ double RandRedshift0(gsl_rng *r, double zmin, double zmax) {
   return gsl_rng_uniform(r)*(zmax-zmin)+zmin;
 }
 
-// Wrapper so ProjDensityIntegrand can be used by GSL minimizer:
-double gsl_mProjDensityIntegrand(double z, void *p) {
-  Cosmology *params;
-  params = (Cosmology*)p;
-  return -1.0*ProjDensityIntegrand(z, params);
-}
-
-// Selection of random redshift inside a bin. It is wrong since the density should 
-// take into account the selection function, which currently it does not. 
-// So it is easier to sample uniformly and make the bins small.
-// This code was left here in case we need to implement a GSL minimizer later on
-// or something like that.
-double ran_redshift(gsl_rng *r, double zmin, double zmax, Cosmology *p) {
-  const int MAXITER=100;
-  const  double ymin=0, zprecision=0.0005;
-  static bool   init=0;
-  static double YMAX;
-  double ymax, zguess;
-  int status, iter=0;
-  
-  // Find global minimum to initialize the function:
-  if (init==0) {
-    // Initialize the GSL minimizer:
-    gsl_function gslF;
-    gslF.function = &gsl_mProjDensityIntegrand;
-    gslF.params   = p;
-    const gsl_min_fminimizer_type * mintype = gsl_min_fminimizer_brent;
-    gsl_min_fminimizer *minscheme = gsl_min_fminimizer_alloc(mintype);
-    zguess = (zmax-zmin)/2.0;
-    status = gsl_min_fminimizer_set(minscheme, &gslF, zguess, zmin, zmax);
-    if (status!=0) error("ran_redshift: problems with gsl_min_fminimizer_set.");
-    // Run the minimizer:
-    do {
-      iter++;
-      status = gsl_min_fminimizer_iterate   (minscheme);
-      zguess = gsl_min_fminimizer_x_minimum (minscheme);
-      zmin   = gsl_min_fminimizer_x_lower   (minscheme);
-      zmax   = gsl_min_fminimizer_x_upper   (minscheme);
-      status = gsl_min_test_interval(zmin, zmax, zprecision, 0.0);
-      if (status == GSL_SUCCESS) printf ("Converged:\n");
-      printf ("%5d [%.7f, %.7f] %.7f %+.7f %.7f\n", iter, zmin, zmax, zguess, zguess - 2.5, zmax - zmin);
-    } while (status == GSL_CONTINUE && iter < MAXITER);
-    gsl_min_fminimizer_free(minscheme);
-    init=1;
-    return zguess;
-  }
-
-  
-  gsl_rng_uniform(r);
-}
 
 /*** Multiply Lower-triangular matrix L to complex vector gaus0 and return gaus1 ***/
 void CorrGauss(double **gaus1, gsl_matrix *L, double **gaus0) {

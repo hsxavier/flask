@@ -175,6 +175,28 @@ double trapzd(double (*func)(double, double, param), double a, double b, int n, 
    }
 }
 
+// Almost just a copy of above to allow functions with parameters as first entries to be integrated:
+double trapzd5(double (*func)(param, double, double), double a, double b, int n, double z0, param p) {
+   
+   /* Declaração das variáveis */
+   double x,tnm,sum,del;
+   static double s;
+   int it,j;
+   
+   if (n == 1) {
+     return (s=0.5*(b-a)*((*func)(p,a,z0)+(*func)(p,b,z0)));
+   }
+   else {
+      for (it=1,j=1;j<n-1;j++) it <<= 1;
+      tnm=it;
+      del=(b-a)/tnm;
+      x=a+0.5*del;
+      for (sum=0.0,j=1;j<=it;j++,x+=del) sum += (*func)(p,x,z0);
+      s=0.5*(s+(b-a)*sum/tnm);
+      return s;
+   }
+}
+
 /****** Método de integracao de Romberg para funções boazinhas ******/
 // For functions with extra double AND parameters.
 double qromb(double (*func)(double, double, param), double a, double b, double z0, param p) {
@@ -200,6 +222,34 @@ double qromb(double (*func)(double, double, param), double a, double b, double z
       h[j+1]=0.25*h[j];
    }
    error("Too many steps in routine qromb4");
+   
+   return 0.0;
+}
+
+// Just a copy of above to allow functions with parameters as first entries to be integrated:
+double qromb5(double (*func)(param, double, double), double a, double b, double z0, param p) {
+  /* Declaração de funçõe utilizadas */
+   void polint(double xa[], double ya[], int n, double x, double *y, double *dy);
+   double trapzd(double (*func)(double, double, param), double a, double b, int n, double z0, param p);
+   /* Declaração das variáveis utilizadas */
+   double ss,dss, EPSqi;
+   double s[JMAXP],h[JMAXP+1];
+   int j, Ki, JMAXi;
+   
+   Ki=K;
+   EPSqi=EPSq;
+   JMAXi=JMAX;
+      
+   h[1]=1.0;
+   for (j=1; j<=JMAXi; j++) {
+     s[j]=trapzd5(func,a,b,j,z0,p);
+      if (j >= Ki) {
+	 polint(&h[j-Ki],&s[j-Ki],Ki,0.0,&ss,&dss);
+	 if (fabs(dss) <= EPSqi*fabs(ss)) return ss;
+      }
+      h[j+1]=0.25*h[j];
+   }
+   error("Too many steps in routine qromb5");
    
    return 0.0;
 }

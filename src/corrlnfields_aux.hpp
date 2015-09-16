@@ -16,7 +16,7 @@
 #include <ctime>         // For PrepareEnd.
 
 // Auxiliary functions for corrlnfields program:
-void PrepareEnd(time_t StartAll);
+void TabulateKappaWeight(double **KappaWeightTable, const Cosmology & cosmo, const FZdatabase & fieldlist);
 void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype);
 bool ComputeShearQ(const ParameterList & config);
 double MapMean(const Healpix_Map<MAP_PRECISION> & map);

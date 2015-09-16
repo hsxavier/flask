@@ -56,6 +56,8 @@ public:
   int    ftype(int n) const;
   double zmin(int n)  const;
   double zmax(int n)  const;
+  // Field organization information:
+  int CheckZ4Int() const;
 };
 
 

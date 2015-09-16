@@ -14,10 +14,12 @@ memory allocation.
 // Error messaging:
 void error (const std::string message);
 int warning (const std::string message);
+void PrepareEnd(time_t StartAll);
 // Random real generator:
 double random(long *idum);
 double gasdev(long *idum);
 // Importing & Exporting data:
+void CountEntries(std::string filename, long *nr, long *nc);
 void ImportVecs(double **matriz, long length, long nvecs, const char *filename);
 // Formatting:
 std::string ZeroPad(int num, int max);

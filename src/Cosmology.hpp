@@ -34,11 +34,12 @@ public:
   void SetOther();
 };
 
-double Eh(Cosmology *p, double z);
-double ComDist(Cosmology *p, double z);
-double KappaWeightByZ(Cosmology *p, double z, double zsource);
+double Eh(const Cosmology & p, double z);
+double ComDist(const Cosmology & p, double z);
+double KappaWeightByZ(const Cosmology & p, double z, double zsource);
+double AvgKappaWeightByZ(const Cosmology & p, double zmin, double zmax, double zsource);
 double TophatWk2(double kR); // It is the modulus squared of the fourier transform of a 3D Tophat function with normalization 1. 
-double ProjDensity(double z0, double zmin, double zmax, Cosmology *p);
-double ProjDensityIntegrand(double z, Cosmology *p);
+double ProjDensity(double z0, double zmin, double zmax, const Cosmology & p);
+double ProjDensityIntegrand(double z, const Cosmology & p);
 
 #endif

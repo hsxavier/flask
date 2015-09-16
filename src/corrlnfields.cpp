@@ -89,9 +89,7 @@ int main (int argc, char *argv[]) {
   /***********************************/
   /*** PART 1: Loads fields info   ***/
   /***********************************/
-  int *fName, *zName;
-  double **aux;
-
+  
   // Load means, shifts, type and z range data file:
   Announce("Loading fields information from file "+config.reads("FIELDS_INFO")+"... ");
   fieldlist.Load(config.reads("FIELDS_INFO"));
@@ -346,28 +344,14 @@ int main (int argc, char *argv[]) {
     int zsource, Nintdens=0;
 
     // Error checking (density fields must have continuous redshift coverage):
-    k=0; m=0;
-    for (f=0; f<Nf; f++) {
-      i = fieldlist.fFixedIndex(f, 0);
-      if (fieldlist.ftype(i)==fgalaxies) {
-	k++; // Count density fields.
-	for (z=1; z<fieldlist.Nz4f(f); z++) {
-	  fieldlist.fFixedIndex(f, z-1, &i); fieldlist.fFixedIndex(f, z, &j); 
-	  if (fieldlist.zmax(i) != fieldlist.zmin(j)) // Check if z bins are sequential and contiguous.
-	    warning("corrlnfields: expecting sequential AND contiguous redshift slices for galaxies");
-	}
-      }
-    }
+    k = fieldlist.CheckZ4Int();
     cout << "   Found "<<k<<" density fields.\n";
     if (k==0) error("corrlnfields: no density field found for integrating");
     
     // Compute Kernel:
     Announce("   Tabulating integration kernel... ");
-    KappaWeightTable = matrix<double>(0, Nfields-1, 0, Nfields-1);    
-    for (i=0; i<Nfields; i++) 
-      for (j=0; j<Nfields; j++) 
-	KappaWeightTable[i][j] = KappaWeightByZ(&cosmo, (fieldlist.zmin(j)+fieldlist.zmax(j))/2.0, fieldlist.zmax(i)) 
-	  * (fieldlist.zmax(j)-fieldlist.zmin(j));
+    KappaWeightTable = matrix<double>(0, Nfields-1, 0, Nfields-1);
+    TabulateKappaWeight(KappaWeightTable, cosmo, fieldlist);
     Announce();
     
     // Do the integration:
@@ -418,7 +402,7 @@ int main (int argc, char *argv[]) {
     
     // Join Integrated density to other maps:
     Announce("   Concatenating integrated density data to main data...");
-    int *ftemp;
+    int *ftemp, *fName, *zName;
     double **ztemp, *mtemp, *stemp;
 
     // Allocate temporary memory:

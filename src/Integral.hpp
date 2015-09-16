@@ -2,7 +2,7 @@
 #define INTEGRAL_H 1
 
 #include "Cosmology.hpp"
-#define param Cosmology*
+typedef const Cosmology & param;
 
 void polint(double xa[], double ya[], int n, double x, double *y, double *dy);
 double trapzd(double (*func)(param,double), double a, double b, int n, param p);
@@ -11,4 +11,6 @@ double trapzd(double (*func)(double, double), double a, double b, int n, double 
 double qromb(double (*func)(double, double), double a, double b, double p);
 double trapzd(double (*func)(double, double, param), double a, double b, int n, double z0, param p);
 double qromb(double (*func)(double, double, param), double a, double b, double z0, param p);
+double trapzd5(double (*func)(param, double, double), double a, double b, int n, double z0, param p);
+double qromb5(double (*func)(param, double, double), double a, double b, double z0, param p);
 #endif
