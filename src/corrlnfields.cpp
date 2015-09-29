@@ -28,6 +28,7 @@
 #define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
 
 
+
 /********************/
 /*** Main Program ***/
 /********************/
@@ -47,9 +48,10 @@ int main (int argc, char *argv[]) {
   gsl_matrix **CovByl; 
   int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, Nls, MaxThreads;
   long long1, long2;
+  double *expmu, gvar, gvarl;
   gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
 
- 
+  
   /**********************************************/
   /*** PART 0: Test code and load config file ***/
   /**********************************************/
@@ -85,6 +87,7 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
  
+  
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/
@@ -164,8 +167,32 @@ int main (int argc, char *argv[]) {
   if (ExitAt=="CHOLESKY_PREFIX") {
     PrepareEnd(StartAll); return 0;
   }
+
+
+  // If necessary, compute the Gaussian field variance from theory:
+  if (dist==lognormal) {
+    Announce("LOGNORMAL realizations: computing exponential factor... ");
+    expmu = vector<double>(0, Nfields-1);
+    // LOOP over Fields:
+    for (i=0; i<Nfields; i++) {
+      gvar = 0;
+      // Compute Gaussian field variance from mixing matrices:
+      for (l=lmin; l<=lmax; l++) {
+	gvarl = 0;
+	// Compute Cov(l)_ii from mixing matrices:
+	for (j=0; j<=i; j++) gvarl += pow(CovByl[l]->data[i*Nfields+j], 2);
+	// Add up multipole contributions:
+	gvar += (2.0*((double)l)+1.0)*gvarl;
+      }
+      gvar /= 4.0*M_PI;
+      // Compute the exponential factor:
+      expmu[i] = (fieldlist.mean(i)+fieldlist.shift(i))/exp(gvar/2.0);
+    } // End of LOOP over Fields.
+    Announce();
+  }
   
-  
+
+
   /*************************************************/
   /*** PART 4: Auxiliary Gaussian alm generation ***/
   /*************************************************/
@@ -257,11 +284,9 @@ int main (int argc, char *argv[]) {
   /******************************/
   int nside, npixels;
   Healpix_Map<MAP_PRECISION> *mapf;
-  double expmu, gmean, gvar;
   pointing coord;
   char *arg[5];
   char opt1[]="-bar", val1[]="1";
-  
 
   /*** Part 5.1: Generate maps from auxiliar alm's ***/
 
@@ -307,20 +332,18 @@ int main (int argc, char *argv[]) {
   // If LOGNORMAL, exponentiate pixels:
   if (dist==lognormal) {
     Announce("LOGNORMAL realizations: exponentiating pixels... ");
-    for (i=0; i<Nfields; i++) {
-      gmean = 0; gvar = 0;
-#pragma omp parallel for reduction(+:gmean)
-      for (j=0; j<npixels; j++) gmean += mapf[i][j];
-      gmean = gmean/npixels;
-#pragma omp parallel for reduction(+:gvar)
-      for (j=0; j<npixels; j++) gvar += pow(mapf[i][j]-gmean, 2);
-      gvar = gvar/(npixels-1);
-      expmu=(fieldlist.mean(i)+fieldlist.shift(i))/exp(gvar/2);
-#pragma omp parallel for
-      for(j=0; j<npixels; j++) mapf[i][j] = expmu*exp(mapf[i][j])-fieldlist.shift(i);
+    long2 = ((long)Nfields)*((long)npixels);
+#pragma omp parallel for private(i, j)
+    for (long1=0; long1<long2; long1++) {
+      i = (int)(long1%Nfields);
+      j = (int)(long1/Nfields);
+      mapf[i][j] = expmu[i]*exp(mapf[i][j])-fieldlist.shift(i);
     }
+    free_vector(expmu, 0, Nfields-1);
     Announce();
   }
+  
+
   // If GAUSSIAN, only add mean:
   else if (dist==gaussian) {
     Announce("GAUSSIAN realizations: adding mean values to pixels... ");

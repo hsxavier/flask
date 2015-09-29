@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <cstddef> // For NULL pointer.
-
+#include <string>
 
 struct entry {
   int IDnum;

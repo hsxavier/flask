@@ -6,6 +6,7 @@
 #include <omp.h> 
 #include <iostream>
 #include <unistd.h>             // For access function.
+#include "Spline.hpp"
 
 int main(int argc, char *argv[]) {
   using std::cout; using std::endl;                     // Basic stuff.
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
   double ***ll, ***Cov;
   bool **IsSet;
   time_t start;
+
 
   /*************************/
   /*** PART 0: Load data ***/
@@ -179,6 +181,49 @@ int main(int argc, char *argv[]) {
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
   Announce();
 
+  /*
+  Spline densCl;
+  int z1, z2; 
+  double zmin=1000.0, zmax=0.0, factor, *xinterp, dxinterp, zmean;
+  l=1000;
+  f=0;
+  printf("l=%g\n", ll[0][0][l]);
+  outfile.open("origCov.dat");
+  for (z1=0; z1<fieldlist.Nz4f(f); z1++) {
+    fieldlist.fFixedIndex(f, z1, &i);
+    zmean = (fieldlist.zmin(i)+fieldlist.zmax(i))/2.0;
+    if (zmean<zmin) zmin=zmean;
+    if (zmean>zmax) zmax=zmean;
+    for (z2=0; z2<fieldlist.Nz4f(f); z2++) {
+      fieldlist.fFixedIndex(f, z2, &j);
+      outfile << Cov[i][j][l] << " ";
+    }
+    outfile << std::endl;
+  }
+  outfile.close();
+
+  densCl.init(fieldlist, Cov, f, l);
+  factor     = 4;
+  xinterp    = vector<double>(0, factor*Nfields-1);
+  dxinterp   = (zmax-zmin)/((double)(factor*Nfields)-1.0); 
+  outfile.open("interpCov.dat");
+  for(i=0; i<factor*Nfields; i++) {
+    xinterp[i] = zmin + i * dxinterp;
+    for(j=0; j<factor*Nfields; j++) {
+      xinterp[j] = zmin + j * dxinterp;
+      outfile << densCl(xinterp[i], xinterp[j]) << " ";
+    }
+    outfile << std::endl;
+  }
+  outfile.close();
+  
+  wrapper[0]=xinterp;
+  outfile.open("interpDom.dat");
+  PrintVecs(wrapper, factor*Nfields, 1, &outfile);
+  outfile.close();
+
+  return 0;
+  */
 
   /***********************************************************/
   /*** PART 2: Compute convergence Cls through Riemann sum ***/

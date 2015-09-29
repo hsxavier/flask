@@ -28,10 +28,10 @@ clean:
 
 $(BIN)/Dens2KappaCls: $(OBJ)/Dens2KappaCls.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/Cosmology.o $(OBJ)/FieldsDatabase.o $(OBJ)/Integral.o \
-			$(OBJ)/interpol.o
+			$(OBJ)/interpol.o $(OBJ)/Spline.o
 	$(COMP) $(OBJ)/Dens2KappaCls.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 		$(OBJ)/Cosmology.o $(OBJ)/FieldsDatabase.o $(OBJ)/Integral.o \
-		$(OBJ)/interpol.o -o $@ -lgomp
+		$(OBJ)/interpol.o $(OBJ)/Spline.o -o $@ -lgomp
 
 $(BIN)/XiCalculator: $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o 
 	$(COMP) $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o -o $@ -lgomp
@@ -69,6 +69,9 @@ $(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC
 			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp \
 			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
+
+$(OBJ)/Spline.o:	$(SRC)/Spline.cpp $(SRC)/Spline.hpp $(SRC)/Utilities.hpp $(SRC)/FieldsDatabase.hpp
+	$(COMP) -c $(SRC)/Spline.cpp -o $@
 
 $(OBJ)/FieldsDatabase.o: $(SRC)/FieldsDatabase.cpp $(SRC)/FieldsDatabase.hpp $(SRC)/Utilities.hpp
 	 $(COMP) -c $(SRC)/FieldsDatabase.cpp -o $@ $(CXXOMP)
