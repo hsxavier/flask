@@ -319,7 +319,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   
   // Verify basic properties of auxiliary cov. matrices:
   Announce("Verifying aux. Cov. matrices properties... ");
-  for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero. 
+  for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero.
     for (i=0; i<Nfields; i++) {
       // Verify that diagonal elements are positive:
       if (CovByl[l]->data[i*Nfields+i]<=0.0) {

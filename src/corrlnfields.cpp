@@ -124,8 +124,12 @@ int main (int argc, char *argv[]) {
 	PrepareEnd(StartAll); return 0; 
       }
       cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
+      if (lmax>Nls-1) {
+	lmax=Nls-1;
+	warning("corrlnfields: requested LMAX is beyond input data, will use existing data instead.");
+      }
       cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
-    
+
       // Cholesky decomposition:
       Announce("Performing Cholesky decompositions of cov. matrices... ");
       j=0; // Will count number of Cholesky failures.
@@ -374,7 +378,12 @@ int main (int argc, char *argv[]) {
     // Compute Kernel:
     Announce("   Tabulating integration kernel... ");
     KappaWeightTable = matrix<double>(0, Nfields-1, 0, Nfields-1);
-    TabulateKappaWeight(KappaWeightTable, cosmo, fieldlist);
+    for (i=0; i<Nfields; i++) 
+      for (j=0; j<Nfields; j++) 
+	KappaWeightTable[i][j] = AvgKappaWeightByZ(cosmo, fieldlist.zmin(j), fieldlist.zmax(j), fieldlist.zmax(i)) 
+	  * (fieldlist.zmax(j)-fieldlist.zmin(j));
+    
+    //TabulateKappaWeight(KappaWeightTable, cosmo, fieldlist);
     Announce();
     
     // Do the integration:
