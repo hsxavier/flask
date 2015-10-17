@@ -1,22 +1,25 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   summarizeData.py <mean_output_file> <stdDev_output_file> <all_input_files>
+EXAMPLE: summarizeData.py mean.dat dev.dat data_*.dat
+
+This script takes a list of files <all_input_files> that must all have the same shape 
+and headers starting with '#' (or no headers) and compute the average of each entry 
+over all files {e.g. mean[i][j] = Average(file01[i][j], file02[i][j], ...)}. It also 
+computes the standard deviation in the same fashion. Therefore, the output has the same 
+shape as the input. 
+
+Written by: Henrique S. Xavier -- hsxavier@if.usp.br -- 2015-10-16
+Strongly based on:
+http://stackoverflow.com/questions/12963446/how-to-calculate-the-average-of-several-dat-files-using-python
+"""
+
 from contextlib import contextmanager
 from itertools import imap, izip
 from glob import iglob
 from math import sqrt
 from sys import exit, argv
-
-# Colours:
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
 
 @contextmanager
 def multi_file_manager(files, mode='rt'):
@@ -44,14 +47,6 @@ meanfile = argv.pop(0)        # Second is the file output for the means.
 devfile  = argv.pop(0)        # Third is the file output for the standard deviations.
 #                               Remaining are the files that will be averaged over.
  
-
-# Safeguard against wrong input:
-#print ""
-#print "Will write means to"+bcolors.FAIL, meanfile +bcolors.ENDC, "and std. dev. to"+bcolors.FAIL, devfile+bcolors.ENDC
-#go = raw_input("Is this what you want (y/n)? ")
-#if go!="y" and go!="Y":
-#    exit(0)
-#print ""
 
 # Run code:
 with multi_file_manager(argv) as datfiles:
