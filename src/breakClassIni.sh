@@ -16,6 +16,11 @@
 
 # Get parameters from command line:
 inifile=$1
+outpath=$2
+
+# Get prefix for output:
+ndots=`echo $inifile | grep "\." -o | wc -l`
+prefix=`echo $inifile | cut -d. -f$ndots`
 
 # Get list of redshifts:
 zCSVlist=`grep selection_mean $inifile | cut -d= -f2`
@@ -44,8 +49,8 @@ while [ $bin1 -lt $nbins ]; do
 	fi
 	# Create .ini file with just two bins:
 	sed -e "s/selection_mean.*/selection_mean = $newbins/g" -e "s/selection_width.*/selection_width = $newdz/g" \
-	    -e "s/non_diagonal.*/non_diagonal = 1/g" -e "s/root.*/root = break-${bin1}-${bin2}_/g" \
-	    $inifile > break-${bin1}-${bin2}.ini
+	    -e "s/non_diagonal.*/non_diagonal = 1/g" -e "s/root.*/root = ${prefix}-${bin1}-${bin2}_/g" \
+	    $inifile > ${outpath}${prefix}-${bin1}-${bin2}.ini
 	echo $newbins
 	bin2=`echo "$bin2 + 1" | bc`
     done
