@@ -10,6 +10,8 @@ Generates a CSV list of <nbins> central values of bins that covers from
 RETURNS:
 bin half-width
 list of central values
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 26/oct/2015.
 """
 
 import sys

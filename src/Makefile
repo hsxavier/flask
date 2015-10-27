@@ -17,12 +17,14 @@ LDHEAL  = -L/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/lib
 CXXFITS = -I/usr/include/cfitsio
 endif
 
+
 # General instructions:
 all: $(BIN)/corrlnfields $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
+
 
 # Executables:
 

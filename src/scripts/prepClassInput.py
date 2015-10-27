@@ -1,5 +1,19 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   prepClassInput.py <CLASS_CL_FILE> <FLASK_CL_PREFIX>
+EXAMPLE: prepClassInput.py prec17_20_cl.dat Cl-
+OUTPUT:  <FLASK_CL_PREFIX>f1z1f1z1.dat, <FLASK_CL_PREFIX>f1z1f1z2.dat, ...
+
+This script takes a CLASS angular power spectra output file with header 
+<CLASS_CL_FILE> and writes a separate file for each of the power spectra in 
+this file containing two columns, l and C(l). Moreover, it removes the pi and 
+l factors to return the pure C(l)s and transforms the lensing potential C(l)s 
+[and cross C(l)s] to ones related to the convergence by applying l factors. 
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 10/sep/2015.
+"""
+
 import numpy as np
 import sys
 import math as m

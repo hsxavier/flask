@@ -1,6 +1,14 @@
-# Runs corrlnfields many times, in parallel.
+#!/usr/bin/env bash
+
+#
+# Runs FLASK many times, in parallel.
 # USAGE:   manyalm.sh <config file> <RANDoffset> <Ntimes> <Nprocessors>
 # EXAMPLE: manyalm.sh sree.config 0 1000 5
+#
+# Obsolete since FLASK became parallel.
+#
+# Written by: Henrique S. Xavier, hsxavier@if.usp.br, 06/may/2015.
+#
 
 config=$1
 offset=$2

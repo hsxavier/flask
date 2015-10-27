@@ -1,5 +1,23 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   camb2info.py <CAMB_INPUT> <FIELDS_INFO_FILENAME> 
+EXAMPLE: camb2info.py lcdm_10bins.ini lcdm_10bins/fields-info.dat
+
+This script takes a CAMBsources input file and creates a file used by 
+FLASK describing the simulated fields and redshift bins (basically a 
+table of field and redshift bin IDs, mean values, shift parameters and 
+redshift ranges).
+
+There are three methods for computing the shift parameter for convergence:
+A table read from a file which is interpolated, the formula from 
+Hilbert, Hartlap & Schneider (2011), and a formula computed from FLASK 
+density line of sight integration. The latter is currently used (the other 
+ones are commented).
+
+Written by Henrique S. Xavier, hsxavier@if.usp.br, 05/aug/2015.
+"""
+
 import sys
 import numpy as np
 import re
@@ -22,11 +40,11 @@ KappaType  = 2
 
 
 # Get input:
-classinput = sys.argv[1]
+cambinput = sys.argv[1]
 fieldinfo  = sys.argv[2]
 
 # Read input file:
-fin = open(classinput, 'r')
+fin = open(cambinput, 'r')
 lines = fin.readlines()
 
 # LOOP over lines:

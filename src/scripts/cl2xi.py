@@ -1,5 +1,22 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   cl2xi.py <CL_IN> <XI_OUT>
+EXAMPLE: cl2xi.py Cl-f1z1f1z1.dat Xi-f1z1f1z1.dat
+
+This script take an angular power spectrum C(l) and computes the 
+angular correlation function Xi(theta).
+
+ATTENTION:
+- It assumes that the input C(l) starts at l=2 and then 
+  sets the monopole to zero and interpolate the dipole.
+- It instroduces a hard-coded Gaussian suppression of power to 
+  avoid oscillations in Xi caused by the hard bandlimit. 
+  Check the lsup variable.
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 28/jul/2015 
+"""
+
 import numpy as np
 import sys
 from scipy import interpolate as scint

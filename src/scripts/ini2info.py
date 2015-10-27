@@ -1,5 +1,24 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   ini2info.dat <CLASS_INPUT> <FIELDS_INFO_FILE>
+EXAMPLE: ini2info.dat prec17_20_dens.ini prec17_20_dens/fields-info.dat
+
+This script takes a CLASS input file and creates a file used by 
+FLASK describing the simulated fields and redshift bins (basically a 
+table of field and redshift bin IDs, mean values, shift parameters and 
+redshift ranges).
+
+There are three methods for computing the shift parameter for convergence:
+A table read from a file which is interpolated, the formula from 
+Hilbert, Hartlap & Schneider (2011), and a formula computed from FLASK 
+density line of sight integration. The latter is currently used (the other 
+ones are commented).
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 08/jul/2015.
+"""
+
+
 import sys
 import numpy as np
 
@@ -127,8 +146,8 @@ def shift(f, z):
                 return KappaShift
             if FixKappa==0:
                 #return np.interp(z, fileZ, fileSh)
-                return HilbertShift(z)
-                #return XavierShift(z)
+                #return HilbertShift(z)
+                return XavierShift(z)
     elif nf==1:
         if HasGal==1: 
             return GalShift
@@ -137,8 +156,8 @@ def shift(f, z):
                 return KappaShift
             if FixKappa==0:
                 #return np.interp(z, fileZ, fileSh)
-                return HilbertShift(z)
-                #return XavierShift(z)
+                #return HilbertShift(z)
+                return XavierShift(z)
 
 # Functions for output:
 def ftype(f):

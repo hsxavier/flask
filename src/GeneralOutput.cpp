@@ -70,12 +70,13 @@ void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist,
     if (lmaxout > config.readi("LMAX")) { 
       lmaxout = config.readi("LMAX"); 
       warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
     }
     if (lminout < config.readi("LMIN")) { 
       lminout = config.readi("LMIN"); 
       warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
     }
-    
     Nfields = fieldlist.Nfields();
     NCls    = (Nfields*(Nfields+1))/2;
 
@@ -135,10 +136,12 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     if (lmaxout > config.readi("LMAX")) { 
       lmaxout = config.readi("LMAX"); 
       warning("GeneralOutput: LRANGE_OUT beyond LMAX, will use LMAX instead");
+      //warning("GeneralOutput: LRANGE_OUT beyond LMAX"); 
     }
     if (lminout < config.readi("LMIN")) { 
       lminout = config.readi("LMIN"); 
       warning("GeneralOutput: LRANGE_OUT beyond LMIN, will use LMIN instead");
+      //warning("GeneralOutput: LRANGE_OUT beyond LMIN");
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
@@ -190,10 +193,12 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     if (lmaxout > config.readi("LMAX")) { 
       lmaxout = config.readi("LMAX"); 
       warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
     }
     if (lminout < config.readi("LMIN")) { 
       lminout = config.readi("LMIN"); 
       warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
@@ -239,10 +244,12 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     if (lmaxout > config.readi("LMAX")) { 
       lmaxout = config.readi("LMAX"); 
       warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
     }
     if (lminout < config.readi("LMIN")) { 
       lminout = config.readi("LMIN"); 
       warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
+      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");

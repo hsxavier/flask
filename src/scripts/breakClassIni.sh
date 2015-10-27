@@ -2,9 +2,13 @@
 
 # 
 # USAGE: breakClassIni.sh <class_file.ini>
+# EXAMPLE: breakClassIni.sh tom02_b100_dens.ini
+# OUTPUT: tom02_b100_dens-1-2.ini, tom02_b100_dens-1-e.ini, ...
+# 
 # This script takes a CLASS input file and creates in the current directory 
-# one input file for each combination of two redshift bins. Each input file 
-# is called "break-<zbin1>-<zbin2>.ini". This avoids CLASS crashing issues 
+# one input file for each combination of two redshift bins. Each new input file 
+# is called "<prefix>-<zbin1>-<zbin2>.ini", where <prefix> is the <class_file.ini> 
+# name before the last dot. This strategy isolates CLASS crashing issues 
 # while increating the number of Cls to be computed by slightly less than 
 # 3 times (with the advantage that the computation can be distributed in a 
 # cluster).

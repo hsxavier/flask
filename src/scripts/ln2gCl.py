@@ -1,7 +1,22 @@
 #! /usr/bin/env python
 
-# USAGE: ln2gCl.py <input Cl^{ij}> <redshift of kappa i> <redshift of kappa j> <output Gaussian Cl^{ij}>
-# If dealing with galaxy density i, set <redshift of kappa i> = -1
+"""
+USAGE:   ln2gCl.py <input Cl^{ij}> <redshift of kappa i> <redshift of kappa j> <output Gaussian Cl^{ij}>
+If dealing with galaxy density i, set <redshift of kappa i> = -1
+EXAMPLE: ln2gCl.py Cl-f1z5f2z7.dat -1 0.65 gCl-f1z5f2z7.dat
+OUTPUT:  C(l) for the associated Gaussian fields written to <output Gaussian Cl^{ij}>
+
+This script takes an input angular power spectrum C(l) between lognormal fields i and j 
+[an ASCII file with two columns: l and C(l)], assumes that it starts at l=2 (monopole 
+is set to zero and dipole is interpolated), does not apply any suppression to C(l), 
+compute the angular correlation function Xi, compute Xi of the associated Gaussian 
+variables (assuming the lognormal field has mean zero and shift calculated from redshift 
+by one of the formulas below in the code or is equal to one for the field i if 
+<redshift of kappa i> is set to -1) and goes back to C(l). The current formula for 
+shift(z) is the one obtained from FLASK density line of sight integration.  
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 06/aug/2015.
+"""
 
 import numpy as np
 import sys

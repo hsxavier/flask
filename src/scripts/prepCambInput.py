@@ -1,5 +1,20 @@
 #! /usr/bin/env python
 
+"""
+USAGE:   prepCambInput.py <CAMB_COV_FILE> <FIELDS_INFO_FILE> <FLASK_CL_PREFIX>
+EXAMPLE: prepCambInput.py test08_scalCovCls.dat test08/fields-info.dat Cl-
+OUTPUT:  <FLASK_CL_PREFIX>f1z1f1z1.dat, <FLASK_CL_PREFIX>f1z1f1z2.dat, ...
+
+This script takes a CAMB angular power spectra output file with repeated columns and 
+the FLASK FIELDS_INFO file <FIELDS_INFO_FILE> prepared by the camb2info.py script 
+and writes a separate file for each of the power spectra in the <CAMB_COV_FILE> file 
+containing two columns, l and C(l). Moreover, it removes the pi and 
+l factors to return the pure C(l)s. 
+
+Written by: Henrique S. Xavier, hsxavier@if.usp.br, 04/aug/2015.
+"""
+
+
 import numpy as np
 import sys
 
