@@ -316,6 +316,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       }
   Announce();
   free_matrix(IsSet, 0, Nfields-1, 0, Nfields-1);
+
+  // Output covariance matrices for each l if requested:
+  GeneralOutput(CovByl, config, "COVL_PREFIX", 0);
+  if (config.reads("COVL_PREFIX")!="0") 
+    cout << ">> Cov. matrices written to prefix "+config.reads("COVL_PREFIX")<<endl;
+  // Exit if this is the last output requested:
+  if (ExitAt=="COVL_PREFIX") return 1;
   
   // Verify basic properties of auxiliary cov. matrices:
   Announce("Verifying aux. Cov. matrices properties... ");
@@ -342,13 +349,6 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       }
     }      
   Announce();
-  
-  // Output covariance matrices for each l if requested:
-  GeneralOutput(CovByl, config, "COVL_PREFIX", 0);
-  if (config.reads("COVL_PREFIX")!="0") 
-    cout << ">> Cov. matrices written to prefix "+config.reads("COVL_PREFIX")<<endl;
-  // Exit if this is the last output requested:
-  if (ExitAt=="COVL_PREFIX") return 1;
 
 
   /****************************************************************************/
