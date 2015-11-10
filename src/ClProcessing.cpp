@@ -73,7 +73,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   std::string filename, ExitAt, prefix;
   bool *fnzSet;
   gsl_matrix **CovByl;
-  
+  double temp, badcorrfrac;
 
   // Getting general information:
   Nfields = fieldlist.Nfields();
@@ -305,13 +305,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
 	  // Set transpose to zero if this is allowed:
 	  if (k==1) { for (l=0; l<Nls; l++) CovByl[l]->data[j*Nfields+i] = 0.0; IsSet[j][i]=1; }
 	  // If not allowed, return error:
-	  else { sprintf(message,"ClProcess: [%d,%d] could not be set because [%d,%d] was not set.",i,j,j,i); error(message); }
+	  else { sprintf(message,"ClProcess: [%d, %d] could not be set because [%d, %d] was not set.",i,j,j,i); error(message); }
 	}
 	for (l=0; l<Nls; l++) CovByl[l]->data[i*Nfields+j] = CovByl[l]->data[j*Nfields+i];
 	IsSet[i][j] = 1;
       }
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]!=1) {
-	sprintf(message,"ClProcess: [%d,%d] was not set.",i,j);
+	sprintf(message,"ClProcess: [%d, %d] was not set.",i,j);
 	error(message);
       }
   Announce();
@@ -319,22 +319,25 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   
   // Verify basic properties of auxiliary cov. matrices:
   Announce("Verifying aux. Cov. matrices properties... ");
+  badcorrfrac = config.readd("BADCORR_FRAC");
   for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero.
     for (i=0; i<Nfields; i++) {
       // Verify that diagonal elements are positive:
       if (CovByl[l]->data[i*Nfields+i]<=0.0) {
-	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d,%d] is negative or zero", l, i, i);
+	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d, %d] is negative or zero", l, i, i);
 	warning(message);
       }
       for (j=i+1; j<Nfields; j++) {
 	// Correlations c should be limited to -1<c<1.
-	if (CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j])>1.0) {
-	  sprintf(message, "ClProcess: aux. Cov. matrix (l=%d) element [%d,%d] results in correlation greater than 1", l, i, j);
-	  warning(message); 
-	}
-	else if (CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j])<-1.0) {
-	  sprintf(message, "ClProcess: aux. Cov. matrix (l=%d) element [%d,%d] results in correlation smaller than -1", l, i, j);
-	  warning(message);   
+	temp = CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j]);
+	if (temp>1.0 || temp<-1.0) {
+	  // Try increasing variances if correlation is absurd:
+	  cout << "  Aux. Cov. matrix (l="<<l<<") element ["<<i<<", "<<j<<"] results in correlation "<<temp
+	       <<". Fudging variances with BADCORR_FRAC...\n";
+	  CovByl[l]->data[i*Nfields+i] *= (1.0+badcorrfrac);
+	  CovByl[l]->data[j*Nfields+j] *= (1.0+badcorrfrac);
+	  temp = CovByl[l]->data[i*Nfields+j]/sqrt(CovByl[l]->data[i*Nfields+i]*CovByl[l]->data[j*Nfields+j]);
+	  if (temp>1.0 || temp<-1.0) warning("ClProcess: BADCORR_FRAC could not solve the issue.");
 	}
       }
     }      
