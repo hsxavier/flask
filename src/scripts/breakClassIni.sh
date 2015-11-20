@@ -3,7 +3,7 @@
 # 
 # USAGE: breakClassIni.sh <class_file.ini>
 # EXAMPLE: breakClassIni.sh tom02_b100_dens.ini
-# OUTPUT: tom02_b100_dens-1-2.ini, tom02_b100_dens-1-e.ini, ...
+# OUTPUT: tom02_b100_dens-1-2.ini, tom02_b100_dens-1-3.ini, ...
 # 
 # This script takes a CLASS input file and creates in the current directory 
 # one input file for each combination of two redshift bins. Each new input file 

@@ -1,4 +1,6 @@
 # Variable definitions:
+DEBUG = -g -O0
+# COMP = g++ $(DEBUG)
 COMP = g++
 BIN  = ../bin
 OBJ  = ../obj

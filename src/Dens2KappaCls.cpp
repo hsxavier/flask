@@ -266,6 +266,7 @@ int main(int argc, char *argv[]) {
 	  is1 = fieldlist.fFixedIndex(f, zs1);
 	  is2 = fieldlist.fFixedIndex(f, zs2);
 	  // LOOP over multipoles:
+#pragma omp parallel for schedule(dynamic) private(zl1, zl2, il1, il2)
 	  for(l=0; l<Nlinput; l++) {
 	    tempCl[l]=0.0;
 	    // LOOPs over lenses redshifts (integration):
@@ -306,6 +307,7 @@ int main(int argc, char *argv[]) {
 	  is1 = fieldlist.fFixedIndex(f,zs1);
 	  is2 = fieldlist.fFixedIndex(f,zs2);
 	  // LOOP over multipoles:
+#pragma omp parallel for schedule(dynamic) private(zl2, il2)
 	  for(l=0; l<Nlinput; l++) {
 	    tempCl[l]=0.0;
 	    // LOOPs over lens redshift (integration):
