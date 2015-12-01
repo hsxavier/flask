@@ -9,6 +9,15 @@
 #include <unistd.h>             // For access function.
 #include "FieldsDatabase.hpp"   
 
+
+/*** Transform a C(l) to represent the 2D field now smoothed by a Gaussian with variance sigma2 ***/
+void ApplyGausWinFunc(double *ClOut, double sigma2, double *l, double *ClIn, int Nls) {
+  int i;
+  for (i=0; i<Nls; i++)
+    ClOut[i] = exp( -l[i]*(l[i]+1)*sigma2 ) * ClIn[i];
+} 
+
+
 /*** Transforms a correlation function of gaussian variables gXi into a corr. function of corresponding lognormal variables lnXi ***/
 void GetLNCorr(double *lnXi, double *gXi, int XiLength, double mean1, double shift1, double mean2, double shift2) {
   int i;
@@ -167,6 +176,41 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   // Exit if this is the last output requested:
   if (ExitAt=="FLIST_OUT") return 1;
  
+  
+  /*************************************************************/
+  /*** PART 1.5: Apply Gaussian window function if requested ***/
+  /*************************************************************/
+  double WinFuncVar;
+
+  WinFuncVar = config.readd("WINFUNC_SIGMA");            // WINFUNC_SIGMA will be transformed to radians and squared below. 
+  if (WinFuncVar > 0.0) {
+    Announce("Applying window function to C(l)s... ");
+    WinFuncVar = WinFuncVar/60.0*M_PI/180.0;             // From arcmin to radians.
+    WinFuncVar = WinFuncVar*WinFuncVar;                  // From std. dev. to variance.
+    // LOOP over existing C(l)s:
+#pragma omp parallel for schedule(dynamic) private(i, j)
+    for (k=0; k<Nfields*Nfields; k++) {
+      i=k/Nfields;  j=k%Nfields;
+      if (IsSet[i][j]==1) {
+	// In-place C(l) change due to Gaussian window function:
+	ApplyGausWinFunc(Cov[i][j], WinFuncVar, ll[i][j], Cov[i][j], NentMat[i][j]);
+      }
+    } // End over LOOP over existing C(l)s.
+    Announce();
+  } // End of IF Smoothing requested.
+
+  // Print C(l)s to files if requested:
+  filename = config.reads("SMOOTH_CL_PREFIX");
+  if (filename!="0") {
+    for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
+	  PrintOut(filename, i, j, fieldlist, ll[i][j], Cov[i][j], NentMat[i][j]); 	  
+	}
+    cout << ">> Smoothed C(l)s written to prefix "+config.reads("SMOOTH_CL_PREFIX")<<endl;
+  }
+  if (ExitAt=="SMOOTH_CL_PREFIX") return 1;
+
+
+  /*** Continue organizing C(l)s ***/
 
   // Look for the maximum l value described by all C(l)s:
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
