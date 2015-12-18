@@ -13,7 +13,7 @@
 namespace definitions {
   const int fgalaxies=1, fshear=2;                           // Field type identification.
   enum simtype {gaussian, lognormal, homogeneous};           // Type of simulation.
-  const int unknown_format=0, ascii_format=1, fits_format=2; // File format for output catalogue.     
+  const int unknown_format=0, ascii_format=1, fits_format=2; // File format for output catalogue.      
 }
 
 

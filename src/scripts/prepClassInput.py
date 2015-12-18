@@ -73,14 +73,24 @@ fac1 = l*(l+1)/2.0   # The sign was supposed to be negative according to Hu 2000
 
 # LOOP over columns 
 for i in range(1, ncols):
+    factor = fac0
 
     # Discover if column is gal-gal, gal-lens ou lens-lens and compute appropriate factors:
-    factor = fac0
-    first = header[i].find("lens")
+    first = header[i].find("lens") 
     if first != -1:
         # One lens so far, use fac1
         factor = factor*fac1
         second = header[i].find("lens", first+1)
+        if second !=-1:
+            # Two lens, use another fac1 
+            factor = factor*fac1
+
+    # Find if columns are CMB lensing potentials and convert them to convergence:
+    first = header[i].find("phi") 
+    if first != -1:
+        # One lens so far, use fac1
+        factor = factor*fac1
+        second = header[i].find("phi", first+1)
         if second !=-1:
             # Two lens, use another fac1 
             factor = factor*fac1

@@ -257,10 +257,10 @@ void PrintVecs(type **table, long nrows, long ncols, std::ostream *output = &std
   long i, j;
   
   //(*output).setf(std::ios_base::showpoint);
-  (*output).precision(8);
+  (*output).precision(12);
   for (i=offset; i<nrows+offset; i++) {
     for (j=offset; j<ncols+offset; j++) {
-      (*output).width(14); *output << table[j][i] << " ";
+      (*output).width(18); *output << table[j][i] << " ";
     }
     *output << std::endl;
   }      

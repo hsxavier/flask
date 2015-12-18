@@ -87,7 +87,6 @@ int main (int argc, char *argv[]) {
   else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
   else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
  
-  
 
   /***********************************/
   /*** PART 1: Loads fields info   ***/

@@ -140,14 +140,14 @@ void FZdatabase::Load(const std::string & filename) {
   }
   free_matrix(aux, 0, long1-1, 0, long2-1);
   Nf = f.size();
-  Nz = z.size();  
-
+  Nz = z.size(); 
+ 
   // A few checks on the input:
   for (i=0; i<Nfield; i++) {
     if (zrange[i][0]>zrange[i][1])    warning("FZdatabase.Load: zmin > zmax for a field.");
     if (ftypes[i]!=fgalaxies && ftypes[i]!=fshear) warning("FZdatabase.Load: unknown field type in FIELDS_INFO file.");
     if(means[i]+shifts[i]<=0) {
-      printf(message, "FZdatabase.Load: mean+shift at position %d must be greater than zero (LOGNORMAL realizations only).", i); 
+      sprintf(message, "FZdatabase.Load: mean+shift at position %d must be greater than zero (LOGNORMAL realizations only).", i); 
       warning(message);
     }
   }

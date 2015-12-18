@@ -8,6 +8,8 @@
 #include "corrlnfields_aux.hpp" // For n2fz functions, Maximum, etc..
 #include <unistd.h>             // For access function.
 #include "FieldsDatabase.hpp"   
+#include "fitsfunctions.hpp"    // For ReadHealpixData function used for Healpix pixel window function.
+#include "Spline.hpp"           // For applying Healpix window function to arbitrarily spaced C(l)s.
 
 
 /*** Transform a C(l) to represent the 2D field now smoothed by a Gaussian with variance sigma2 ***/
@@ -178,13 +180,16 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
  
   
   /*************************************************************/
-  /*** PART 1.5: Apply Gaussian window function if requested ***/
+  /*** PART 1.5: Apply various window functions if requested ***/
   /*************************************************************/
-  double WinFuncVar;
+  double WinFuncVar, *pixwin, *pixell;
+  Spline pixSpline;
+  
 
+  // Gaussian beam:
   WinFuncVar = config.readd("WINFUNC_SIGMA");            // WINFUNC_SIGMA will be transformed to radians and squared below. 
   if (WinFuncVar > 0.0) {
-    Announce("Applying window function to C(l)s... ");
+    Announce("Applying Gaussian window function to C(l)s... ");
     WinFuncVar = WinFuncVar/60.0*M_PI/180.0;             // From arcmin to radians.
     WinFuncVar = WinFuncVar*WinFuncVar;                  // From std. dev. to variance.
     // LOOP over existing C(l)s:
@@ -198,6 +203,37 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     } // End over LOOP over existing C(l)s.
     Announce();
   } // End of IF Smoothing requested.
+
+
+  // Healpix pixel window function:      
+  if (config.readi("APPLY_PIXWIN")==1) {
+    Announce("Applying Healpix pixel window function to C(l)s... ");
+    // Prepare spline of the window function [input C(l)s might be at random ell]:
+    m      = config.readi("NSIDE");
+    pixell = vector<double>(0, 4*m);
+    pixwin = vector<double>(0, 4*m);
+    status = ReadHealpixData(1, config, pixwin, 2);
+    if (status!=0) error("ClProcess: cannot read Healpix pixel window FITS.");
+    for (i=0; i<=4*m; i++) {
+      pixell[i] = (double)i;
+      pixwin[i] = pixwin[i]*pixwin[i];
+    }
+    pixSpline.init(pixell, pixwin, 4*m+1);
+    free_vector(pixell, 0, 4*m);
+    free_vector(pixwin, 0, 4*m);
+    // LOOP over existing C(l)s:
+#pragma omp parallel for schedule(dynamic) private(i, j, l)
+    for (k=0; k<Nfields*Nfields; k++) {
+      i=k/Nfields;  j=k%Nfields;
+      if (IsSet[i][j]==1) {
+	// In-place C(l) change due to pixel window function:
+	if(ll[i][j][NentMat[i][j]-1] > 4*m) warning("ClProcess: input C(l) overshoot Healpix ppixel window function.");
+	for(l=0; l<NentMat[i][j]; l++) Cov[i][j][l] = pixSpline(ll[i][j][l])*Cov[i][j][l];
+      }
+    } // End over LOOP over existing C(l)s.
+    Announce();
+  } // End of IF Smoothing requested.
+
 
   // Print C(l)s to files if requested:
   filename = config.reads("SMOOTH_CL_PREFIX");

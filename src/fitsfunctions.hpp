@@ -6,6 +6,6 @@
 #include <arr.h>
  
 int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries, const ParameterList & config);
-int ReadHealpixWeights(int col, int nside, const ParameterList & config, double *weights);
+int ReadHealpixData(int col, const ParameterList & config, double *weights, int datatype);
 
 #endif

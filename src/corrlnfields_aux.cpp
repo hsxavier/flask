@@ -241,7 +241,7 @@ void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config
   if (config.readi("USE_HEALPIX_WGTS")==1) {
     Announce("   Loading Healpix map weights... ");
     tempweight = vector<double>(0, 2*nside-1);
-    status = ReadHealpixWeights(col, nside, config, tempweight);
+    status = ReadHealpixData(col, config, tempweight, 1);
     if (status==0) for (i=0; i<2*nside; i++) weight[i]=1.0+tempweight[i];
     else { 
       warning("PrepRingWeights: could not load Healpix weights, using 1.0 instead.");
