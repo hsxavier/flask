@@ -3,7 +3,7 @@
 #include <iomanip>              // For setprecision.
 #include "GeneralOutput.hpp"    // I don't know why, maybe to avoid mismatches.
 #include "Utilities.hpp"        // For warnings, errros and dynamic allocation.
-#include "corrlnfields_aux.hpp" // For n2fz function.
+#include "flask_aux.hpp"        // For n2fz function.
 #include "FieldsDatabase.hpp"
 
 
@@ -16,7 +16,7 @@ void GeneralOutput(const gsl_matrix *Cov, std::string filename, bool inform) {
   std::ofstream outfile; 
 
   outfile.open(filename.c_str());
-  if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+  if (!outfile.is_open()) warning("GeneralOutput: cannot open file "+filename);
   else { 
     PrintGSLMatrix(Cov, &outfile); 
     outfile.close();
@@ -32,12 +32,13 @@ void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::strin
   int lmin, lmax, l;
 
   if (config.reads(keyword)!="0") {
-    lmin = config.readi("LMIN");
-    lmax = config.readi("LMAX");
+    lmin = config.readi("LRANGE", 0);
+    lmax = config.readi("LRANGE", 1);
+    if (lmin>lmax) error("GeneralOutput: LRANGE set in the wrong order.");
     for (l=lmin; l<=lmax; l++) {
       filename=config.reads(keyword)+"l"+ZeroPad(l,lmax)+".dat";
       outfile.open(filename.c_str());
-      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+      if (!outfile.is_open()) warning("GeneralOutput: cannot open file "+filename);
       else { 
 	PrintGSLMatrix(CovByl[l], &outfile); 
 	outfile.close();
@@ -67,15 +68,13 @@ void GeneralOutput(double **recovCl, bool *yesCl, const FZdatabase & fieldlist,
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LMAX")) { 
-      lmaxout = config.readi("LMAX"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
+    if (lmaxout > config.readi("LRANGE", 1)) { 
+      lmaxout = config.readi("LRANGE", 1); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use latter instead.");
     }
-    if (lminout < config.readi("LMIN")) { 
-      lminout = config.readi("LMIN"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
+    if (lminout < config.readi("LRANGE", 0)) { 
+      lminout = config.readi("LRANGE", 0); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead.");
     }
     Nfields = fieldlist.Nfields();
     NCls    = (Nfields*(Nfields+1))/2;
@@ -133,18 +132,16 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LMAX")) { 
-      lmaxout = config.readi("LMAX"); 
-      warning("GeneralOutput: LRANGE_OUT beyond LMAX, will use LMAX instead");
-      //warning("GeneralOutput: LRANGE_OUT beyond LMAX"); 
+    if (lmaxout > config.readi("LRANGE", 1)) { 
+      lmaxout = config.readi("LRANGE", 1); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
     }
-    if (lminout < config.readi("LMIN")) { 
-      lminout = config.readi("LMIN"); 
-      warning("GeneralOutput: LRANGE_OUT beyond LMIN, will use LMIN instead");
-      //warning("GeneralOutput: LRANGE_OUT beyond LMIN");
+    if (lminout < config.readi("LRANGE", 0)) { 
+      lminout = config.readi("LRANGE", 0); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead.");
     }
     mmax = config.readi("MMAX_OUT");
-    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
+    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)
@@ -190,18 +187,16 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LMAX")) { 
-      lmaxout = config.readi("LMAX"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
+    if (lmaxout > config.readi("LRANGE", 1)) { 
+      lmaxout = config.readi("LRANGE", 1); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
     }
-    if (lminout < config.readi("LMIN")) { 
-      lminout = config.readi("LMIN"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
+    if (lminout < config.readi("LRANGE", 0)) { 
+      lminout = config.readi("LRANGE", 0); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead.");
     }
     mmax = config.readi("MMAX_OUT");
-    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
+    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)
@@ -241,18 +236,16 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LMAX")) { 
-      lmaxout = config.readi("LMAX"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMAX, will use LMAX instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMAX");
+    if (lmaxout > config.readi("LRANGE", 1)) { 
+      lmaxout = config.readi("LRANGE", 1); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
     }
-    if (lminout < config.readi("LMIN")) { 
-      lminout = config.readi("LMIN"); 
-      warning("corrlnfields: LRANGE_OUT beyond LMIN, will use LMIN instead");
-      //warning("corrlnfields: LRANGE_OUT beyond LMIN");
+    if (lminout < config.readi("LRANGE", 0)) { 
+      lminout = config.readi("LRANGE", 0); 
+      warning("GeneralOutput: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead.");
     }
     mmax = config.readi("MMAX_OUT");
-    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LMIN_OUT.");
+    if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)

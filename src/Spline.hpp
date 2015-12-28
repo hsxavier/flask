@@ -1,7 +1,7 @@
 #ifndef SPLINE_H    // include guard.
 #define SPLINE_H 1
 
-#include "FieldsDatabase.hpp" // Specifically for init using corrlnfields parameters.
+#include "FieldsDatabase.hpp" // Specifically for init using flask parameters.
 
 class Spline {
 private:
@@ -16,7 +16,7 @@ public:
   Spline(double *dom1, double *dom2, double **f, int n1, int n2);
   void init(double *x, double *y, int n);
   void init(double *dom1, double *dom2, double **f, int n1, int n2);
-  void init(const FZdatabase & fieldlist, double ***Cov, int field, int l); // Specifically for init using corrlnfields parameters.
+  void init(const FZdatabase & fieldlist, double ***Cov, int field, int l); // Specifically for init using flask parameters.
   double operator()(double x) const;
   double operator()(double x1, double x2) const;
   ~Spline();

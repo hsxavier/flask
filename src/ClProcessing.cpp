@@ -5,7 +5,7 @@
 #include <math.h>               // exp, log...
 #include "GeneralOutput.hpp"
 #include "RegularizeCov.hpp"
-#include "corrlnfields_aux.hpp" // For n2fz functions, Maximum, etc..
+#include "flask_aux.hpp"        // For n2fz functions, Maximum, etc..
 #include <unistd.h>             // For access function.
 #include "FieldsDatabase.hpp"   
 #include "fitsfunctions.hpp"    // For ReadHealpixData function used for Healpix pixel window function.
@@ -91,9 +91,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN") dist=gaussian;
   ExitAt  = config.reads("EXIT_AT");
-  lmax    = config.readi("LMAX");
-  lmin    = config.readi("LMIN");
-
+  lmax    = config.readi("LRANGE", 1);
+  lmin    = config.readi("LRANGE", 0);
+  if (lmax<lmin) error("ClProcess: LRANGE set in the wrong order.");
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/

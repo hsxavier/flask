@@ -1,4 +1,4 @@
-/* corrlnfields: Written by Henrique S. Xavier on Nov-2014
+/* flask: Written by Henrique S. Xavier on Nov-2014
    e-mail: hsxavier@if.usp.br
  */
 
@@ -12,7 +12,7 @@
 #include <omp.h>                // For OpenMP functions, not pragmas.
 #include <limits.h>             // For finding out max. value of INT variables.
 #include "definitions.hpp"      // Global variables and #defines.
-#include "corrlnfields_aux.hpp" // Auxiliary functions made for this program.
+#include "flask_aux.hpp" // Auxiliary functions made for this program.
 #include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
@@ -62,12 +62,12 @@ int main (int argc, char *argv[]) {
   // Verify that max. value for INT is not smaller than expected:
   sprintf(message, "%d", INT_MAX); filename.assign(message);
   if (filename.size() < 10) 
-    warning("corrlnfields: INT_MAX is smaller than expected, may mess parallel random number generator.");
+    warning("flask: INT_MAX is smaller than expected, may mess parallel random number generator.");
   Announce();
   
   MaxThreads = omp_get_max_threads();
   cout << "Max. # of threads:  "<<MaxThreads<<endl;
-  if (MaxThreads>210) warning("corrlnfields: # of threads too big, may mess parallel random number generator.");
+  if (MaxThreads>210) warning("flask: # of threads too big, may mess parallel random number generator.");
 
   // Loading config file:
   if (argc<=1) { cout << "You must supply a config file." << endl; return 0;}
@@ -85,7 +85,7 @@ int main (int argc, char *argv[]) {
   if (config.reads("DIST")=="LOGNORMAL")        dist=lognormal;
   else if (config.reads("DIST")=="GAUSSIAN")    dist=gaussian;
   else if (config.reads("DIST")=="HOMOGENEOUS") dist=homogeneous;
-  else error("corrlnfields: unknown DIST: "+config.reads("DIST"));
+  else error("flask: unknown DIST: "+config.reads("DIST"));
  
 
   /***********************************/
@@ -109,8 +109,9 @@ int main (int argc, char *argv[]) {
   int lmax, lmin;
   
   CholeskyInPrefix = config.reads("CHOL_IN_PREFIX");
-  lmax             = config.readi("LMAX");
-  lmin             = config.readi("LMIN");
+  lmax             = config.readi("LRANGE", 1);
+  lmin             = config.readi("LRANGE", 0);
+  if (lmin > lmax) error("LRANGE set in the wrong order.");
 
   // Skip mixing matrices if generating homogeneous uncorrelated fields: matrices would be zero:
   if (dist!=homogeneous) {
@@ -125,7 +126,7 @@ int main (int argc, char *argv[]) {
       cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
       if (lmax>Nls-1) {
 	lmax=Nls-1;
-	warning("corrlnfields: requested LMAX is beyond input data, will use existing data instead.");
+	warning("flask: requested LRANGE upper bound is beyond input data, will use existing data instead.");
       }
       cout << "Will use "<<lmin<<" <= l <= "<<lmax<<endl;
 
@@ -214,10 +215,10 @@ int main (int argc, char *argv[]) {
   Announce("Initializing random number generators... ");
   rndseed0 = config.readi("RNDSEED");
   rnd      = vector<gsl_rng*>(0,MaxThreads+1);
-  if (rndseed0 > RAND_OFFSET-1) warning("corrlnfields: RNDSEED exceeds RAND_OFFSET-1 in code.");
+  if (rndseed0 > RAND_OFFSET-1) warning("flask: RNDSEED exceeds RAND_OFFSET-1 in code.");
   for (i=0; i<=MaxThreads; i++) {
     rnd[i] = gsl_rng_alloc(gsl_rng_mt19937);
-    if (rnd==NULL) error("corrlnfields: gsl_rng_alloc failed!");
+    if (rnd==NULL) error("flask: gsl_rng_alloc failed!");
     gsl_rng_set(rnd[i], i*RAND_OFFSET+rndseed0);    // set random seed
   }
   Announce();
@@ -297,7 +298,7 @@ int main (int argc, char *argv[]) {
   Announce("Allocating memory for pixel maps... "); 
   nside    = config.readi("NSIDE");
   yesShear = ComputeShearQ(config);
-  if (nside>sqrt(INT_MAX/12)) warning("corrlnfields: NSIDE too large, number of pixels will overflow INT variables");
+  if (nside>sqrt(INT_MAX/12)) warning("flask: NSIDE too large, number of pixels will overflow INT variables");
   npixels = 12*nside*nside;
   mapf=vector<Healpix_Map<MAP_PRECISION> >(0,Nfields-1);
   for(i=0; i<Nfields; i++) mapf[i].SetNside(nside, RING); 		
@@ -372,7 +373,7 @@ int main (int argc, char *argv[]) {
     // Error checking (density fields must have continuous redshift coverage):
     k = fieldlist.CheckZ4Int();
     cout << "   Found "<<k<<" density fields.\n";
-    if (k==0) error("corrlnfields: no density field found for integrating");
+    if (k==0) error("flask: no density field found for integrating");
     
     // Compute Kernel:
     Announce("   Tabulating integration kernel... ");
@@ -416,7 +417,7 @@ int main (int argc, char *argv[]) {
       else {
 	Announce("   Computing integrated density statistics... ");
 	outfile.open(filename.c_str());
-	if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+	if (!outfile.is_open()) warning("flask: cannot open file "+filename);
 	PrintMapsStats(IntDens, fieldlist, lognormal, &outfile);
 	outfile.close();
 	Announce();
@@ -485,7 +486,7 @@ int main (int argc, char *argv[]) {
     Nz      = fieldlist.Nzs();
     Announce();
   } // End of IF compute convergence by density LoS integration.
-  else if (config.readi("DENS2KAPPA")!=0) warning("corrlnfields: unknown DENS2KAPPA option: skipping density LoS integration.");
+  else if (config.readi("DENS2KAPPA")!=0) warning("flask: unknown DENS2KAPPA option: skipping density LoS integration.");
   
   // Write final map to file as a table if requested:
   GeneralOutput(mapf, config, "MAP_OUT", fieldlist);
@@ -532,7 +533,7 @@ int main (int argc, char *argv[]) {
 	if (dist==lognormal) {
 	  PrepRingWeights(1, weight, config);
 	  Announce("   Transforming convergence map to harmonic space... ");
-	  if (lmax>nside) warning("LMAX > NSIDE introduces noise in the transformation.");
+	  if (lmax>nside) warning("LRANGE upper bound > NSIDE introduces noise in the transformation.");
 	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
 	  map2alm_iter(mapf[i], Eflm, 1, weight); // Get klm.
 	  Announce();
@@ -606,9 +607,9 @@ int main (int argc, char *argv[]) {
   Announce("Reading selection functions from files... ");
   selection.load(config, fieldlist); 
   if (selection.Nside()!=-2 && selection.Nside()!=mapf[0].Nside())
-    error("corrlnfields: Selection function and maps have different number of pixels.");
+    error("flask: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=-2 && selection.Scheme()!=mapf[0].Scheme()) 
-    error("corrlnfields: Selection function and maps have different pixel ordering schemes.");
+    error("flask: Selection function and maps have different pixel ordering schemes.");
   Announce();
 
   // Poisson Sampling the galaxy fields:
@@ -647,7 +648,7 @@ int main (int argc, char *argv[]) {
 	Announce();
       }
   }
-  else error ("corrlnfields: unknown POISSON option.");
+  else error ("flask: unknown POISSON option.");
   
   // Write final map to file as a table if requested:
   GeneralOutput(mapf, config, "MAPWER_OUT", fieldlist);
@@ -699,7 +700,7 @@ int main (int argc, char *argv[]) {
   Ngalaxies = ThreadNgals[MaxThreads];
   Announce();     
   cout << "# of galaxies: "<<Ngalaxies<<endl;
-  if (Ngalaxies>INT_MAX) warning("corrlnfields: catalogue generation not tested for this amount of galaxies");
+  if (Ngalaxies>INT_MAX) warning("flask: catalogue generation not tested for this amount of galaxies");
   
   // Using transposed catalog (catalog[col][row]), better for FITS outputting:
   CatalogHeader = config.reads("CATALOG_COLS");
@@ -729,9 +730,9 @@ int main (int argc, char *argv[]) {
   // Warning against multiple or none lensing fields at the same redshift:
   k=0;
   for(f=0; f<Nf; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==fshear) k++;
-  if (k>1) warning("corrlnfields: found multiple lensing fields, will leave last one in catalogue.");
+  if (k>1) warning("flask: found multiple lensing fields, will leave last one in catalogue.");
   if (k<1 && (kappa_pos!=-1 || gamma1_pos!=-1 || gamma2_pos!=-1 || ellip1_pos!=-1 || ellip1_pos!=-1)) 
-    warning("corrlnfields: missing lensing information required to build catalogue.");
+    warning("flask: missing lensing information required to build catalogue.");
 
   // LOOP over 3D cells (pixels and redshifts):
   Announce("Generating catalog... ");
@@ -787,8 +788,8 @@ int main (int argc, char *argv[]) {
 
   // Check if every entry was set once and only once:
   for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) {
-      if (catSet[j][kl]<1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog has missing information.");}
-      if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("corrlnfields: Catalog entry being set more than once.");}
+      if (catSet[j][kl]<1)     {cout<<"j: "<<j<<endl; error("flask: Catalog has missing information.");}
+      if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("flask: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   Announce();
@@ -813,7 +814,7 @@ int main (int argc, char *argv[]) {
       // TEXT file:
     case ascii_format: 
       outfile.open(filename.c_str());
-      if (!outfile.is_open()) warning("corrlnfields: cannot open file "+filename);
+      if (!outfile.is_open()) warning("flask: cannot open file "+filename);
       else {
 	outfile << "# "<< CatalogHeader <<endl;
 	PrintVecs(catalog, Ngalaxies, ncols, &outfile); 
@@ -828,11 +829,11 @@ int main (int argc, char *argv[]) {
       break;
       // Unknown: 
     case unknown_format: 
-      warning("corrlnfields: unknown catalogue file format, no output performed");
+      warning("flask: unknown catalogue file format, no output performed");
       break;
       // Weird: 
     default:
-      warning("corrlnfields: uninplemented catalogue file format, check code");
+      warning("flask: uninplemented catalogue file format, check code");
       break;
     }
   }  

@@ -2,7 +2,7 @@
 #include <fitsio.h>
 #include "definitions.hpp"
 #include "Utilities.hpp"
-#include "corrlnfields_aux.hpp"
+#include "flask_aux.hpp"
 
 
 int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries, const ParameterList & config) {

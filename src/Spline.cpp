@@ -90,7 +90,7 @@ void Spline::init(double *dom1, double *dom2, double **f, int n1, int n2) {
 }
 
 
-/*** Loading specifically for the corrlnfields and Dens2KappaCls program ***/
+/*** Loading specifically for the flask and Dens2KappaCls program ***/
 // Will use the Cov[i][j][l] tensor, you have to specify the field index and 
 // the multipole l, and the code loops over redshifts.
 void Spline::init(const FZdatabase & fieldlist, double ***Cov, int field, int lpos) {

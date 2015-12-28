@@ -1,5 +1,5 @@
-// These are functions created specifically for the corrlnfields program.
-#include "corrlnfields_aux.hpp"
+// These are functions created specifically for the flask program.
+#include "flask_aux.hpp"
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_min.h>
@@ -46,7 +46,7 @@ void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngala
 #pragma omp parallel for
 	for (kl=0; kl<Ngalaxies; kl++) catalog[  phi_pos][kl] =    phi2ra(catalog[  phi_pos][kl]);    
     }
-    else if (coordtype!=0) warning("corrlnfields: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
+    else if (coordtype!=0) warning("ChangeCoord: unknown ANGULAR_COORD option, will keep Theta & Phi in radians.");
     Announce();
   }
 }
@@ -169,12 +169,14 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
 
     Nfields = fieldlist.Nfields();
     nside   = config.readi("NSIDE");
-    lmin    = config.readi("LMIN");
-    lmax    = config.readi("LMAX");  
+    lmin    = config.readi("LRANGE", 0);
+    lmax    = config.readi("LRANGE", 1);  
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverAlmCls: LRANGE_OUT beyond LMAX, will use LMAX instead"); }
-    if (lminout < lmin) { lminout=lmin; warning("RecoverAlmCls: LRANGE_OUT beyond LMIN, will use LMIN instead"); }
+    if (lmin > lmax) error("RecoverAlmCls: LRANGE set in the wrong order.");
+    if (lminout > lmaxout) error("RecoverAlmCls: LRANGE_OUT set in the wrong order.");
+    if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverAlmCls: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead."); }
+    if (lminout < lmin) { lminout=lmin; warning("RecoverAlmCls: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead."); }
 
     // Allocate and clear variables to receive new alm's:
     bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
@@ -197,7 +199,7 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     if (config.reads(clsKey)!="0") {
       Announce("Recovering Cl's from maps... ");
       mmax    = config.readi("MMAX_OUT");
-      if (mmax>lminout) error("RecoverAlmCls: current code only allows MMAX_OUT <= LMIN_OUT.");
+      if (mmax>lminout) error("RecoverAlmCls: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
       NCls    = Nfields*(Nfields+1)/2;
       recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
       yesCl   = vector<bool>(0, NCls-1);

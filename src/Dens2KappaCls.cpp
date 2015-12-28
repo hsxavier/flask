@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
   // LOOP over all C(l)s:
   for (k=0; k<NinputCls; k++) {
     i = k/Nfields; j = k%Nfields;
-    // Get only density Cls:               <<< This is different from main corrlnfields code.
+    // Get only density Cls:               <<< This is different from main flask code.
     if (fieldlist.ftype(i)==fgalaxies && fieldlist.ftype(j)==fgalaxies) {
       fieldlist.Index2Name(i, &af, &az);
       fieldlist.Index2Name(j, &bf, &bz);
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
   free_vector(Nentries, 0, NinputCls-1);
   free_vector(filelist, 0, NinputCls-1);
   
-  // Check if every field was assigned a position in the CovMatrix:           <<< This is different from the main corrlnfields code.
+  // Check if every field was assigned a position in the CovMatrix:           <<< This is different from the main flask code.
   Announce("Sanity checking field allocation in matrix... ");
   for (i=0; i<Nfields; i++) 
     if (fieldlist.ftype(i)==fgalaxies && fnzSet[i]==0) 
@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
 
   // Error checking (density fields must have continuous redshift coverage):
   k = fieldlist.CheckZ4Int();
-  if (k==0) error("corrlnfields: no density field found for integrating");
+  if (k==0) error("Dens2KappaCls: no density field found for integrating");
   
   // Compute Kernel:
   Announce("Tabulating integration kernel... ");

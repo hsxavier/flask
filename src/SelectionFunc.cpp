@@ -1,6 +1,6 @@
 #include "SelectionFunc.hpp"
 #include "Utilities.hpp"
-#include "corrlnfields_aux.hpp" // For definitions namespace and n2fz function.
+#include "flask_aux.hpp" // For definitions namespace and n2fz function.
 #include <healpix_map_fitsio.h>
 #include "interpol.h"
 #include "Maximize.h"

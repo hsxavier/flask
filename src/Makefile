@@ -21,7 +21,7 @@ endif
 
 
 # General instructions:
-all: $(BIN)/corrlnfields $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
+all: $(BIN)/flask $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
 
 clean:
 	rm -f $(BIN)/*
@@ -43,15 +43,15 @@ $(BIN)/XiCalculator: $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o
 $(BIN)/GenStarMask: $(OBJ)/GenStarMask.o
 	$(COMP) $(LDHEAL) $(OBJ)/GenStarMask.o -o $@ $(LIBS)
 
-$(BIN)/corrlnfields: $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+$(BIN)/flask: $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
+			$(OBJ)/flask_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
 			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o $(OBJ)/Spline.o
-	$(COMP) $(LDHEAL) $(OBJ)/corrlnfields.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+	$(COMP) $(LDHEAL) $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
-			$(OBJ)/corrlnfields_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
+			$(OBJ)/flask_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
 			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o $(OBJ)/Spline.o -o $@ $(LIBS)
@@ -68,11 +68,11 @@ $(OBJ)/XiCalculator.o: $(SRC)/XiCalculator.cpp Utilities.hpp
 $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GenStarMask.cpp -o $@ $(CXXOMP)
 
-$(OBJ)/corrlnfields.o: $(SRC)/corrlnfields.cpp $(SRC)/corrlnfields_aux.hpp $(SRC)/ParameterList.hpp \
+$(OBJ)/flask.o: $(SRC)/flask.cpp $(SRC)/flask_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
 			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp \
 			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields.cpp -o $@ $(CXXOMP)
+	$(COMP) $(CXXHEAL) -c $(SRC)/flask.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/Spline.o:	$(SRC)/Spline.cpp $(SRC)/Spline.hpp $(SRC)/Utilities.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) -c $(SRC)/Spline.cpp -o $@
@@ -82,15 +82,15 @@ $(OBJ)/FieldsDatabase.o: $(SRC)/FieldsDatabase.cpp $(SRC)/FieldsDatabase.hpp $(S
 
 $(OBJ)/ClProcessing.o: $(SRC)/ClProcessing.cpp $(SRC)/ClProcessing.hpp $(SRC)/Utilities.hpp \
 			$(SRC)/s2kit10_naive.hpp $(SRC)/GeneralOutput.hpp $(SRC)/RegularizeCov.hpp \
-			$(SRC)/corrlnfields_aux.hpp $(SRC)/FieldsDatabase.hpp $(SRC)/Spline.hpp \
+			$(SRC)/flask_aux.hpp $(SRC)/FieldsDatabase.hpp $(SRC)/Spline.hpp \
 			$(SRC)/fitsfunctions.hpp
 	$(COMP)  $(CXXHEAL) -c $(SRC)/ClProcessing.cpp -o $@ $(CXXOMP)
 
-$(OBJ)/corrlnfields_aux.o: $(SRC)/corrlnfields_aux.cpp $(SRC)/corrlnfields_aux.hpp \
+$(OBJ)/flask_aux.o: $(SRC)/flask_aux.cpp $(SRC)/flask_aux.hpp \
 			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp $(SRC)/definitions.hpp \
 			$(SRC)/fitsfunctions.hpp $(SRC)/GeneralOutput.hpp $(SRC)/Utilities.hpp \
 			$(SRC)/lognormal.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/corrlnfields_aux.cpp -o $@ $(CXXOMP)
+	$(COMP) $(CXXHEAL) -c $(SRC)/flask_aux.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(SRC)/fitsfunctions.cpp -o $@
@@ -103,11 +103,11 @@ $(OBJ)/RegularizeCov.o: $(SRC)/RegularizeCov.cpp $(SRC)/RegularizeCov.hpp $(SRC)
 	$(COMP) -c $(SRC)/RegularizeCov.cpp -o $@
 
 $(OBJ)/SelectionFunc.o: $(SRC)/SelectionFunc.cpp $(SRC)/SelectionFunc.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/Utilities.hpp $(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp
+			$(SRC)/Utilities.hpp $(SRC)/flask_aux.hpp $(SRC)/definitions.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/SelectionFunc.cpp -o $@
 
 $(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
-			$(SRC)/corrlnfields_aux.hpp $(SRC)/definitions.hpp $(SRC)/FieldsDatabase.hpp
+			$(SRC)/flask_aux.hpp $(SRC)/definitions.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
