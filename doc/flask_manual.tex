@@ -154,7 +154,7 @@ The {\sc python} scripts require the a few packages like {\sc numpy}, {\sc scipy
 \section{Compiling}
 \label{sec:compiling}
 
-Before compiling, you will have to modify the {\tt Makefile} in the {\tt src} subdirectory of {\sc flask}. 
+Before compiling, you will have to modify the {\tt Makefile} in the {\tt src} sub-directory of {\sc flask}. 
 The following lines must be changed according to the location of the {\sc healpix} installation directory:
 
 \vspace{0.5cm}
@@ -172,7 +172,7 @@ you might need to specify their locations with similar compiler flags. The defau
 different compiler.
 
 After changing the {\tt Makefile}, run the command {\tt make} in the {\tt src} directory. The 
-executables will be build in {\sc flask} {\tt bin} subdirectory. You may add this subdirectory to 
+executables will be built in {\sc flask} {\tt bin} sub-directory. You may add this sub-directory to 
 your {\sc path} environment variable in order to be able to run {\sc flask} anywhere; otherwise, 
 you will require to run it from there or to provide the full path as usual. 
 
@@ -247,7 +247,7 @@ optional (they are executed according to the specifications in the configuration
 configuration file otherwise a warning message is issued; this is to avoid setting keywords to 
 values unknown by the user and to disclose to the user all available options in the code. 
 {\sc Flask} will also complain if keywords that do not exist in the code are present in the 
-configuration file or are passed through the command line; keywords are idenfified by a colon (:) 
+configuration file or are passed through the command line; keywords are identified by a colon (:) 
 after it, so this should not be used for other purposes inside configuration files. Although 
 the hash (\#) is used to identify comments, this is only for aesthetic reasons and does not have 
 any effect on the parsing of the configuration file ({\tt \# DENS2KAPPA:} is still identified as 
@@ -329,7 +329,7 @@ each one is also provided in {\tt example.config}):
   {\tt 0}, the code: takes as input the power spectra $C_{\nv{in}}(\ell)$s specified by {\tt CL\_PREFIX}; 
   process it to obtain the associated Gaussian power spectra $C_{\nv{g}}(\ell)$s [if {\tt DIST: LOGNORMAL}, 
   otherwise $C_{\nv{g}}(\ell)=C_{\nv{in}}(\ell)$]; build independent covariance matrices for each $\ell$; 
-  regularize the matrices if necessary and requested; and perform a Cholesky decomposition to obtain 
+  regularise the matrices if necessary and requested; and perform a Cholesky decomposition to obtain 
   triangular matrices -- which can be written to files by the {\tt CHOLESKY\_PREFIX} keyword -- used 
   to generate correlated Gaussian variables. If {\tt CHOL\_IN\_PREFIX} is not set to {\tt 0}, {\sc flask} 
   therefore skips all the processing above and loads its final product -- the triangular matrices, previously
@@ -470,11 +470,11 @@ each one is also provided in {\tt example.config}):
   options.
   
 \item {\tt REG\_MAXSTEPS:} This takes an integer number that specifies the maximum amount of 
-  steps taken in the covariance matrix elements space when trying to regularize the matrix 
+  steps taken in the covariance matrix elements space when trying to regularise the matrix 
   with {\tt REGULARIZE\_METHOD: 2}. This value is not used for other {\tt REGULARIZE\_METHOD} 
   options. 
 
-\item {\tt ADD\_FRAC:} If the covariance matrix regularization fails or if it succeeds but the 
+\item {\tt ADD\_FRAC:} If the covariance matrix regularisation fails or if it succeeds but the 
   Cholesky decomposition still fails, {\sc flask} will take the real value passed to this keyword, 
   multiply by the smallest element of the covariance matrix diagonal and add the result to all 
   diagonal elements of that matrix. 
@@ -542,10 +542,10 @@ each one is also provided in {\tt example.config}):
   Set to {\tt 0} for no output.
 
 \item {\tt REG\_COVL\_PREFIX:} Path with prefix for the covariance matrices that would be output 
-  by {\tt COVL\_PREFIX} but after being regularized according to the choice in {\tt REGULARIZE\_METHOD}.
+  by {\tt COVL\_PREFIX} but after being regularised according to the choice in {\tt REGULARIZE\_METHOD}.
   Set to {\tt 0} for no output.
 
-\item {\tt REG\_CL\_PREFIX:} Prefix (including path) for the regularized $C^{ij}(\ell)$s. In the 
+\item {\tt REG\_CL\_PREFIX:} Prefix (including path) for the regularised $C^{ij}(\ell)$s. In the 
   current implementation this can only be computed for {\tt DIST: LOGNORMAL}; therefore the 
   $C^{ij}(\ell)$s output here are for the lognormal fields. For no output, set this keyword to {\tt 0}.
 
@@ -635,18 +635,18 @@ each one is also provided in {\tt example.config}):
   \item {\tt kappa}, the convergence $\kappa$ at the corresponding cell (pixel and redshift slice);
   \item {\tt gamma1}, the first component of the shear, $\gamma_1$, at the corresponding cell;
   \item {\tt gamma2}, the second component of the shear, $\gamma_2$, at the corresponding cell; 
-  \item {\tt ellip1}, the first compoment of the ellipticity of the galaxy $\epsilon_1$, 
+  \item {\tt ellip1}, the first component of the ellipticity of the galaxy $\epsilon_1$, 
     given by Eq. \ref{eq:ellipticity}; 
-  \item {\tt ellip2}, the second compoment of the ellipticity of the galaxy $\epsilon_2$, 
+  \item {\tt ellip2}, the second component of the ellipticity of the galaxy $\epsilon_2$, 
     given by Eq. \ref{eq:ellipticity};
   \item {\tt pixel}, the {\sc healpix} map pixel number of the corresponding cell; 
   \item {\tt maskbit}, returns a sum of the following integers: 1 if the galaxy would 
     be removed by the angular selection function, i.e., if the angular selection function value 
-    at the correponding pixel is zero (currently this only happens if the selection function 
+    at the corresponding pixel is zero (currently this only happens if the selection function 
     is separable); 2 if the galaxy would be removed by the star mask given by {\tt STARMASK}, 
-    i.e., if the star mask value at the correponding pixel is zero; 4 if the angular selection function 
+    i.e., if the star mask value at the corresponding pixel is zero; 4 if the angular selection function 
     value $s$ obeys $0<s<1$ (only if the selection function is separable); and 8 if the star mask 
-    value $m$ obeys $0<m<1$. For intance, a {\tt maskbit} of 0 means that the galaxy would be observed 
+    value $m$ obeys $0<m<1$. For instance, a {\tt maskbit} of 0 means that the galaxy would be observed 
     while a {\tt maskbit} of 3 means that the galaxy would be blocked both by the angular selection
     function and the star mask.
   \end{itemize}
@@ -680,7 +680,7 @@ with an empty line (no spaces allowed). An example of such file is given in Fig.
 \end{boxedverbatim}
 \captionof{figure}{Example of a fields information file with two fields (one of type 
   \emph{galaxy} or \emph{matter density} and the other of type \emph{weak lensing 
-    convergence}) in three redshift slices. The column order is summarized in the header.
+    convergence}) in three redshift slices. The column order is summarised in the header.
 \label{fig:fields-info}}
 \end{center}
 \end{alltt}
@@ -777,7 +777,7 @@ Some public codes available to perform such calculations are:
 
 In the current implementation, the $C_{\nv{in}}^{ij}(\ell)$ files must be named as explained in 
 \ref{sec:fields-info} and must have two columns: $\ell$ and $C_{\nv{in}}^{ij}(\ell)$ (no headers 
-allowed here). The $C_{\nv{in}}^{ij}(\ell)$ is the power spectra ifself and not something like 
+allowed here). The $C_{\nv{in}}^{ij}(\ell)$ is the power spectra itself and not something like 
 $l(l+1)/(2\pi)\cdot C_{\nv{in}}^{ij}(\ell)$. They are interpolated by the code so it is not necessary 
 to specify them at every $\ell$ or at integer $\ell$s. For the user's convenience, {\sc python} 
 scripts called {\tt prepClassInput.py} and {\tt prepCambInput.py} are available in {\sc flask}'s 
@@ -787,38 +787,142 @@ into {\sc flask} input power spectra. See Sec. \ref{sec:aux} and the scripts' do
 \section{Auxiliary codes}
 \label{sec:aux} 
 
-There are several 
+There are several smaller routines available in {\sc flask}'s directory that can help the user prepare 
+its inputs and visualise or organise its outputs. Here we list the most important of them. More information 
+can be found on their docstrings. 
 
 \subsection{{\tt Dens2KappaCls}}
 \label{sec:dens2kappacls}
 
+This is a C++ code compiled to the {\tt bin} sub-directory that takes the input power spectra and 
+configuration file that would be used by {\sc flask} and compute the expected power spectra that 
+would be recovered from convergence computed by integrating simulated lognormal densities along 
+the line of sight (i.e., this code computes the red solid lines in Fig. 11 of \citet{Xavier16mn}. 
+
+The {\tt Dens2KappaCls} usage is similar to that of {\sc flask}: you run it by invoking the 
+executable followed by the path to the configuration file, followed by keywords you want to 
+change. The difference is that the last parameter passed to {\tt Dens2KappaCls} must be the 
+output files prefix for the $C(\ell)$s of the convergence obtained from density LoS integration, 
+for instance:
+
+\noindent
+{\tt Dens2KappaCls example.config NSIDE: 128 output/kappaCl-}
+
+Although this code takes the same configuration file as {\sc flask} and will complain if any 
+keyword is missing, the only keywords it actually uses are: {\tt FIELDS\_INFO}, 
+{\tt CL\_PREFIX}, {\tt ALLOW\_MISS\_CL}, {\tt OMEGA\_m}, {\tt OMEGA\_L} and 
+{\tt W\_de} (therefore, changing {\tt NSIDE} in the example 
+above is a bit silly).
+
+In the current version, {\tt Dens2KappaCls} does not apply any window function or suppression 
+to the input $C(\ell)$s before integrating them. In case you want to compare its output with 
+recovered $C(\ell)$s from {\sc flask} and have applied any of these changes to the {\sc flask} \
+input power spectra, you should use the {\tt SMOOTH\_CL\_PREFIX} keyword in {\sc flask} to 
+output files to be used as input here.
+
 \subsection{{\tt GenStarMask}}
 \label{sec:genstarmask}
+
+This routine, written in C++, creates a fulls-sky random star mask with parameters given by the user and 
+then outputs it to a {\sc healpix} map in FITS format. The parts without stars have value 1 and 
+the parts with stars (which are modelled as disks) have value 0. If necessary, these values 
+can be changed in the source code by redefining the {\tt StarValue} and {\tt EmptyValue} 
+variables.
+
+{\tt GenStarMask} takes 6 inputs, in this order: a integer used as seed for random numbers; 
+the $N_{\nv{side}}$ {\sc healpix} resolution parameter; a minimum angular radius for the stars $r_{\nv{min}}$, given 
+in arcmin; a maximum angular radius for the stars $r_{\nv{max}}$, given in arcmin; the sky fraction to be covered 
+by stars; and the filename for the output.
+
+The stars (modelled as disks) are distributed homogeneously on the sky, and the natural 
+logarithmic of the disk radius are homogeneously sampled between $\nv{ln}(r_{\nv{min}})$ and 
+$\nv{ln}(r_{\nv{max}})$. The stars can be superimposed and are generated until the fraction of 
+pixels covered by stars is greater than the value specified in the input.
 
 \subsection{{\tt camb2info.py}}
 \label{sec:camb2info}
 
-\subsection{{\tt ChangeMapResolution.py}}
+This {\sc python} script takes a {\sc camb sources} input file and creates a 
+{\sc flask} fields information file. It takes as input, in this order: 
+the {\sc camb sources} {\tt .ini} filename and the output filename. 
+
+There are three methods for computing the shift parameter for convergence:
+a table read from a file which is interpolated; the formula from 
+\citet{Hilbert11x}; and a formula computed from {\sc flask} 
+density line of sight integration. The latter is currently used (the others 
+are commented out in the script). To generate the {\tt zmin} and {\tt zmax} 
+columns in the fields information file, this routine uses the {\tt redshift\_sigma} 
+entry in the {\sc camb sources} {\tt .ini} file as half of the redshift bin width. 
+Note that {\sc camb sources} assumes, by default, that the redshift bins have Gaussian selection 
+functions. If necessary, the user must modify {\sc camb sources} to use 
+top-hat redshift bins.
+
+\subsection{{\tt class2info.py}}
 \label{sec:class2info}
+
+This {\sc python} script works in the same way as {\tt camb2info.py} but 
+for {\sc class} input ({\tt .ini}) files (it uses the {\tt selection\_width} 
+keyword as half of the redshift bin width).
+
+\subsection{{\tt ChangeMapResolution.py}}
+\label{sec:map-res}
+
+This {\sc python} script gets a {\sc healpix} map in FITS format, changes its 
+resolution (given by $N_{\nv{side}}$) and write the new map 
+to another FITS file. Its inputs are, in this order: the input map, $N_{\nv{side}}$ 
+and the output map. When increasing the resolution, the pixels inside the original 
+pixel all get the same value as the original one; and when decreasing the resolution, the new pixel takes 
+the average value of the original pixels inside it. 
 
 \subsection{{\tt prepCambInput.py}}
 \label{sec:prepcambinput}
 
+This {\sc python} script translates the $C(\ell)$s written by {\sc camb sources} to the 
+output file with {\tt scalCovCls.dat} suffix to the $C(\ell)$ files used by {\sc flask} 
+as input: besides partitioning the $C(\ell)$s into separate and appropriately named files  
+(see Sec. \ref{sec:cls}), it removes the $\ell(\ell+1)/2\pi$ factors to return the pure 
+$C(\ell)$s. 
+
+Since {\sc camb sources} output files currently have no headers, this script requires 
+as input the fields information file created by {\tt camb2info.py}. Therefore, its input 
+parameters are, in this order: the {\sc camb sources} $C(\ell)$s file (with suffix {\tt scalCovCls.dat}); 
+the fields information file; and the prefix for the output $C(\ell)$s.
+
 \subsection{{\tt prepClassInput.py}}
 \label{sec:prepclassinput}
+
+This {\sc python} script is the analogous of {\tt prepCambInput.py} but for {\sc class} 
+output $C(\ell)$s. There are two more differences from {\tt prepCambInput.py}. First, since 
+{\sc class} output files have headers, this script does not require a fields information 
+file and only take two input parameters, in  this order: the {\sc class} $C(\ell)$s file 
+(with {\tt cl.dat} suffix); and the prefix for the output $C(\ell)$s. Second, since 
+{\sc class} outputs lensing potential $C(\ell)$s instead of convergence $C(\ell)$s, this script 
+converts the former into the latter (and also performs a similar transformation for the cross angular power spectra) using the 
+factors described in \citet{Hu00x}. Check the script code for more information. 
 
 \subsection{{\tt summarizeData.py}}
 \label{sec:summarizedata}
 
+This {\sc python} script takes a list of $N$ files (which can be specified using wildcards like {\tt *}) 
+that must all have the same shape (basically a table with the same number of columns and rows) 
+and headers starting with {\tt \#} (or no headers) and compute the average of each entry $x_{ij}$ over all files. 
+For example, the table element $\bar{x}_{ij}$ in the output file is given by:
+
+\begin{equation}
+\bar{x}_{ij} = \frac{1}{N}\sum_{n=1}^{N}x_{n,ij}.
+\label{eq:average}
+\end{equation}
+This script also computes the standard deviation in an analogous fashion. 
+Therefore, the two outputs (the average file and the standard deviation file) have 
+the same shape as the input. This script input parameters are, in this order: 
+the filename for the average output; the filename for the standard deviation output; 
+and the files to be averaged over (which can be specified using wildcards).
+
 \subsection{{\tt ViewMap.py}}
 \label{sec:viewmap}
 
-
-
-
-
-
-
+This {\sc python} script plots in Mollweide projection a {\sc healpix} map saved as a FITS file. 
+It just takes one input: that file. The plot can be saved in different formats.  
 
 
 %%%% Bibliografia %%%%
