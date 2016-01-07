@@ -1,0 +1,2 @@
+Will generate Nside=512 map with 0.2 frac. of stars with radius 0.1<r<30 arcmin using random seed 346:
+Map written to StarMask-512.fits

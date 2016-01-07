@@ -514,6 +514,7 @@ int main (int argc, char *argv[]) {
   if (yesShear==1) {
     gamma1f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
     gamma2f = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    lmax    = config.readi("SHEAR_LMAX");                            // ATTENTION! Redefining lmax here!
     Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
     arr<double> weight(2*mapf[0].Nside());                           // Temp memory
     for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
@@ -533,7 +534,7 @@ int main (int argc, char *argv[]) {
 	if (dist==lognormal) {
 	  PrepRingWeights(1, weight, config);
 	  Announce("   Transforming convergence map to harmonic space... ");
-	  if (lmax>nside) warning("LRANGE upper bound > NSIDE introduces noise in the transformation.");
+	  if (lmax>nside) warning("SHEAR_LMAX > NSIDE introduces noise in the transformation.");
 	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
 	  map2alm_iter(mapf[i], Eflm, 1, weight); // Get klm.
 	  Announce();
@@ -573,18 +574,14 @@ int main (int argc, char *argv[]) {
     // Exit if this is the last output requested:
     if (ExitAt=="SHEAR_ALM_PREFIX"  ||
 	ExitAt=="SHEAR_FITS_PREFIX") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+      PrepareEnd(StartAll); return 0;
     }
 
     // Output shear maps to TEXT tables:
     GeneralOutput(gamma1f, gamma2f, config, "SHEAR_MAP_OUT", fieldlist);
     // Exit if this is the last output requested:
     if (ExitAt=="SHEAR_MAP_OUT") {
-      cout << "\nTotal number of warnings: " << warning("count") << endl;
-      cout<<endl;
-      return 0;
+       PrepareEnd(StartAll); return 0;
     }
   } // End of IF we should compute shear.
   

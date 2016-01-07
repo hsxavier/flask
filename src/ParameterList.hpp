@@ -41,13 +41,13 @@ namespace ParDef {
 				   "REG_CL_PREFIX", "CHOL_IN_PREFIX", "REG_MAXSTEPS", "ZSEARCH_TOL",
 				   "STARMASK", "SELEC_SCALE", "ANGULAR_COORD", "MAPWER_OUT", 
 				   "MAPWERFITS_PREFIX", "RECOVCLS_OUT", "ADD_FRAC", "DENS2KAPPA", 
-				   "HEALPIX_DATA", "USE_HEALPIX_WGTS", "DENS2KAPPA_STAT", "ALLOW_MISS_CL", 
+				   "USE_HEALPIX_WGTS", "DENS2KAPPA_STAT", "ALLOW_MISS_CL", 
 				   "BADCORR_FRAC", "WINFUNC_SIGMA", "SMOOTH_CL_PREFIX", "APPLY_PIXWIN", 
-				   "CATALOG_COLS"};
+				   "SHEAR_LMAX", "CATALOG_COLS"};
   const int     par_type[npars] = {i1, s, i2, s, s, s, d1, d1, s, s, s, s, s, i1, s, s, s, i2, i1, s, 
 				   i1, d1, d1, d1, d1, s, i1, i1, s, i1, s, s, s, s, d1, s, s, i1, i1, d1, 
-				   d1, s, s, s, i1, d1, s, d1, i1, s, s, s, d1, i1, s, i1, s, i1, d1, d1, 
-				   s, i1, ph};
+				   d1, s, s, s, i1, d1, s, d1, i1, s, s, s, d1, i1, i1, s, i1, d1, d1, 
+				   s, i1, i1, ph};
   // END OF PARAMETER SETTINGS.
 }
 

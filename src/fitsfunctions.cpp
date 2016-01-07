@@ -1,9 +1,11 @@
 #include <cstring>
 #include <fitsio.h>
-#include "definitions.hpp"
-#include "Utilities.hpp"
-#include "flask_aux.hpp"
+#include "../src/definitions.hpp"
+#include "../src/Utilities.hpp"
+#include "../src/flask_aux.hpp"
 
+// The definition below will be changed by make and the result will be written to a new file:
+#define HEALPIX_DATA "/path/to/healpix/dir/data"
 
 int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries, const ParameterList & config) {
   const int COLNAMELENGTH=20;
@@ -100,7 +102,7 @@ int ReadHealpixData(int col, const ParameterList & config, double *weights, int 
   double *nulval;
   
   nside    = config.readi("NSIDE");
-  filename = config.reads("HEALPIX_DATA");
+  filename.assign(HEALPIX_DATA);
   if (filename.at(filename.length()-1)!='/') filename = filename+"/";
   // Find out what kind of data will be loaded:
   switch (datatype) {

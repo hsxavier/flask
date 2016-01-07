@@ -1,24 +1,35 @@
-# Variable definitions:
+### Variable definitions ###
+
+# Option for debugging with valgrind:
 DEBUG = -g -O0
 # COMP = g++ $(DEBUG)
+
+# Compiler and flask directory structure:
 COMP = g++
 BIN  = ../bin
 OBJ  = ../obj
 SRC  = ../src
 
-CXXOMP  = -fopenmp
-CXXHEAL = -I/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/include
-LDHEAL  = -L/home/skems/prog/Healpix_3.11/src/cxx/generic_gcc/lib
-LIBS    = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
+# Healpix location:
+HEALDIR  =  /home/skems/prog/Healpix_3.11
+HEALDATA = $(HEALDIR)/data
+CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
+LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 
+# Other compiler flags:
+CXXOMP   = -fopenmp
+LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # Options for Splinter:
 ifeq ($(HOSTNAME), splinter-login.local)
-CXXHEAL = -I/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/include
-LDHEAL  = -L/home/hsxavier/Healpix_3.11/src/cxx/generic_gcc/lib
-CXXFITS = -I/usr/include/cfitsio
+HEALDIR  = /home/hsxavier/Healpix_3.11
+HEALDATA = $(HEALDIR)/data
+CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
+LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
+CXXFITS  = -I/usr/include/cfitsio
 endif
 
+### Compiling intructions ###
 
 # General instructions:
 all: $(BIN)/flask $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
@@ -93,7 +104,8 @@ $(OBJ)/flask_aux.o: $(SRC)/flask_aux.cpp $(SRC)/flask_aux.hpp \
 	$(COMP) $(CXXHEAL) -c $(SRC)/flask_aux.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
-	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(SRC)/fitsfunctions.cpp -o $@
+	sed 's|#define HEALPIX_DATA .*|#define HEALPIX_DATA \"$(HEALDATA)\"|g' $(SRC)/fitsfunctions.cpp > $(OBJ)/fitsfunctions-made.cpp
+	$(COMP) $(CXXHEAL) $(CXXFITS) -c $(OBJ)/fitsfunctions-made.cpp -o $@
 
 $(OBJ)/lognormal.o: $(SRC)/lognormal.cpp $(SRC)/lognormal.hpp
 	$(COMP) -c $(SRC)/lognormal.cpp -o $@

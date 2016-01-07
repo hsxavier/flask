@@ -158,6 +158,10 @@ Before compiling, you will have to modify the {\tt Makefile} in the {\tt src} su
 The following lines must be changed according to the location of the {\sc healpix} installation directory:
 
 \vspace{0.5cm}
+
+\noindent
+{\tt HEALDIR = <path to Healpix directory>}
+
 \noindent
 {\tt CXXHEAL = -I<path to Healpix header files>}
 
@@ -186,7 +190,23 @@ you will require to run it from there or to provide the full path as usual.
 \subsection{Quick start}
 \label{sec:quick-start}
 
+To get a feeling of {\sc flask} and to test if things are working fine, go to the {\sc flask} 
+directory and run the command:
 
+\vspace{0.5cm}
+\noindent
+{\tt ./bin/flask example.config}
+\vspace{0.5cm}
+
+\noindent
+This should result in a clean run (no errors or warnings) and should make {\sc flask} 
+use typical data stored in the {\tt data} sub-directory to create 
+the most relevant outputs into the {\tt example} sub-directory (which should be empty), 
+including maps and catalogs simulations. Since writing files to the hard-disk is a slow process, 
+this run will take much longer than an usual {\sc flask} run that only outputs one or two files. 
+To figure out what the output files are, check the file {\tt example.config} and Sec. 
+\ref{sec:keywords}.
+ 
 \subsection{Basic operation}
 \label{sec:operation}
 
@@ -437,6 +457,17 @@ each one is also provided in {\tt example.config}):
   associated Gaussian multipoles. They should obey $1 \leq \ell_{\nv{min}} \leq \ell_{\nv{max}} \leq \ell_{\nv{in}}$, 
   where $\ell_{\nv{in}}$ is the highest $\ell$ provided in the input power spectra.
 
+\item {\tt SHEAR\_LMAX:} The shear is derived from the convergence multipoles using the equations 
+  from \citet{Hu00x} and the $E$-mode definition from {\sc healpix} manual. In Gaussian simulations 
+  the shear multipoles are derived from the original convergence multipoles used to generate the maps; 
+  this is not possible in lognormal simulations since the convergence was generated from multipoles of the 
+  associated Gaussian field (a similar argument exists for convergences obtained from density LoS integration). 
+  Therefore, to compute the shear from lognormal (or density LoS integration) convergences one needs first to 
+  obtain their multipoles. The {\tt SHEAR\_LMAX} keyword takes one integer representing 
+  the maximum multipole that will be extracted from the lognormal convergence maps for this purpose (thus it 
+  does not affect Gaussian simulations) and the maximum multipole that will be available in shear maps. 
+  Using {\tt SHEAR\_LMAX} $>$ {\tt NSIDE} introduces noise in this transformation.
+  
 \item {\tt NSIDE:} This takes an integer representing the {\sc healpix} $N_{\nv{side}}$ parameter. 
   The number of pixels $N_{\nv{pix}}$ used in each redshift slice is $N_{\nv{pix}}=12N_{\nv{side}}^2$. 
   Any number can be provided here, although some applications depend on powers of 2.

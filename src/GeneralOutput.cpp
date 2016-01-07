@@ -117,6 +117,7 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
   int lminout, lmaxout, mmax, l, m, i, Nfields, f, z;
 
   Nfields = fieldlist.Nfields();
+  if (Nfields<=0) error("GeneralOutput: no fields found in alm list.");
 
   // If requested, write alm's to file:
   if (config.reads(keyword)!="0") {
@@ -130,11 +131,17 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     }
     outfile<<std::endl<<std::endl;
     
+    // Find out how many multipoles have been set (some alm's can be empty and do not count):
+    i = 0;
+    while(i<Nfields && af[i].Lmax()<=0) i++;
+    l = af[i].Lmax();
+
+    // Check if output bounds are correct:
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LRANGE", 1)) { 
-      lmaxout = config.readi("LRANGE", 1); 
-      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
+    if (lmaxout > l) { 
+      lmaxout = l; 
+      warning("GeneralOutput: LRANGE_OUT beyond available data, will use the latter instead.");
     }
     if (lminout < config.readi("LRANGE", 0)) { 
       lminout = config.readi("LRANGE", 0); 
@@ -142,13 +149,14 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
+
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) 
-	    if(af[i].Lmax()>0) 
+	    if(af[i].Lmax()>0)      // Some alm's might be empty.
 	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
 	  outfile<<std::endl;
 	} 
@@ -159,7 +167,7 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) 
-	    if(af[i].Lmax()>0) 
+	    if(af[i].Lmax()>0)      // Some alm's might be empty.
 	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
 	  outfile<<std::endl;
 	}  
@@ -185,11 +193,13 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile.open(message);
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
+
+    // Check if output bounds are correct:
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LRANGE", 1)) { 
-      lmaxout = config.readi("LRANGE", 1); 
-      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
+    if (lmaxout > a.Lmax()) { 
+      lmaxout = a.Lmax(); 
+      warning("GeneralOutput: LRANGE_OUT beyond available data, will use the latter instead.");
     }
     if (lminout < config.readi("LRANGE", 0)) { 
       lminout = config.readi("LRANGE", 0); 
@@ -197,6 +207,7 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
+
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)
@@ -234,11 +245,13 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     outfile.open(filename.c_str());
     if (!outfile.is_open()) warning("GeneralOutput: cannot open "+filename+" file.");
     outfile << "# l, m, Re(alm), Im(alm)"<<std::endl<<std::endl;
+    
+    // Check if output bounds are correct:
     lminout = config.readi("LRANGE_OUT", 0);
     lmaxout = config.readi("LRANGE_OUT", 1);
-    if (lmaxout > config.readi("LRANGE", 1)) { 
-      lmaxout = config.readi("LRANGE", 1); 
-      warning("GeneralOutput: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead.");
+    if (lmaxout > a.Lmax()) { 
+      lmaxout = a.Lmax(); 
+      warning("GeneralOutput: LRANGE_OUT beyond available data, will use the latter instead.");
     }
     if (lminout < config.readi("LRANGE", 0)) { 
       lminout = config.readi("LRANGE", 0); 
@@ -246,6 +259,7 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
     }
     mmax = config.readi("MMAX_OUT");
     if (mmax>lminout) error ("GeneralOutput: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
+
     // Output all alm's:
     if (mmax<0) {
       for(l=lminout; l<=lmaxout; l++)
