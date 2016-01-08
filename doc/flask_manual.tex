@@ -554,9 +554,10 @@ each one is also provided in {\tt example.config}):
 \item {\tt FLIST\_OUT:} This keyword takes a string. If anything other than {\tt 0}, the code 
   treat it as a filename and writes the list of fields in use by the code to this file. 
 
-\item {\tt SMOOTH\_CL\_PREFIX:} Path plus prefix for the power spectra output, after applying Gaussian 
-  and/or {\sc healpix} pixel window functions according to keywords {\tt WINFUNC\_SIGMA} and 
-  {\tt APPLY\_PIXWIN}. Set to {\tt 0} for no output.
+\item {\tt SMOOTH\_CL\_PREFIX:} Path plus prefix for the power spectra output, after applying the Gaussian 
+  window function according to {\tt WINFUNC\_SIGMA}, the {\sc healpix} pixel window function according 
+  to {\tt APPLY\_PIXWIN} and the exponential suppression according to {\tt SUPPRESS\_L} and {\tt SUP\_INDEX} 
+  keywords. Set to {\tt 0} for no output.
 
 \item {\tt XIOUT\_PREFIX:} Path with prefix for angular correlation functions $\xi^{ij}(\theta)$, 
   written as two column (angle $\theta$ in degrees and $\xi^{ij}(\theta)$) text files. 

@@ -182,7 +182,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   /*************************************************************/
   /*** PART 1.5: Apply various window functions if requested ***/
   /*************************************************************/
-  double WinFuncVar, *pixwin, *pixell;
+  double WinFuncVar, *pixwin, *pixell, lsup, supindex;
   Spline pixSpline;
   
 
@@ -232,12 +232,30 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       }
     } // End over LOOP over existing C(l)s.
     Announce();
-  } // End of IF Smoothing requested.
+  } // End of IF apply pixwin.
 
 
-  // Print C(l)s to files if requested:
-  filename = config.reads("SMOOTH_CL_PREFIX");
-  if (filename!="0") {
+  // Exponential suppression:
+  lsup     = config.readd("SUPPRESS_L");
+  supindex = config.readd("SUP_INDEX");
+  if (lsup >= 0.0 && supindex >= 0.0) {
+    Announce("Applying exponential suppression to C(l)s... ");
+    // LOOP over existing C(l)s:
+#pragma omp parallel for schedule(dynamic) private(i, j)
+    for (k=0; k<Nfields*Nfields; k++) {
+      i=k/Nfields;  j=k%Nfields;
+      if (IsSet[i][j]==1) {
+	// In-place C(l) change due to Gaussian window function:
+	for(l=0; l<NentMat[i][j]; l++) Cov[i][j][l] = Cov[i][j][l]*suppress(ll[i][j][l], lsup, supindex);
+      }
+    } // End over LOOP over existing C(l)s.
+    Announce();
+  } // End of IF exponential suppression requested.
+
+
+// Print C(l)s to files if requested:
+filename = config.reads("SMOOTH_CL_PREFIX");
+if (filename!="0") {
     for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
 	  PrintOut(filename, i, j, fieldlist, ll[i][j], Cov[i][j], NentMat[i][j]); 	  
 	}
@@ -267,7 +285,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   /*****************************************************************/
   /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
-  double *tempCl, *LegendreP, *workspace, *xi, lsup, supindex, *theta, *DLTweights, *lls;
+  double *tempCl, *LegendreP, *workspace, *xi, lsup0, supindex0, *theta, *DLTweights, *lls;
 
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
@@ -288,9 +306,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       Announce();
     } 
     
-    // Loads C(l) exponential suppression:
-    lsup     = config.readd("SUPPRESS_L");
-    supindex = config.readd("SUP_INDEX"); 
+    // 2016-01-08: Exponential suppresion was passed to stage 1.5 (smoothing Cls):
+    lsup0     = -1;
+    supindex0 = -1; 
     // Load s2kit 1.0 Legendre Polynomials:
     Announce("Generating table of Legendre polynomials... ");
     PmlTableGen(Nls, 0, LegendreP, workspace);
@@ -321,7 +339,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	
 	// Compute correlation function Xi(theta):
-	ModCl4DLT(tempCl, lastl, lsup, supindex);
+	ModCl4DLT(tempCl, lastl, lsup0, supindex0);
 	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
 	  filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, fieldlist, theta, xi, 2*Nls);
@@ -512,7 +530,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
 	GetLNCorr(xi, xi, 2*Nls, fieldlist.mean(i), fieldlist.shift(i), fieldlist.mean(j), fieldlist.shift(j));
 	// Compute the Cls:
 	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	ApplyClFactors(tempCl, Nls, lsup, supindex);
+	ApplyClFactors(tempCl, Nls, lsup0, supindex0);
 	// Output:
 	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
 	
