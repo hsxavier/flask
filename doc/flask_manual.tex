@@ -535,11 +535,14 @@ each one is also provided in {\tt example.config}):
   or equal to the minimum $\ell$ specified in {\tt LRANGE\_OUT}.
 
 \item {\tt ANGULAR\_COORD:} This can take three options: {\tt 0}, all text outputs referring 
-  to angular position will use the polar and azimutal angles $\theta$ and $\phi$, given in radians, 
+  to angular positions will use the polar and azimutal angles $\theta$ and $\phi$, given in radians, 
   as angular coordinates ({\sc healpix} style); {\tt 1}, these outputs will use $\theta$ and $\phi$ 
   in degrees; {\tt 2}, these outputs will use right ascension and declination in degrees as 
   angular coordinates. This choice does not affect {\tt XIOUT\_PREFIX} and {\tt GXIOUT\_PREFIX} 
-  outputs which are always in degrees.
+  outputs which are always in degrees. For the catalogue output given by {\tt CATALOG\_OUT}, 
+  with columns specified by {\tt CATALOG\_COLS}, the choice between right ascension and declination and 
+  polar and azimutal angles is overridden by {\tt CATALOG\_COLS}; the choice between radians and degrees 
+  for $\theta$ and $\phi$, performed with {\tt ANGULAR\_COORD}, still applies.
 
 \item {\tt DENS2KAPPA:} If set to {\tt 1}, {\sc flask} computes a convergence field by integrating 
   the matter density fields along the line of sight \citep[see][for details]{Xavier16mn}. This 
@@ -655,11 +658,14 @@ each one is also provided in {\tt example.config}):
   file after it, and it specifies the columns to be included in the galaxy catalogue output by 
   {\tt CATALOG\_OUT}. They can be: 
   \begin{itemize}
-  \item {\tt theta}, the polar angle $\theta$ of the galaxy position 
-    (or the declination, according to {\tt ANGULAR\_COORD}), randomly sampled inside the corresponding 
-    pixel; 
-  \item {\tt phi}, the azimutal angle $\phi$ of the galaxy position (or the right ascension, 
-    according to {\tt ANGULAR\_COORD}), randomly sampled inside the corresponding pixel; 
+  \item {\tt theta}, the polar angle $\theta$ of the galaxy position given in units according to 
+    {\tt ANGULAR\_COORD}, randomly sampled inside the corresponding pixel; 
+  \item {\tt phi}, the azimutal angle $\phi$ of the galaxy position given in units according to 
+    {\tt ANGULAR\_COORD}, randomly sampled inside the corresponding pixel;
+  \item {\tt ra}, the right ascension given in degrees;
+  \item {\tt dec}, the declination given in degrees (the choice of angular coordinates is exclusive, 
+    one cannot mix different coordinate systems in the catalogue, e.g. {\tt dec} and {\tt phi} or 
+    {\tt dec} and {\tt theta});
   \item {\tt z}, the galaxy's redshift, which is randomly sampled inside the corresponding cell 
     according to the selection function; 
   \item {\tt galtype}, i.e. the field's name as in the fields information file, see Sec. \ref{sec:fields-info}; 

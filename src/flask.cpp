@@ -666,13 +666,13 @@ int main (int argc, char *argv[]) {
   CAT_PRECISION **catalog;
   char **catSet;
   double esig, ellip1, ellip2, randz;
-  int gali, cellNgal, ncols;
+  int gali, cellNgal, ncols, AngularCoord;
   long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal, longNz;  
   pointing ang;
   int ziter, fiter;
   std::string CatalogHeader;
   int theta_pos, phi_pos, z_pos, galtype_pos, kappa_pos, gamma1_pos, gamma2_pos, 
-    ellip1_pos, ellip2_pos, pixel_pos, maskbit_pos;
+    ellip1_pos, ellip2_pos, pixel_pos, maskbit_pos, ra_pos, dec_pos;
 
   esig = config.readd("ELLIP_SIGMA");
   
@@ -707,23 +707,129 @@ int main (int argc, char *argv[]) {
   for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) catSet[j][kl]=0;
   
   // Find position of entries according to catalog header:
-  theta_pos   = GetSubstrPos("theta"  , CatalogHeader); 
-  phi_pos     = GetSubstrPos("phi"    , CatalogHeader);  
-  z_pos       = GetSubstrPos("z"      , CatalogHeader);  
-  galtype_pos = GetSubstrPos("galtype", CatalogHeader);  
-  kappa_pos   = GetSubstrPos("kappa"  , CatalogHeader);  
-  gamma1_pos  = GetSubstrPos("gamma1" , CatalogHeader);  
-  gamma2_pos  = GetSubstrPos("gamma2" , CatalogHeader);  
-  ellip1_pos  = GetSubstrPos("ellip1" , CatalogHeader);  
-  ellip2_pos  = GetSubstrPos("ellip2" , CatalogHeader);  
-  pixel_pos   = GetSubstrPos("pixel"  , CatalogHeader); 
-  maskbit_pos = GetSubstrPos("maskbit", CatalogHeader);
-  // Reaname 'theta' and 'phi' to 'dec' and 'ra' if change of coords. was requested:
-  if (config.readi("ANGULAR_COORD")==2) {
+  theta_pos    = GetSubstrPos("theta"  , CatalogHeader); 
+  phi_pos      = GetSubstrPos("phi"    , CatalogHeader);
+  ra_pos       = GetSubstrPos("ra"     , CatalogHeader); 
+  dec_pos      = GetSubstrPos("dec"    , CatalogHeader);
+  z_pos        = GetSubstrPos("z"      , CatalogHeader);  
+  galtype_pos  = GetSubstrPos("galtype", CatalogHeader);  
+  kappa_pos    = GetSubstrPos("kappa"  , CatalogHeader);  
+  gamma1_pos   = GetSubstrPos("gamma1" , CatalogHeader);  
+  gamma2_pos   = GetSubstrPos("gamma2" , CatalogHeader);  
+  ellip1_pos   = GetSubstrPos("ellip1" , CatalogHeader);  
+  ellip2_pos   = GetSubstrPos("ellip2" , CatalogHeader);  
+  pixel_pos    = GetSubstrPos("pixel"  , CatalogHeader); 
+  maskbit_pos  = GetSubstrPos("maskbit", CatalogHeader);
+
+  // Allow Change of Coordinates if RA and DEC were set as catalog columns:
+  // For the catalog, ra, dec, theta, phi in CATALOG_COLS overrides ANGULAR_COORD. 
+  AngularCoord = config.readi("ANGULAR_COORD");
+  // Only RA DEC were asked for:
+  if (phi_pos==-1 && theta_pos==-1 && ra_pos==-1 && dec_pos!=-1) {AngularCoord=2; theta_pos = dec_pos;                   }
+  else if (phi_pos==-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos==-1) {AngularCoord=2;                      phi_pos = ra_pos; }
+  else if (phi_pos==-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos!=-1) {AngularCoord=2; theta_pos = dec_pos; phi_pos = ra_pos; }
+  // Only theta phi were asked for:
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos==-1 && dec_pos==-1 && AngularCoord==2) {
+    warning("flask: CATALOG_COLS 'theta' will be given in degrees"); AngularCoord=1; 
+  }
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos==-1 && dec_pos==-1 && AngularCoord==2) {
+    warning("flask: CATALOG_COLS 'phi' will be given in degrees"); AngularCoord=1; 
+  }
+  else if (phi_pos!=-1 && theta_pos!=-1 && ra_pos==-1 && dec_pos==-1 && AngularCoord==2) {
+    warning("flask: CATALOG_COLS 'theta phi' will be given in degrees"); AngularCoord=1; 
+  }
+  // Asked for mixed coordinates:
+  //                   v                               v
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos==-1 && dec_pos!=-1 && AngularCoord!=2) {
+    warning("flask: found mixed coordinates, 'dec' will be ignored and 'theta' catalog column will obey ANGULAR_COORD.");
+    StrReplace(CatalogHeader, "dec", "");
+  }
+  //                   v                               v 
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos==-1 && dec_pos!=-1 && AngularCoord==2) {
+    warning("flask: found mixed coordinates, 'theta' will be ignored and 'dec' catalog column will be used.");
+    theta_pos = dec_pos;
+    StrReplace(CatalogHeader, "theta", "");
+  }
+  //                   v                v
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos!=-1 && dec_pos==-1 && AngularCoord!=2) {
+    warning("flask: found mixed coordinates, 'ra' catalog column will be treated as 'phi'.");
+    phi_pos = ra_pos;
+    StrReplace(CatalogHeader, "ra", "phi");
+  }
+  //                   v                v
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos!=-1 && dec_pos==-1 && AngularCoord==2) {
+    warning("flask: found mixed coordinates, 'theta' catalog column will be treated as 'dec'.");
+    phi_pos = ra_pos;
     StrReplace(CatalogHeader, "theta", "dec");
+  }
+  //                   v                v              v
+  else if (phi_pos==-1 && theta_pos!=-1 && ra_pos!=-1 && dec_pos!=-1) {
+    warning("flask: found mixed coordinates, 'theta' will be ignored.");
+    theta_pos    = dec_pos;
+    phi_pos      = ra_pos;
+    AngularCoord = 2;
+    StrReplace(CatalogHeader, "theta", "");
+  }
+  //     v                                             v
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos==-1 && dec_pos!=-1 && AngularCoord!=2) {
+    warning("flask: found mixed coordinates, 'dec' will be treated as 'theta'.");
+    theta_pos = dec_pos;
+    StrReplace(CatalogHeader, "dec", "theta");
+  }
+  //     v                                             v
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos==-1 && dec_pos!=-1 && AngularCoord==2) {
+    warning("flask: found mixed coordinates, 'phi' will be treated as 'ra'.");
+    theta_pos = dec_pos;
     StrReplace(CatalogHeader, "phi", "ra");
   }
-
+  //     v                              v              
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos==-1 && AngularCoord==2) {
+    warning("flask: found mixed coordinates, 'phi' will be ignored.");
+    phi_pos = ra_pos;
+    StrReplace(CatalogHeader, "phi", "");
+  }
+  //     v                              v              
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos==-1 && AngularCoord!=2) {
+    warning("flask: found mixed coordinates, 'ra' will be ignored.");
+    StrReplace(CatalogHeader, "ra", "");
+  }
+  //     v                              v              v
+  else if (phi_pos!=-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos!=-1) {
+    warning("flask: found mixed coordinates, 'phi' will be ignored.");
+    theta_pos    = dec_pos;
+    phi_pos      = ra_pos;
+    AngularCoord = 2;
+    StrReplace(CatalogHeader, "phi", "");
+  }
+  //     v             v                               v
+  else if (phi_pos!=-1 && theta_pos!=-1 && ra_pos==-1 && dec_pos!=-1) {
+    warning("flask: found mixed coordinates, 'dec' will be ignored.");
+    StrReplace(CatalogHeader, "dec", "");
+    if (AngularCoord==2) { warning("flask: 'theta' 'phi' will be given in degrees."); AngularCoord=1; }
+    
+  }
+  //     v             v                v               
+  else if (phi_pos!=-1 && theta_pos!=-1 && ra_pos!=-1 && dec_pos==-1) {
+    warning("flask: found mixed coordinates, 'ra' will be ignored.");
+    StrReplace(CatalogHeader, "ra", "");
+    if (AngularCoord==2) { warning("flask: 'theta' 'phi' will be given in degrees."); AngularCoord=1; }  
+  }
+  //     v             v                v              v 
+  else if (phi_pos!=-1 && theta_pos!=-1 && ra_pos!=-1 && dec_pos!=-1) {
+    if (AngularCoord==2) { 
+      warning("flask: found mixed coordinates, will use 'ra' 'dec'.");
+      phi_pos   = ra_pos;
+      theta_pos = dec_pos;
+      StrReplace(CatalogHeader, "phi", "");
+      StrReplace(CatalogHeader, "theta", "");
+    }
+    else {
+      warning("flask: found mixed coordinates, will use 'theta' 'phi'.");
+      StrReplace(CatalogHeader, "ra", "");
+      StrReplace(CatalogHeader, "dec", "");
+    }
+  }
+  
   // Warning against multiple or none lensing fields at the same redshift:
   k=0;
   for(f=0; f<Nf; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==fshear) k++;
@@ -801,7 +907,7 @@ int main (int argc, char *argv[]) {
   Announce();
 
   // Change angular coordinates if requested:
-  ChangeCoord(catalog, theta_pos, phi_pos, Ngalaxies, config.readi("ANGULAR_COORD"));
+  ChangeCoord(catalog, theta_pos, phi_pos, Ngalaxies, AngularCoord);
 
   // Write catalog to file if requested:
   if (config.reads("CATALOG_OUT")!="0") {
