@@ -241,7 +241,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   if (lsup >= 0.0 && supindex >= 0.0) {
     Announce("Applying exponential suppression to C(l)s... ");
     // LOOP over existing C(l)s:
-#pragma omp parallel for schedule(dynamic) private(i, j)
+#pragma omp parallel for schedule(dynamic) private(i, j, l)
     for (k=0; k<Nfields*Nfields; k++) {
       i=k/Nfields;  j=k%Nfields;
       if (IsSet[i][j]==1) {
