@@ -11,8 +11,8 @@
 #include <alm_healpix_tools.h>
 #include <omp.h>                // For OpenMP functions, not pragmas.
 #include <limits.h>             // For finding out max. value of INT variables.
-#include "definitions.hpp"      // Global variables and #defines.
-#include "flask_aux.hpp" // Auxiliary functions made for this program.
+#include "definitions-made.hpp" // Global variables and #defines.
+#include "flask_aux.hpp"        // Auxiliary functions made for this program.
 #include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
 #include "Utilities.hpp"        // Error handling, tensor allocations.
@@ -25,8 +25,7 @@
 #include <unistd.h> // debugging
 #include <ctime> // For timing full code run with StartAll.
 
-#define RAND_OFFSET 10000000 // For generating random numbers in parallel, add multiples of this to seed.
-
+#define RAND_OFFSET 10000000  // For generating random numbers in parallel, add multiples of this to seed.
 
 
 /********************/
@@ -66,7 +65,8 @@ int main (int argc, char *argv[]) {
   Announce();
   
   MaxThreads = omp_get_max_threads();
-  cout << "Max. # of threads:  "<<MaxThreads<<endl;
+  cout << "FLASK commit:       " << FLASKCOMMIT << endl;
+  cout << "Max. # of threads:  " << MaxThreads  << endl;
   if (MaxThreads>210) warning("flask: # of threads too big, may mess parallel random number generator.");
 
   // Loading config file:
