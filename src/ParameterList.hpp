@@ -17,7 +17,7 @@ a 'parameter list file'. These parameters must be listed in the
 #ifndef PARLIST_H    // include guard.
 #define PARLIST_H 1
 
-#define STRSIZE 70
+#define STRSIZE 110
 
 #include <string>
 #include <iostream>

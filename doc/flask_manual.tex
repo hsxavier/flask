@@ -143,8 +143,9 @@ Library\footnote{{\tt \href{http://www.gnu.org/software/gsl}{http://www.gnu.org/
 {\sc cfitsio}\footnote{{\tt \href{http://heasarc.gsfc.nasa.gov/fitsio}{http://heasarc.gsfc.nasa.gov/fitsio}}} 
 library to input and output FITS files. Apart from {\sc healpix}, all the remaining dependencies should 
 be available on Linux and Mac repositories. {\sc Healpix} however should be easy to install (just 
-follow their instructions); {\sc Flask} requires version 3.11 or later of the C++ {\sc healpix} 
-implementation due to specific functions implemented only on these versions. 
+follow their instructions); {\sc Flask} requires version 3.11 or 3.20 of the C++ {\sc healpix} 
+implementation due to the {\tt T\_Healpix\_Base<I>::boundaries} function, introduced in version 3.11, and 
+due to the {\tt xcomplex} class, excluded in version 3.30. 
 
 So far {\sc Flask} has been tested only on Linux distributions -- Scientific Linux 5.6 and Ubuntu 14.04 -- 
 and compiled with {\tt g++} (GCC) versions 4.8.1 and 4.8.4.   
@@ -274,7 +275,9 @@ after it, so this should not be used for other purposes inside configuration fil
 the hash (\#) is used to identify comments, this is only for aesthetic reasons and does not have 
 any effect on the parsing of the configuration file ({\tt \# DENS2KAPPA:} is still identified as 
 the {\tt DENS2KAPPA} keyword). More information about this can be found in the {\tt example.config} 
-file.
+file. 
+NOTE: in the current implementation, strings passed to the keywords cannot be longer than 109 
+characters. Longer strings may cause a segmentation fault when reading the configuration file. 
 
 {\sc Flask} goes through a series of sequential computations that transforms the simulated data somehow; 
 after each step, the code can output the current status of the data. These possible outputs are 
