@@ -262,6 +262,64 @@ optional (they are executed according to the specifications in the configuration
 \label{fig:flow-chart}  
 \end{figure}
 
+\subsection{Selection function}
+
+When sampling a density field with discrete tracers (e.g. galaxies), the expected number 
+of tracers $\langle N_t(i,j) \rangle$ of type $t$ in each pixel $j$ of the redshift shell $i$ 
+is given by:
+
+\begin{equation}
+\langle N_t(i,j) \rangle = \bar{n}_t(i,j)[1+\delta_t(i,j)]\Delta z_{ti} \Delta\Omega,
+\label{eq:tracer-number}
+\end{equation}
+where $\Delta\Omega$ is the pixel angular area in $\mathrm{arcmin}^2$, $\Delta z_{ti}$ is the  
+redshift shell width (as specified in the fields information file -- see Section 
+\ref{sec:fields-info}), $\delta_t(i,j)$ is the tracer $t$ density contrast field generated according 
+to the input power spectra, and $\bar{n}_t(i,j)$ is the expected number of tracers $t$ per unit redshift, 
+per $\mathrm{arcmin}^2$, that would be observed in a completely homogeneous universe. Usually this 
+$\bar{n}$ is called ``selection function''. The actual number of tracers generated in each cell can be sampled 
+from a Poisson distribution with average number given by $\langle N_t(i,j) \rangle$ if the keyword 
+{\tt POISSON} is set to {\tt 1}.
+
+The way $\bar{n}_t(i,j)$ behaves depends on the {\tt SELEC\_TYPE} keyword (see Section \ref{sec:keywords}). 
+If {\tt SELEC\_TYPE: 0}, then $\bar{n}_t(i,j)$ is given by:
+
+\begin{equation}
+\bar{n}_t(i,j) = a_{\mathrm{s}} \times S(j) \times W_t(i,j).  
+\label{eq:selection-function} 
+\end{equation}
+Here, $a_{\mathrm{s}}$ is a scaling factor specified by the {\tt SELEC\_SCALE} keyword, 
+$S(j)$ is an angular mask specified by {\tt STARMASK} and $W_t(i,j)$ depends on the 
+{\tt SELEC\_SEPARABLE} keyword (see Section \ref{sec:keywords}). For 
+{\tt SELEC\_SEPARABLE: 0}, $W_t(i,j)$ is given by a set of {\sc healpix} maps (one for 
+each tracer $t$ and redshift $i$) with prefixes determined by {\tt SELEC\_PREFIX}. For 
+{\tt SELEC\_SEPARABLE: 1}, we have:
+
+\begin{equation}
+W_t(i,j) = f_t(z_i)\times A(j),  
+\label{eq:separable-selection-function} 
+\end{equation}
+where $f_t(z_i)$ is a radial selection function for the tracer $t$ at shell $i$ (centered 
+at redshift $z_i$) given by files with prefix {\tt SELEC\_Z\_PREFIX} [the value of $f_t(z_i)$ 
+is linearly interpolated to $z_i$ from the tabulated values]; and $A(j)$ is an 
+angular selection function given by a single {\sc healpix} map, passed to {\tt SELEC\_PREFIX}. 
+Note that the units of $a_{\mathrm{s}}$, $S(j)$, $W_t(i,j)$, $f_t(z)$ and $A(j)$ are arbitrary; 
+however, they must be such that the final units of $\bar{n}_t(i,j)$ are number of tracers 
+per unit redshift, per $\mathrm{arcmin}^2$. In most cases, people choose $f_t(z_i)$ to carry 
+all the units and leave the remaining terms as dimensionless quantities.
+
+If {\tt SELEC\_TYPE: 1}, $\bar{n}_t(i,j)$ is given by:
+
+\begin{equation}
+\bar{n}_t(i,j) = a_{\mathrm{s}} \times S(j) \times W_t(i,j) \times \rho_t(i),  
+\label{eq:fraction-selection-function} 
+\end{equation}
+where $a_{\mathrm{s}} \times S(j) \times W_t(i,j)$ is the fraction of tracers $t$ 
+that get observed and $\rho_t(i)$ is the true underlying density. This option is 
+currently not implemented. The user can add 2 to both {\tt SELEC\_TYPE} options 
+to set $S(j)$ and $A(j)$ to 1 and use their information only as bookkeeping numbers 
+in the catalogue output ({\tt CATALOG\_OUT}). 
+
 
 \subsection{Configuration file keywords}
 \label{sec:keywords}

@@ -1,6 +1,6 @@
 /* flask: Written by Henrique S. Xavier on Nov-2014
    e-mail: hsxavier@if.usp.br
-   Related paper: Xavier et al. 2016, arXiv:1602.08503
+   Related paper: Xavier et al. 2016, MNRAS Vol. 459, p. 3693 (arXiv:1602.08503)
  */
 
 #include <iostream>
