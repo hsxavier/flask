@@ -13,6 +13,12 @@ import healpy as hp
 import matplotlib.pyplot as plt
 import sys
 
+# Docstring output:
+if len(sys.argv) != 1 + 1: 
+    print(__doc__)
+    sys.exit(1)
+
+
 # Get input:
 infile = sys.argv[1]
 m      = hp.read_map(infile)

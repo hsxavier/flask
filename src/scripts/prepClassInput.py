@@ -18,6 +18,12 @@ import numpy as np
 import sys
 import math as m
 
+# Docstring output:
+if len(sys.argv) != 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
+
+
 # Get input
 classfile = sys.argv[1]
 outprefix = sys.argv[2]

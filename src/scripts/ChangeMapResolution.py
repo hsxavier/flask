@@ -14,6 +14,11 @@ Written by: Henrique S. Xavier, hsxavier@if.usp.br, 23/apr/2015.
 import healpy as hp
 import sys
 
+# Docstring output:
+if len(sys.argv) != 1 + 3: 
+    print(__doc__)
+    sys.exit(1)
+
 # Get input:
 mapIn    =     sys.argv[1]
 newNside = int(sys.argv[2])

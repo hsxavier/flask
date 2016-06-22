@@ -19,6 +19,11 @@ import sys
 import numpy as np
 from scipy import interpolate as scint
 
+# Docstring output:
+if len(sys.argv) != 1 + 1: 
+    print(__doc__)
+    sys.exit(1)
+
 
 # Get input parameters:
 Clfile   = sys.argv[1]

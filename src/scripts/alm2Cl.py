@@ -17,6 +17,11 @@ Written by: Henrique S. Xavier, hsxavier@if.usp.br, 06/may/2015.
 import numpy as np
 import sys
 
+# Docstring output:
+if len(sys.argv) != 2: 
+    print(__doc__)
+    sys.exit(1)
+
 # Get input parameters:
 inputfile = sys.argv[1]
 

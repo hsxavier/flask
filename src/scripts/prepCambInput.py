@@ -18,6 +18,12 @@ Written by: Henrique S. Xavier, hsxavier@if.usp.br, 04/aug/2015.
 import numpy as np
 import sys
 
+# Docstring output:
+if len(sys.argv) != 1 + 3: 
+    print(__doc__)
+    sys.exit(1)
+
+
 # Function to get position of Cl in CAMBsources Cov file:
 def CovPosition(f1, f2, Nfields):
     return (Nfields+3)*(3+f1-1) + (3+f2)

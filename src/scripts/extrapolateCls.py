@@ -14,6 +14,10 @@ import numpy as np
 import os.path
 import sys
 
+# Docstring output:
+if len(sys.argv) != 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
 
 # Loads a two column file and only returns the second column:
 def loadCl(file1, file2):

@@ -22,6 +22,11 @@ import numpy as np
 import sys
 from scipy import interpolate as scint
 
+# Docstring output:
+if len(sys.argv) != 1 + 4: 
+    print(__doc__)
+    sys.exit(1)
+
 # Convergence kappa shift formula from Hilbert, Hartlap & Schneider (2011)
 def HilbertShift(z):
     return 0.008*z + 0.029*(z**2) - 0.0079*(z**3) + 0.00065*(z**4) 

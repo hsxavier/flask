@@ -1025,6 +1025,14 @@ and the files to be averaged over (which can be specified using wildcards).
 This {\sc python} script plots in Mollweide projection a {\sc healpix} map saved as a FITS file. 
 It just takes one input: that file. The plot can be saved in different formats.  
 
+\subsection{{\tt z-range2camb-ini.py}}
+\label{sec:zrange2camb}
+
+This {\sc python} script prints to {\tt stdout} the part of {\sc camb sources} {\tt .ini} file 
+that describes the redshift windows for the galaxy counts and lensing. It takes as input a 
+redshift range $[z_{\rm{min}}, z_{\rm{max}}]$ and the number of redshift bins $N$, in this order,
+and splits the range in contigous $N$ bins that span the range. Currently it only outputs 
+counts entries with unit bias and $\frac{\rm{d}}{\rm{d}m}\log_{10}N=0$.   
 
 %%%% Bibliografia %%%%
 \bibliographystyle{apalike}

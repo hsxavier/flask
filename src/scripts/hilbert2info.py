@@ -18,9 +18,13 @@ Schneider (2011) formula.
 Written by Henrique S. Xavier, hsxavier@if.usp.br, 05/aug/2015.
 """
 
-
 import sys
 import numpy as np
+
+# Docstring output:
+if len(sys.argv) != 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
 
 # Internal definitions:
 GalMean    = 0.0

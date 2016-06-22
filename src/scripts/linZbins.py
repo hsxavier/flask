@@ -17,6 +17,11 @@ Written by: Henrique S. Xavier, hsxavier@if.usp.br, 26/oct/2015.
 import sys
 import numpy as np
 
+# Docstring output:
+if len(sys.argv) != 1 + 3: 
+    print(__doc__)
+    sys.exit(1)
+
 # Internal definitions:
 
 # Load shift file:

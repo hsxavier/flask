@@ -22,6 +22,11 @@ import sys
 import math as m
 import os.path
 
+# Docstring output:
+if len(sys.argv) < 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
+
 # Get script parameters (list of input files and output prefix):
 classlist = sys.argv[1:-1]
 outprefix = sys.argv[-1]

@@ -16,6 +16,11 @@ import numpy as np
 import healpy as hp
 import sys
 
+# Docstring output:
+if len(sys.argv) != 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
+
 # Get input:
 Nside   = int(sys.argv[1])
 outfile =     sys.argv[2]

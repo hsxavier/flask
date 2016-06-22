@@ -21,6 +21,11 @@ from glob import iglob
 from math import sqrt
 from sys import exit, argv
 
+# Docstring output:
+if len(argv) < 1 + 3: 
+    print(__doc__)
+    exit(1)
+
 @contextmanager
 def multi_file_manager(files, mode='rt'):
     files = [open(file, mode) for file in files]

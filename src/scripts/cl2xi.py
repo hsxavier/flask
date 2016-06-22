@@ -21,8 +21,13 @@ import numpy as np
 import sys
 from scipy import interpolate as scint
 
-lsup=1000
+# Docstring output:
+if len(sys.argv) != 1 + 2: 
+    print(__doc__)
+    sys.exit(1)
 
+
+lsup=1000
 
 # Get input
 clin   = sys.argv[1]
