@@ -29,6 +29,16 @@ LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 CXXFITS  = -I/usr/include/cfitsio
 endif
 
+# Options for alphacrucis:
+ifeq ($(HOSTNAME), alphacrucis)
+HEALDIR  = /sto/home/hsxavier/Healpix_3.20
+HEALDATA = $(HEALDIR)/data
+CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
+LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
+CXXFITS  = -I/sto/home/hsxavier/cfitsio
+LDFITS   = -L/sto/home/hsxavier/cfitsio
+endif
+
 # Get code version:
 FLASKCOMMIT := $(shell git rev-parse --short HEAD)
 ifeq ($(FLASKCOMMIT), )
@@ -60,7 +70,7 @@ $(BIN)/XiCalculator: $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o
 	$(COMP) $(OBJ)/XiCalculator.o $(OBJ)/Utilities.o -o $@ -lgomp
 
 $(BIN)/GenStarMask: $(OBJ)/GenStarMask.o
-	$(COMP) $(LDHEAL) $(OBJ)/GenStarMask.o -o $@ $(LIBS)
+	$(COMP) $(LDHEAL) $(LDFITS) $(OBJ)/GenStarMask.o -o $@ $(LIBS)
 
 $(BIN)/flask: $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
@@ -68,7 +78,7 @@ $(BIN)/flask: $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \
 			$(OBJ)/ClProcessing.o $(OBJ)/Maximize.o $(OBJ)/fitsfunctions.o \
 			$(OBJ)/lognormal.o $(OBJ)/FieldsDatabase.o $(OBJ)/Spline.o
-	$(COMP) $(LDHEAL) $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
+	$(COMP) $(LDHEAL) $(LDFITS) $(OBJ)/flask.o $(OBJ)/ParameterList.o $(OBJ)/Utilities.o \
 			$(OBJ)/gsl_aux.o $(OBJ)/s2kit10_naive.o $(OBJ)/interpol.o \
 			$(OBJ)/flask_aux.o $(OBJ)/Cosmology.o $(OBJ)/Integral.o \
 			$(OBJ)/GeneralOutput.o $(OBJ)/SelectionFunc.o $(OBJ)/RegularizeCov.o \

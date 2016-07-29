@@ -67,7 +67,7 @@ with multi_file_manager(argv) as datfiles:
     num_cols = len(temp[0])
     del temp  # no longer needed
     datfiles[0].seek(0)  # rewind first file
-    print 'Found {} .dat files, each {} rows x {} cols'.format(num_files, num_rows, num_cols)
+    print 'Found {0} .dat files, each {1} rows x {2} cols'.format(num_files, num_rows, num_cols)
     print 'Will write their means to', meanfile, 'and their deviations to', devfile
     means  = []  # initialize
     sigmas = []  # standard deviations
@@ -82,16 +82,17 @@ with multi_file_manager(argv) as datfiles:
             sigmas.append(sigma)
 
 print 'Calculating means and deviations...'
-with open(meanfile, 'wt') as averages, open(devfile, 'wt') as deviations:
-    for i, mean, sigma in multi_enumerate(0, means, sigmas):
-        averages.write('{:.8e}'.format(mean))
-        deviations.write('{:.8e}'.format(sigma))
-        if i % num_cols != num_cols-1:  # not last column?
-             averages.write(' ')        # delimiter between values on line
-             deviations.write(' ')  
-        else:
-            averages.write('\n')
-            deviations.write('\n')       
+with open(meanfile, 'wt') as averages:
+    with open(devfile, 'wt') as deviations:
+        for i, mean, sigma in multi_enumerate(0, means, sigmas):
+            averages.write('{0:.8e}'.format(mean))
+            deviations.write('{0:.8e}'.format(sigma))
+            if i % num_cols != num_cols-1:  # not last column?
+                averages.write(' ')        # delimiter between values on line
+                deviations.write(' ')  
+            else:
+                averages.write('\n')
+                deviations.write('\n')       
 print 'done.'
 print
 
