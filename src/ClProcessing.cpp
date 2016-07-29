@@ -227,7 +227,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
       i=k/Nfields;  j=k%Nfields;
       if (IsSet[i][j]==1) {
 	// In-place C(l) change due to pixel window function:
-	if(ll[i][j][NentMat[i][j]-1] > 4*m) warning("ClProcess: input C(l) overshoot Healpix ppixel window function.");
+	if(ll[i][j][NentMat[i][j]-1] > 4*m) warning("ClProcess: input C(l) overshoot Healpix pixel window function.");
 	for(l=0; l<NentMat[i][j]; l++) Cov[i][j][l] = pixSpline(ll[i][j][l])*Cov[i][j][l];
       }
     } // End over LOOP over existing C(l)s.
