@@ -12,6 +12,14 @@
 #include "Spline.hpp"           // For applying Healpix window function to arbitrarily spaced C(l)s.
 
 
+/*** Multiplies a C(l) by a constant factor ***/
+void ScaleCls(double *ClOut, double factor, double *ClIn, int Nls) {
+  int i;
+  for (i=0; i<Nls; i++)
+    ClOut[i] = factor*ClIn[i];
+} 
+
+
 /*** Transform a C(l) to represent the 2D field now smoothed by a Gaussian with variance sigma2 ***/
 void ApplyGausWinFunc(double *ClOut, double sigma2, double *l, double *ClIn, int Nls) {
   int i;
@@ -182,9 +190,24 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   /*************************************************************/
   /*** PART 1.5: Apply various window functions if requested ***/
   /*************************************************************/
-  double WinFuncVar, *pixwin, *pixell, lsup, supindex;
+  double WinFuncVar, *pixwin, *pixell, lsup, supindex, factor;
   Spline pixSpline;
   
+
+  // Re-scale all Cls by a constant factor:
+  factor = config.readd("SCALE_CLS"); 
+  if (factor != 1.0) {
+    Announce("Re-scaling all C(l)s by SCALE_CLS...");
+    // LOOP over existing C(l)s:
+#pragma omp parallel for schedule(dynamic) private(i, j)
+    for (k=0; k<Nfields*Nfields; k++) {
+      i=k/Nfields;  j=k%Nfields;
+      // In-place C(l) re-scaling:
+      if (IsSet[i][j]==1) ScaleCls(Cov[i][j], factor, Cov[i][j], NentMat[i][j]);
+    } // End over LOOP over existing C(l)s.
+    Announce();
+  } // End of IF Re-scaling requested.
+
 
   // Gaussian beam:
   WinFuncVar = config.readd("WINFUNC_SIGMA");            // WINFUNC_SIGMA will be transformed to radians and squared below. 

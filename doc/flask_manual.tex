@@ -429,6 +429,10 @@ each one is also provided in {\tt example.config}):
   $C^{ij}(\ell)$s are zero. This works for cross power spectra but will cause the program to abort 
   if auto power spectra are missing.
 
+\item {\tt SCALE\_CLS:} If different from 1.0, all input $C^{ij}(\ell)s$ are multiplied by 
+  this factor. When simulating just a single tracer, this can be used as a constant bias term 
+  $b^2$. The {\tt SMOOTH\_CL\_PREFIX} output includes this re-scaling.
+
 \item {\tt WINFUNC\_SIGMA:} In case you want to simulate fields that have been convolved 
   (smoothed) in each redshift slice with a 2D Gaussian, you can adjust the Gaussian's standard 
   deviation here (this takes a real number, given in arcmin). The power spectra will be adjusted accordingly. 
@@ -617,9 +621,10 @@ each one is also provided in {\tt example.config}):
 \item {\tt FLIST\_OUT:} This keyword takes a string. If anything other than {\tt 0}, the code 
   treat it as a filename and writes the list of fields in use by the code to this file. 
 
-\item {\tt SMOOTH\_CL\_PREFIX:} Path plus prefix for the power spectra output, after applying the Gaussian 
-  window function according to {\tt WINFUNC\_SIGMA}, the {\sc healpix} pixel window function according 
-  to {\tt APPLY\_PIXWIN} and the exponential suppression according to {\tt SUPPRESS\_L} and {\tt SUP\_INDEX} 
+\item {\tt SMOOTH\_CL\_PREFIX:} Path plus prefix for the power spectra output, after re-scaling 
+  the input $C^{ij}(\ell)$s by {\tt SCALE\_CLS} and applying the Gaussian window function according to 
+  {\tt WINFUNC\_SIGMA}, the {\sc healpix} pixel window function according to {\tt APPLY\_PIXWIN} 
+  and the exponential suppression according to {\tt SUPPRESS\_L} and {\tt SUP\_INDEX} 
   keywords. Set to {\tt 0} for no output.
 
 \item {\tt XIOUT\_PREFIX:} Path with prefix for angular correlation functions $\xi^{ij}(\theta)$, 
