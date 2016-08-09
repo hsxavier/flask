@@ -157,13 +157,63 @@ void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldli
     }
 }
 
+
+// This routine takes an array of alm's, computes the Cls for each one of them and output the results:
+void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldlist, 
+		std::string clsKey, const ParameterList & config) {
+  int i, j, k, l, m, lmin, lmax, lminout, lmaxout, mmax, NCls, Nfields;
+  double **recovCl;
+  bool *yesCl;
+
+  if (config.reads(clsKey)!="0") {
+
+    Nfields = fieldlist.Nfields();
+    lmin    = config.readi("LRANGE", 0);
+    lmax    = config.readi("LRANGE", 1);  
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmin > lmax) error("RecoverCls: LRANGE set in the wrong order.");
+    if (lminout > lmaxout) error("RecoverCls: LRANGE_OUT set in the wrong order.");
+    if (lmaxout > lmax) { lmaxout=lmax; warning("RecoverCls: LRANGE_OUT beyond LRANGE upper bound, will use the latter instead."); }
+    if (lminout < lmin) { lminout=lmin; warning("RecoverCls: LRANGE_OUT beyond LRANGE lower bound, will use the latter instead."); }
+
+    Announce("Recovering Cl's from alm's... ");
+    mmax    = config.readi("MMAX_OUT");
+    if (mmax>lminout) error("RecoverCls: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
+    NCls    = Nfields*(Nfields+1)/2;
+    recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
+    yesCl   = vector<bool>(0, NCls-1);
+#pragma omp parallel for schedule(dynamic) private(l, m, i, j)
+    for (k=0; k<NCls; k++) {
+      l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
+      m = NCls-1-k-(l*(l+1))/2;
+      i = Nfields-1-l;
+      j = Nfields-1-m;
+      if(bflm[i].Lmax()!=0 && bflm[j].Lmax()!=0) {
+	yesCl[k] = 1;
+	for(l=lminout; l<=lmaxout; l++) {
+	  recovCl[k][l] = 0;
+	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+	  recovCl[k][l] = recovCl[k][l]/((double)(l+1));
+	}
+      }
+      else yesCl[k] = 0;
+    } // End of Cl computing.
+    Announce();
+
+    GeneralOutput(recovCl, yesCl, fieldlist, config, clsKey);
+    free_matrix(recovCl, 0, NCls-1, lminout, lmaxout);
+    free_vector(yesCl, 0, NCls-1);
+  }
+}
+
+
 // If alm or Cls output is requested, compute them and output them:
 void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, 
 		   std::string almKey, std::string clsKey, const ParameterList & config) {
-  int i, j, k, l, m, nside, lmin, lmax, lminout, lmaxout, mmax, NCls, Nfields;
+  int i, l, m, nside, lmin, lmax, lminout, lmaxout, Nfields;
   Alm<xcomplex <ALM_PRECISION> > *bflm;
-  double **recovCl;
-  bool *yesCl;
 
   if (config.reads(almKey)!="0" || config.reads(clsKey)!="0") {
 
@@ -196,36 +246,8 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     GeneralOutput(bflm, config, almKey, fieldlist);
 
     // Compute Cl's if requested:
-    if (config.reads(clsKey)!="0") {
-      Announce("Recovering Cl's from maps... ");
-      mmax    = config.readi("MMAX_OUT");
-      if (mmax>lminout) error("RecoverAlmCls: current code only allows MMAX_OUT <= LRANGE_OUT lower bound.");
-      NCls    = Nfields*(Nfields+1)/2;
-      recovCl = matrix<double>(0, NCls-1, lminout, lmaxout);
-      yesCl   = vector<bool>(0, NCls-1);
-#pragma omp parallel for schedule(dynamic) private(l, m, i, j)
-      for (k=0; k<NCls; k++) {
-	l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
-	m = NCls-1-k-(l*(l+1))/2;
-	i = Nfields-1-l;
-	j = Nfields-1-m;
-	if(bflm[i].Lmax()!=0 && bflm[j].Lmax()!=0) {
-	  yesCl[k] = 1;
-	  for(l=lminout; l<=lmaxout; l++) {
-	    recovCl[k][l] = 0;
-	    if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
-	    else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
-	    recovCl[k][l] = recovCl[k][l]/((double)(l+1));
-	  }
-	}
-	else yesCl[k] = 0;
-      } // End of Cl computing.
-      Announce();
-      GeneralOutput(recovCl, yesCl, fieldlist, config, clsKey);
-      free_matrix(recovCl, 0, NCls-1, lminout, lmaxout);
-      free_vector(yesCl, 0, NCls-1);
-    }
-    
+    RecoverCls(bflm, fieldlist, clsKey, config);
+
     // Free memory:
     free_vector(bflm, 0, Nfields-1);
   }

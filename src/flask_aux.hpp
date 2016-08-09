@@ -24,6 +24,7 @@ double MapVariance(const Healpix_Map<MAP_PRECISION> & map, double mean);
 double MapSkewness(const Healpix_Map<MAP_PRECISION> & map, double mean, double variance);
 using namespace definitions;
 void PrintMapsStats(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, simtype dist, std::ostream *output = &std::cout);
+void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldlist, std::string clsKey, const ParameterList & config);
 void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlist, 
 		   std::string almKey, std::string clsKey, const ParameterList & config);
 void PrepRingWeights(int col, arr<double> & weight, const ParameterList & config);

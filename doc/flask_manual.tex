@@ -255,12 +255,25 @@ fields (Gaussian simulations may skip a few of them). Other processes like
 creating triangular matrices used for generating correlated random variables and 
 performing a density line-of-sight (LoS) integration to get the convergence are 
 optional (they are executed according to the specifications in the configuration file).
+Here we describe a few processes not discussed in \citet{Xavier16mn}.
 
 \begin{figure}
   \includegraphics[width=1\textwidth]{flask_flow_chart.eps}
   \caption{{\sc Flask} basic flow chart.}
 \label{fig:flow-chart}  
 \end{figure}
+
+\subsubsection{Computing $C_\ell$s from $a_{\ell m}$s}
+
+When recovering an angular power spectra $C_\ell^{ij}$ from realized multipoles $a_{\ell m}^{i}$, 
+the following computation is performed:
+
+\begin{equation}
+C_\ell^{ij} = \frac{1}{\ell+1}\sum_{m=0}^\ell a_{\ell m}^{i}a_{\ell m}^{j*}.
+\label{eq:recov-cl}
+\end{equation}
+We do not sum over negative $m$s because the fields are real and therefore 
+$(-1)^m a_{\ell -m}^{i} = a_{\ell m}^{i*}$.
 
 \subsection{Selection function}
 
@@ -662,6 +675,10 @@ each one is also provided in {\tt example.config}):
   Since the fields are real, only $a^{i}_{\ell m}$ with $m\geq 0$ are written.
   Set to {\tt 0} for no output.
 
+\item {\tt RECOVAUXCLS\_OUT:} Filename (with path) for the table with $C^{ij}(\ell)$s recovered 
+  from the realized $a^{i}_{\ell m}$s of the associated Gaussian fields (see {\tt AUXALM\_OUT} keyword). 
+  The computation is performed according to Eq. \ref{eq:recov-cl}. Set to {\tt 0} for no output.
+
 \item {\tt AUXMAP\_OUT:} Filename (with path) for a text table containing the pixel's centre angular 
   coordinates and the values at that point of every associated Gaussian field at every redshift slice 
   being simulated. Set to {\tt 0} for no output.
@@ -688,7 +705,7 @@ each one is also provided in {\tt example.config}):
 \item {\tt RECOVCLS\_OUT:} Path plus filename for a text table of power spectra 
   $C_{\nv{rec}}^{ij}(\ell)$ recovered from the maps that can be output by {\tt MAP\_OUT} and 
   {\tt MAPFITS\_PREFIX}. In other words, $C_{\nv{rec}}^{ij}(\ell)$ is the average over $m$ 
-  of $a^{i}_{\ell m}a^{j*}_{\ell m}$, where $a^{i}_{\ell m}$ can be output by {\tt RECOVALM\_OUT}.
+  of $a^{i}_{\ell m}a^{j*}_{\ell m}$, where $a^{i}_{\ell m}$ can be output by {\tt RECOVALM\_OUT} (see Eq. \ref{eq:recov-cl}). 
   Set to {\tt 0} for no output. 
 
 \item {\tt SHEAR\_ALM\_PREFIX:} Prefix (including path) for files containing the weak lensing 

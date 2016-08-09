@@ -282,7 +282,13 @@ int main (int argc, char *argv[]) {
   if (ExitAt=="AUXALM_OUT") {
     PrepareEnd(StartAll); return 0;
   }
-  
+  // If requested, recover Cls from auxiliary alm's:
+  RecoverCls(aflm, fieldlist, "RECOVAUXCLS_OUT", config);
+  // Exit if this is the last output requested:
+  if (ExitAt=="RECOVAUXCLS_OUT") {
+    PrepareEnd(StartAll); return 0;
+  }
+
 
   /******************************/
   /*** Part 5: Map generation ***/
