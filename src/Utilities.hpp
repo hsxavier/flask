@@ -255,7 +255,6 @@ void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &st
 template <typename type>
 void PrintVecs(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {
   long i, j;
-  
   //(*output).setf(std::ios_base::showpoint);
   (*output).precision(12);
   for (i=offset; i<nrows+offset; i++) {
@@ -263,7 +262,7 @@ void PrintVecs(type **table, long nrows, long ncols, std::ostream *output = &std
       (*output).width(18); *output << table[j][i] << " ";
     }
     *output << std::endl;
-  }      
+  } 
 }
 
 #endif

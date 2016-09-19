@@ -1,17 +1,15 @@
 /***************************************************************
-2012-09-18: The class 'ParameterList' allows you to create lists of 
+2016-08-15: The class 'ParameterList' allows you to create lists of 
 parameters to be used in your program and load their values from 
 a 'parameter list file'. These parameters must be listed in the 
-'ParDef' namespace below. You must set three lists:
-1- A dummy variable 'par_index' which can be used as reference in 
-   your program;
-2- The names of the parameters as listed in the parameter list 
+'ParDef' namespace below. You must set two lists:
+1- The names of the parameters as listed in the parameter list 
    file.
-3- The type of each parameter, which can be: i1 (int), i2-i5 
-   (int[2-5]), d1 (double), d2-d5 (double[2-5]), c (char) or 
-   s (char[60]).
-
-   
+2- The type of each parameter, which can be: i1 (int), i2-i5 
+   (int[2-5]), d1 (double), d2-d5 (double[2-5]), c (char), 
+   s (char[60]) or ph (phrase, sequence of words separated by spaces).
+The 'npars' variable must be set to the number of parameters in the 
+'par_name' and 'par_type' arrays.   
 ***************************************************************/
 
 #ifndef PARLIST_H    // include guard.

@@ -314,20 +314,10 @@ if (filename!="0") {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
     // Loads necessary memory:
     Announce("Allocating memory for DLT... ");
-    lls        = vector<double>(0, lastl);
     workspace  = vector<double>(0, 16*Nls-1);
     LegendreP  = vector<double>(0, 2*Nls*Nls-1);
     DLTweights = vector<double>(0, 4*Nls-1);
-    // Initialize vectors:
-    for (i=0; i<=lastl; i++) lls[i]=(double)i;
-    Announce();// angle theta is only necessary for output:
-    if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
-      Announce("Generating table of sampling angles... ");
-      theta    = vector<double>(0, 2*Nls-1);
-      ArcCosEvalPts(2*Nls, theta);
-      for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
-      Announce();
-    } 
+    Announce();
     
     // 2016-01-08: Exponential suppresion was passed to stage 1.5 (smoothing Cls):
     lsup0     = -1;
@@ -342,6 +332,22 @@ if (filename!="0") {
     makeweights(Nls, DLTweights);
     Announce();
   }
+
+  // Vector of ells is only necessary for output:
+  if (config.reads("GCLOUT_PREFIX")!="0" || config.reads("REG_CL_PREFIX")!="0") {
+    Announce("Generating list of ells... ");
+    lls = vector<double>(0, lastl);
+    for (i=0; i<=lastl; i++) lls[i]=(double)i;
+    Announce();
+  }
+  // Angle theta is only necessary for output:
+  if (config.reads("XIOUT_PREFIX")!="0" || config.reads("GXIOUT_PREFIX")!="0") {
+    Announce("Generating table of sampling angles... ");
+    theta    = vector<double>(0, 2*Nls-1);
+    ArcCosEvalPts(2*Nls, theta);
+    for (i=0; i<2*Nls; i++) theta[i] = theta[i]*180.0/M_PI;
+    Announce();
+  } 
 
   // LOOP over all C(l)s already set.
   if (dist==lognormal) Announce("Transforming C(l)s for the auxiliary Gaussian ones... ");
@@ -488,7 +494,7 @@ if (filename!="0") {
   
   Announce("Regularizing cov. matrices... ");
   
-  #pragma omp parallel for schedule(dynamic) private(gslm, filename)  
+#pragma omp parallel for schedule(dynamic) private(gslm, filename)  
   for (l=lstart; l<=lend; l++) {
 
     // Check pos. defness, regularize if necessary, keep track of changes:
@@ -527,25 +533,25 @@ if (filename!="0") {
   /***********************************************************/
 
   if (config.reads("REG_CL_PREFIX")!="0") {
-    if(dist==lognormal) {
-      Announce("Computing regularized lognormal Cls... ");
-            
-      // LOOP over fields:
-      NCls = (Nfields*(Nfields+1))/2;
+    if(dist==lognormal) Announce("Computing regularized lognormal Cls... ");
+    if(dist==gaussian)  Announce("Computing regularized Gaussian Cls... ");
+    // LOOP over fields:
+    NCls = (Nfields*(Nfields+1))/2;
 #pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, m, i, j)
-      for (k=0; k<NCls; k++) {
-	l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
-	m = NCls-1-k-(l*(l+1))/2;
-	i = Nfields-1-l;
-	j = Nfields-1-m;
-
+    for (k=0; k<NCls; k++) {
+      l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
+      m = NCls-1-k-(l*(l+1))/2;
+      i = Nfields-1-l;
+      j = Nfields-1-m;
+	
+      // Copy the Cl to a vector:
+      tempCl = vector<double>(0, lastl);
+      for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j];
+	
+      if (dist==lognormal) {
 	// Temporary memory allocation:
-	tempCl    = vector<double>(0, lastl);
 	xi        = vector<double>(0, 2*Nls-1);
 	workspace = vector<double>(0, 2*Nls-1);
-
-	// Copy the Cl to a vector:
-	for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j]; // tudo certo.
 	// Compute correlation function Xi(theta):
 	ModCl4DLT(tempCl, lastl, -1, -1); // Suppression not needed (it was already suppressed).
 	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
@@ -554,26 +560,24 @@ if (filename!="0") {
 	// Compute the Cls:
 	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
 	ApplyClFactors(tempCl, Nls, lsup0, supindex0);
-	// Output:
-	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
-	
 	// Temporary memory deallocation:
-	free_vector(tempCl, 0, lastl);
 	free_vector(xi, 0, 2*Nls-1);
 	free_vector(workspace, 0, 2*Nls-1);
-      } 
-      Announce();
-      cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
-    
-    } // End of if(dist==lognormal)
-    else warning("ClProcess: regularized C(l)s asked for GAUSSIAN realizations.");
+      }
+
+      // Output:
+      filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
+      free_vector(tempCl, 0, lastl);
+    } // End of LOOP over fields. 
+    Announce();
+    cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
   } // End of computing regularized lognormal Cls.
   
 
   // Freeing memory: from now on we only need CovByl, means, shifts.
+  if (config.reads("GCLOUT_PREFIX")!="0" || config.reads("REG_CL_PREFIX")!="0") free_vector(lls, 0, lastl);
   if (dist==lognormal) {
     Announce("DLT memory deallocation... ");
-    free_vector(lls, 0, lastl);
     free_vector(LegendreP, 0, 2*Nls*Nls-1);
     free_vector(DLTweights, 0, 4*Nls-1); 
     Announce();

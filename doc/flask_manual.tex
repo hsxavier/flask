@@ -661,9 +661,9 @@ each one is also provided in {\tt example.config}):
   by {\tt COVL\_PREFIX} but after being regularised according to the choice in {\tt REGULARIZE\_METHOD}.
   Set to {\tt 0} for no output.
 
-\item {\tt REG\_CL\_PREFIX:} Prefix (including path) for the regularised $C^{ij}(\ell)$s. In the 
-  current implementation this can only be computed for {\tt DIST: LOGNORMAL}; therefore the 
-  $C^{ij}(\ell)$s output here are for the lognormal fields. For no output, set this keyword to {\tt 0}.
+\item {\tt REG\_CL\_PREFIX:} Prefix (including path) for the regularised input $C^{ij}(\ell)$s. 
+  In case {\tt DIST: LOGNORMAL}, the $C^{ij}(\ell)$s output here are for the lognormal fields, not for 
+  the auxiliary Gaussian fields. For no output, set this keyword to {\tt 0}.
 
 \item {\tt CHOLESKY\_PREFIX:} Path plus prefix for the outcome of the Cholesky decomposition 
   as implemented by the \emph{GNU Scientific Library} 
