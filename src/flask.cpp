@@ -601,9 +601,10 @@ int main (int argc, char *argv[]) {
 
   /*** Galaxy fields ***/
   
-  //double PixelSolidAngle=12.56637061435917/npixels; // 4pi/npixels.
-  double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
-  double dwdz;
+  //double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
+  //double dwdz;
+  double dw = 1.4851066049791e8/npixels; // Pixel solid angle in arcmin^2.
+
   SelectionFunction selection;
   int *counter;
   
@@ -625,13 +626,14 @@ int main (int argc, char *argv[]) {
 	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
-	dwdz    = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
+	//dwdz    = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 	// LOOP over pixels of field 'i':
 #pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
 	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.	  
-	  mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dwdz);	  
+	  //mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dwdz);
+	  mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dw);
 	}
 	Announce();
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
@@ -646,9 +648,10 @@ int main (int argc, char *argv[]) {
 	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
 	Announce(message);
-	dwdz = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
+	//dwdz = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 #pragma omp parallel for
-	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
+	//for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
+	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
 	Announce();
       }
   }

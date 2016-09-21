@@ -312,12 +312,13 @@ double SelectionFunction::operator()(int fz, int pix) {
     else                   return Scale * StarValue;
   }
   
-  // For separable selection functions, multiply radial to angular part:
+  // For separable selection functions, multiply integral of radial to angular part:
   else if (Separable==1) {
-    z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; // Get mean redshift of the field.
-    zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
-    if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
-    return Scale * zSelInterp * StarValue * AngularValue;
+    //z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; // Get mean redshift of the field.
+    //zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
+    //if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
+    //return Scale * zSelInterp * StarValue * AngularValue;
+    return Scale * intZsel[fz] * StarValue * AngularValue;
   }
 }
 
