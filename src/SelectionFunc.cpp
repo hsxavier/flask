@@ -85,22 +85,31 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
 
     // Prepare for radial selection functions:
     zSelIndex = vector<int>    (0, Nfields-1);
-    NgalTypes = IndexGalTypes(fieldlist);
+    NgalTypes = IndexGalTypes(fieldlist);        // << This initializes zSelIndex. 
     zSel      = vector<double*>(0, NgalTypes-1); 
     zEntries  = vector<double*>(0, NgalTypes-1);
     NzEntries = vector<long>   (0, NgalTypes-1);
+    intZsel   = vector<double> (0, Nfields-1);
     tempstr   = config.reads("SELEC_Z_PREFIX");
-    if (tempstr=="0") error ("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
+    if (tempstr=="0") error("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
+    // Mark so far unused vectors to ease bug detection:
+    for (i=0; i<Nfields; i++) intZsel[i]=0.0;
+    for (i=0; i<NgalTypes; i++) { zSel[i]=NULL; zEntries[i]=NULL; NzEntries[i]=0; }
 
     // LOOP over fields, look for type of tracer (galaxy):
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
 	fieldlist.Index2Name(i, &f, &z);
-	// Found new type of galaxy: load radial selection function:
-	sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
-	filename.assign(message);
-	LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
-	zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
-	if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
+	if (NzEntries[zSelIndex[i]] == 0) {
+	  // Found new type of galaxy: load radial selection function:
+	  sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
+	  filename.assign(message);
+	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
+	  zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
+	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
+	}
+	// Integrate radial selection function inside the bins:
+	intZsel[i] = DiscreteIntegral(zEntries[zSelIndex[i]], zSel[zSelIndex[i]], NzEntries[zSelIndex[i]], 
+				      fieldZrange[i][0], fieldZrange[i][1]);
       }
   }  
   // Unknown type of selection function:
@@ -228,6 +237,8 @@ SelectionFunction::~SelectionFunction() {
       free_vector(zEntries[i], 0, NzEntries[i]-1);
       free_vector(zSel[i],     0, NzEntries[i]-1);
     }
+    // Free integral of the radial selection function in the z bin:
+    free_vector(intZsel,   0, Nfields-1);
     // Free pointers to functions and counters:
     free_vector(zSelIndex, 0, Nfields-1);
     free_vector(zSel,      0, NgalTypes-1);

@@ -13,4 +13,8 @@ void bisect_interpol(double *a,int dim,double x,int *erg);
 /*** Originally 'interpol_linear_extra_1D' from Benjamin Joachimi's code. ***/
 double Interpol(double *ax,int NX,double *z,double x);
 
+/*** Compute the integral of a tabulated function by summing trapeziums ***/
+/*** I.e., this uses linear interpolation between points.               ***/
+double DiscreteIntegral(double *x, double *f, int n, double xmin, double xmax);
+
 #endif
