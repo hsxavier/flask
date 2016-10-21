@@ -282,15 +282,14 @@ of tracers $\langle N_t(i,j) \rangle$ of type $t$ in each pixel $j$ of the redsh
 is given by:
 
 \begin{equation}
-\langle N_t(i,j) \rangle = \bar{n}_t(i,j)[1+\delta_t(i,j)]\Delta z_{ti} \Delta\Omega,
+\langle N_t(i,j) \rangle = \bar{n}_t(i,j)[1+\delta_t(i,j)]\Delta\Omega,
 \label{eq:tracer-number}
 \end{equation}
-where $\Delta\Omega$ is the pixel angular area in $\mathrm{arcmin}^2$, $\Delta z_{ti}$ is the  
-redshift shell width (as specified in the fields information file -- see Section 
-\ref{sec:fields-info}), $\delta_t(i,j)$ is the tracer $t$ density contrast field generated according 
-to the input power spectra, and $\bar{n}_t(i,j)$ is the expected number of tracers $t$ per unit redshift, 
-per $\mathrm{arcmin}^2$, that would be observed in a completely homogeneous universe. Usually this 
-$\bar{n}$ is called ``selection function''. The actual number of tracers generated in each cell can be sampled 
+where $\Delta\Omega$ is the pixel angular area in $\mathrm{arcmin}^2$, $\bar{n}_t(i,j)$ 
+is the expected number of tracers $t$ per $\mathrm{arcmin}^2$ that would be observed 
+in pixel $j$ and redshift shell $i$ in a completely homogeneous universe, 
+$\delta_t(i,j)$ is the tracer $t$ density contrast field generated according 
+to the input power spectra. The actual number of tracers generated in each cell can be sampled 
 from a Poisson distribution with average number given by $\langle N_t(i,j) \rangle$ if the keyword 
 {\tt POISSON} is set to {\tt 1}.
 
@@ -309,22 +308,26 @@ each tracer $t$ and redshift $i$) with prefixes determined by {\tt SELEC\_PREFIX
 {\tt SELEC\_SEPARABLE: 1}, we have:
 
 \begin{equation}
-W_t(i,j) = f_t(z_i)\times A(j),  
+W_t(i,j) = A(j)\int_{z^{\rm{min}}_i}^{z^{\rm{max}}_i} f_t(z) \rm{d}z,  
 \label{eq:separable-selection-function} 
 \end{equation}
-where $f_t(z_i)$ is a radial selection function for the tracer $t$ at shell $i$ (centered 
-at redshift $z_i$) given by files with prefix {\tt SELEC\_Z\_PREFIX} [the value of $f_t(z_i)$ 
-is linearly interpolated to $z_i$ from the tabulated values]; and $A(j)$ is an 
+where $f_t(z)$ is a radial selection function for the tracer $t$ 
+given by files with prefix {\tt SELEC\_Z\_PREFIX} [the value of $f_t(z)$ 
+is linearly interpolated from the tabulated values]; $z^{\rm{min}}_i$ and 
+$z^{\rm{max}}_i$ are the minimum and maximum redshifts for the redshift shell $i$, 
+specified in the file given by the {\tt FIELDS\_INFO} keyword (see also Sec. 
+\ref{sec:fields-info}); and $A(j)$ is an 
 angular selection function given by a single {\sc healpix} map, passed to {\tt SELEC\_PREFIX}. 
 Note that the units of $a_{\mathrm{s}}$, $S(j)$, $W_t(i,j)$, $f_t(z)$ and $A(j)$ are arbitrary; 
 however, they must be such that the final units of $\bar{n}_t(i,j)$ are number of tracers 
-per unit redshift, per $\mathrm{arcmin}^2$. In most cases, people choose $f_t(z_i)$ to carry 
-all the units and leave the remaining terms as dimensionless quantities.
+per $\mathrm{arcmin}^2$. In most cases, people choose $f_t(z)$ to carry 
+all the units [i.e. $f_t(z)$ is given as number of galaxies per $\mathrm{arcmin}^2$, 
+per unit redshift] and leave the remaining terms as dimensionless quantities.
 
 If {\tt SELEC\_TYPE: 1}, $\bar{n}_t(i,j)$ is given by:
 
 \begin{equation}
-\bar{n}_t(i,j) = a_{\mathrm{s}} \times S(j) \times W_t(i,j) \times \rho_t(i),  
+\bar{n}_t(i,j) = a_{\mathrm{s}} \times S(j) \times W_t(i,j) \times \rho_t(i),
 \label{eq:fraction-selection-function} 
 \end{equation}
 where $a_{\mathrm{s}} \times S(j) \times W_t(i,j)$ is the fraction of tracers $t$ 
@@ -454,8 +457,9 @@ each one is also provided in {\tt example.config}):
 \item {\tt APPLY\_PIXWIN:} To compute the value of a pixel from the map's harmonic coefficients, 
   {\sc healpix} sums the multipoles weighted by their coefficients (i.e. performs an inverse 
   harmonic transformation) and computes the result at the angular coordinates of the pixel's 
-  centre (the pixel value is not the field average inside the pixel). In case you want the pixel 
-  value to be the field average inside the pixel, you must apply the {\sc healpix} window function 
+  centre (the pixel value is not the field's average inside the pixel). In case you want the pixel 
+  value to be the field's average inside the pixel (which is what people want in most cases), 
+  you must apply the {\sc healpix} window function 
   to the input power spectra; this is done by setting {\tt APPLY\_PIXWIN} to {\tt 1}. To skip 
   this multiplication, set {\tt APPLY\_PIXWIN: 0}.
 
@@ -505,10 +509,12 @@ each one is also provided in {\tt example.config}):
    function (the selection function will be multiplied by this value). To use the exact values in the 
    files specified by {\tt SELEC\_PREFIX} and {\tt SELEC\_Z\_PREFIX}, set {\tt SELEC\_SCALE: 1.0}.
 
-\item {\tt SELEC\_TYPE:} There are two types of selection functions: one specifies the expected 
-  number of observed galaxies per unit redshift, per square arcmin ({\tt SELEC\_TYPE: 0}), and 
-  the other specifies the fraction of existing galaxies that are actually observed at each angular 
-  position and redshift ({\tt SELEC\_TYPE: 1}). In the latter case, the total existing galaxies 
+\item {\tt SELEC\_TYPE:} There are two types of selection functions: one ({\tt SELEC\_TYPE: 0}) 
+  specifies either the expected number of observed galaxies per unit redshift, per square arcmin 
+  ({\tt SELEC\_SEPARABLE: 1}) or the expected number of observed galaxies per square arcmin for each 
+  redshift slice ({\tt SELEC\_SEPARABLE: 0}). The other ({\tt SELEC\_TYPE: 1}) specifies the 
+  fraction of existing galaxies that are actually observed at each angular 
+  position and redshift. In the latter case, the total existing galaxies 
   is computed from the galaxy density given at {\tt GALDENSITY} and the comoving volume calculated 
   according to the pixel size (determined by {\tt NSIDE}), the redshift slice width (set in the 
   fields information file) and the cosmological parameters {\tt OMEGA\_m}, {\tt OMEGA\_L} and 
