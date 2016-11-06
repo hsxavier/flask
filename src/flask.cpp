@@ -874,12 +874,13 @@ int main (int argc, char *argv[]) {
       if (fieldlist.ftype(i)==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
 	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l+1], mapf[i], j);
 	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l+1],i,j);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta           , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi             , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz               , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, f                   , catSet);	    
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, pixel_pos  , j                   , catSet);
-	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, maskbit_pos, selection.MaskBit(j), catSet);
+	  if (maskbit_pos!=-1)              k     = selection.MaskBit(j);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta, catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi  , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz    , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, galtype_pos, f        , catSet);	    
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, pixel_pos  , j        , catSet);
+	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, maskbit_pos, k        , catSet);
 	  gali++;
 	}
       
