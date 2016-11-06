@@ -49,7 +49,7 @@ int WriteCatalog2Fits(std::string filename, CAT_PRECISION **table, long Nentries
     else if (strcmp(columnNames[i],"gamma2" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"ellip1" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"ellip2" )==0) {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "\0");}
-    else if (strcmp(columnNames[i],"pixel"  )==0) {sprintf(columnTypes[i],"%s", "I8"   ); sprintf(columnUnits[i],"%s", "\0");}
+    else if (strcmp(columnNames[i],"pixel"  )==0) {sprintf(columnTypes[i],"%s", "I9"   ); sprintf(columnUnits[i],"%s", "\0");}
     else if (strcmp(columnNames[i],"maskbit")==0) {sprintf(columnTypes[i],"%s", "I2"   ); sprintf(columnUnits[i],"%s", "\0");}
     else                                          {sprintf(columnTypes[i],"%s", "E12.5"); sprintf(columnUnits[i],"%s", "unknown"); 
       warning("WriteCatalog2Fits: unknown catalog column "+word.assign(columnNames[i]));}  
