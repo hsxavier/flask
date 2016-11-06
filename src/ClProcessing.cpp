@@ -296,7 +296,9 @@ if (filename!="0") {
       }
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
   (*NlsOut)=Nls;
-
+  
+  // lmax cannot be larger than the last ell provided as input:
+  if (lmax>lastl) error("ClProcess: C(l)s provided are not specified up to requested LRANGE maximum");
   
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   Announce("Allocating data-cube needed for Cholesky decomposition... ");
