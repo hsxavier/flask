@@ -9,7 +9,7 @@
 #define FIT_PRECISION TFLOAT
 
 // Version control, this will be replaced, when doing 'make', by the git short hash:
-#define FLASKCOMMIT "aa5da38"
+#define FLASKCOMMIT "166ddf1"
 
 
 // Global definitions

@@ -495,6 +495,24 @@ int main (int argc, char *argv[]) {
   } // End of IF compute convergence by density LoS integration.
   else if (config.readi("DENS2KAPPA")!=0) warning("flask: unknown DENS2KAPPA option: skipping density LoS integration.");
   
+  
+  /*** Hacked BRANCH: add noise Gaussian noise to maps for Justin's Bayesian studies ***/
+  Announce("!! HACKED BRANCH: will add Gaussian noise to maps...");
+  double knoise;
+  knoise = config.readd("KNOISE");
+  long2 = ((long)Nfields)*((long)npixels);
+#pragma omp parallel for private(i, j, k)
+  for (long1=0; long1<long2; long1++) {
+    i = (int)(long1%Nfields);
+    j = (int)(long1/Nfields);
+    // Find out which random generator to use:
+    k = omp_get_thread_num()+1;
+    // Generate independent 1sigma complex random variables:
+    mapf[i][j] += gsl_ran_gaussian(rnd[k], knoise);
+  }
+  Announce();
+  
+  
   // Write final map to file as a table if requested:
   GeneralOutput(mapf, config, "MAP_OUT", fieldlist);
   // Map output to fits and/or tga files:
@@ -504,7 +522,7 @@ int main (int argc, char *argv[]) {
   if (ExitAt=="MAP_OUT" ||
       ExitAt=="MAPFITS_PREFIX") {
     PrepareEnd(StartAll); return 0;
-  }
+  }  
 
   // If requested, recover alms and/or Cls from maps:
   RecoverAlmCls(mapf, fieldlist, "RECOVALM_OUT", "RECOVCLS_OUT", config);
