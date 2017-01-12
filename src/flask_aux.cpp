@@ -379,33 +379,33 @@ void Kappa2ShearEmode(Alm<xcomplex <ALM_PRECISION> > &Elm, Alm<xcomplex <ALM_PRE
 
 // Generates galaxy ellipticity from shear and convergence, including random source ellipticity:
 void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double gamma2, double *eps1, double *eps2) {
-  xcomplex<double> g, epsSrc, eps, k, one, gamma;
+  std::complex<double> g, epsSrc, eps, k, one, gamma;
 
   // Set complex numbers:
-  gamma.re = gamma1; gamma.im = gamma2;
-  k.re     = kappa;  k.im     = 0.0;
-  one.re   = 1.0;    one.im   = 0.0;
+  gamma.real() = gamma1; gamma.imag() = gamma2;
+  k.real()     = kappa;  k.imag()     = 0.0;
+  one.real()   = 1.0;    one.imag()   = 0.0;
   // Compute reduced shear:
   g = gamma/(one-k);
   // Generate source intrinsic ellipticity:
   if (sigma>0.0) {
-    epsSrc.re = gsl_ran_gaussian(rnd, sigma);
-    epsSrc.im = gsl_ran_gaussian(rnd, sigma);
+    epsSrc.real() = gsl_ran_gaussian(rnd, sigma);
+    epsSrc.imag() = gsl_ran_gaussian(rnd, sigma);
    }
   else {
-    epsSrc.re = 0.0;
-    epsSrc.im = 0.0;
+    epsSrc.real() = 0.0;
+    epsSrc.imag() = 0.0;
   }
   // Compute ellipticity of the image:
-  if (g.norm() <= 1.0) {
-    eps = (epsSrc+g) / (one + g.conj()*epsSrc);
+  if (norm(g) <= 1.0) {
+    eps = (epsSrc+g) / (one + conj(g)*epsSrc);
   }
   else {
-    eps = (one + g*epsSrc.conj())/(epsSrc.conj()+g.conj());
+    eps = (one + g*conj(epsSrc))/(conj(epsSrc)+conj(g));
   }
   //Return ellipticity of the image:
-  (*eps1) = eps.re;
-  (*eps2) = eps.im;
+  (*eps1) = eps.real();
+  (*eps2) = eps.imag();
 } 
 
 

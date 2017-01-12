@@ -20,7 +20,7 @@ LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 CXXOMP   = -fopenmp
 LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
-# Options for Splinter:
+# Options for Splinter computer:
 ifeq ($(HOSTNAME), splinter-login.local)
 HEALDIR  = /home/hsxavier/Healpix_3.11
 HEALDATA = $(HEALDIR)/data
@@ -29,7 +29,7 @@ LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 CXXFITS  = -I/usr/include/cfitsio
 endif
 
-# Options for alphacrucis:
+# Options for Alphacrucis computer:
 ifeq ($(HOSTNAME), alphacrucis)
 HEALDIR  = /sto/home/hsxavier/Healpix_3.20
 HEALDATA = $(HEALDIR)/data
@@ -45,17 +45,26 @@ ifeq ($(FLASKCOMMIT), )
 FLASKCOMMIT = missing
 endif
 
+# Get Healpix version and check if it includes their own complex number class:
+HEALVERSION := $(shell grep -o '[0-9]*\.[0-9]*' $(HEALDIR)/Version)
+USEXCOMPLEX := $(shell echo "$(HEALVERSION) < 3.30" | bc)
+
 
 
 ### Compiling intructions ###
 
 # General instructions:
+
 all: $(BIN)/flask $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
 
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
 	rm -f $(SRC)/definitions-made.hpp
+
+test:
+	echo $(HEALVERSION)
+	echo $(USEXCOMPLEX)
 
 # Executables:
 
