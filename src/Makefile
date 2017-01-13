@@ -14,7 +14,7 @@ OBJ  = ../obj
 SRC  = ../src
 
 # Healpix location:
-HEALDIR  =  /home/skems/prog/Healpix_3.11
+HEALDIR  =  /home/skems/prog/Healpix_3.31
 HEALDATA = $(HEALDIR)/data
 CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
 LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib

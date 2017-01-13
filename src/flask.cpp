@@ -277,7 +277,7 @@ int main (int argc, char *argv[]) {
 	aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);
 #else
 	aflm[i](l,m).real(gaus1[k][i][0]);
-	aflm[i](l,m).imag(gaus1[k][i][0]);
+	aflm[i](l,m).imag(gaus1[k][i][1]);
 #endif
       }   
       

@@ -143,12 +143,12 @@ Library\footnote{{\tt \href{http://www.gnu.org/software/gsl}{http://www.gnu.org/
 {\sc cfitsio}\footnote{{\tt \href{http://heasarc.gsfc.nasa.gov/fitsio}{http://heasarc.gsfc.nasa.gov/fitsio}}} 
 library to input and output FITS files. Apart from {\sc healpix}, all the remaining dependencies should 
 be available on Linux and Mac repositories. {\sc Healpix} however should be easy to install (just 
-follow their instructions); {\sc Flask} requires version 3.11 or 3.20 of the C++ {\sc healpix} 
-implementation due to the {\tt T\_Healpix\_Base<I>::boundaries} function, introduced in version 3.11, and 
-due to the {\tt xcomplex} class, excluded in version 3.30. 
+follow their instructions); {\sc Flask} requires version 3.11 or later of the C++ {\sc healpix} 
+implementation due to the {\tt T\_Healpix\_Base<I>::boundaries} function, introduced in version 3.11. 
+{\sc Flask} has been fully operational under {\sc healpix} versions 3.11, 3.20 and (since January 2017) 3.31.
 
 So far {\sc Flask} has been tested only on Linux distributions -- Scientific Linux 5.6 and Ubuntu 14.04 -- 
-and compiled with {\tt g++} (GCC) versions 4.8.1 and 4.8.4.   
+and compiled with {\tt g++} (GCC) versions 4.4.7, 4.8.1 and 4.8.4.   
 Besides the main code and other routines in {\sc C++}, {\sc flask} also includes auxiliary {\sc python} 
 and {\sc shell} scripts. These were tested in {\sc bash} shell and {\sc python} versions 2.7.3 and 2.7.6. 
 The {\sc python} scripts require the a few packages like {\sc numpy}, {\sc scipy} and {\sc healpy} 
