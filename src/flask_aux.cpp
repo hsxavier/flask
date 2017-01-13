@@ -193,8 +193,13 @@ void RecoverCls(Alm<xcomplex <ALM_PRECISION> > *bflm, const FZdatabase & fieldli
 	yesCl[k] = 1;
 	for(l=lminout; l<=lmaxout; l++) {
 	  recovCl[k][l] = 0;
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=3.30.
 	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
 	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*(bflm[j](l,m).conj())).real();
+#else
+	  if (mmax<0) for (m=0; m<=l; m++)    recovCl[k][l] += (bflm[i](l,m)*conj(bflm[j](l,m))).real();
+	  else        for (m=0; m<=mmax; m++) recovCl[k][l] += (bflm[i](l,m)*conj(bflm[j](l,m))).real();
+#endif
 	  recovCl[k][l] = recovCl[k][l]/((double)(l+1));
 	}
       }
@@ -232,7 +237,14 @@ void RecoverAlmCls(Healpix_Map<MAP_PRECISION> *mapf, const FZdatabase & fieldlis
     bflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);
     for (i=0; i<Nfields; i++) if(mapf[i].Nside()!=0) {
 	bflm[i].Set(lmaxout,lmaxout);
-	for(l=0; l<=lmaxout; l++) for (m=0; m<=l; m++) bflm[i](l,m).Set(0,0);
+	for(l=0; l<=lmaxout; l++) for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=3.30.
+	    bflm[i](l,m).Set(0,0);
+#else
+	    bflm[i](l,m).real(0);
+	    bflm[i](l,m).imag(0);	    
+#endif
+	  }
       }    
     // Load map ring weights:
     arr<double> weight(2*nside);
@@ -367,12 +379,26 @@ void Kappa2ShearEmode(Alm<xcomplex <ALM_PRECISION> > &Elm, Alm<xcomplex <ALM_PRE
   lmax = Klm.Lmax();
   
   // E mode monopole and dipole are zero:
-  for(l=0; l<2; l++) for (m=0; m<=l; m++) Elm(l,m).Set(0,0);
+  for(l=0; l<2; l++) for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=3.30.      
+      Elm(l,m).Set(0,0);
+#else
+      Elm(l,m).real(0);
+      Elm(l,m).imag(0);
+#endif
+    }
 
   // Use Wayne Hu (PRD 62:043007, 2000) to get Elm from klm:
   for(l=2; l<=lmax; l++) { 
     coeff = sqrt( ((double)((l+2)*(l-1))) / ((double)(l*(l+1))) );
-    for (m=0; m<=l; m++) Elm(l,m).Set(coeff*Klm(l,m).re,coeff*Klm(l,m).im);
+    for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=3.30.      
+      Elm(l,m).Set(coeff*Klm(l,m).re,coeff*Klm(l,m).im);
+#else
+      Elm(l,m).real(coeff*Klm(l,m).real());
+      Elm(l,m).imag(coeff*Klm(l,m).imag());      
+#endif
+    }
   }
 }
 

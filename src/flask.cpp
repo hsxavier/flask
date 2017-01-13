@@ -12,7 +12,7 @@
 #include <alm_healpix_tools.h>
 #include <omp.h>                // For OpenMP functions, not pragmas.
 #include <limits.h>             // For finding out max. value of INT variables.
-#include "definitions-made.hpp" // Global variables and #defines.
+#include "definitions.hpp"      // Global variables and #defines.
 #include "flask_aux.hpp"        // Auxiliary functions made for this program.
 #include "GeneralOutput.hpp"    // Various file output functions.
 #include "ParameterList.hpp"    // Configuration and input system.
@@ -49,7 +49,7 @@ int main (int argc, char *argv[]) {
   int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, Nls, MaxThreads;
   long long1, long2;
   double *expmu, gvar, gvarl;
-  gsl_set_error_handler_off();                                              // !!! All GSL return messages MUST be checked !!!
+  gsl_set_error_handler_off();          // !!! All GSL return messages MUST be checked !!!
 
   
   /**********************************************/
@@ -234,7 +234,14 @@ int main (int argc, char *argv[]) {
     aflm  = vector<Alm<xcomplex <ALM_PRECISION> > >(0,Nfields-1);   // Allocate Healpix Alm objects and set their size and initial value.
     for (i=0; i<Nfields; i++) {
       aflm[i].Set(lmax,lmax);
-      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) aflm[i](l,m).Set(0,0);
+      for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=v3.30.          
+	  aflm[i](l,m).Set(0,0);
+#else
+	  aflm[i](l,m).real(0); 
+	  aflm[i](l,m).imag(0);
+#endif
+	}
     }
     Announce();
 
@@ -265,8 +272,15 @@ int main (int argc, char *argv[]) {
       CorrGauss(gaus1[k], CovByl[l], gaus0[k]);
   
       // Save alm to tensor:
-      for (i=0; i<Nfields; i++) aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);   
-       
+      for (i=0; i<Nfields; i++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=v3.30.          
+	aflm[i](l,m).Set(gaus1[k][i][0], gaus1[k][i][1]);
+#else
+	aflm[i](l,m).real(gaus1[k][i][0]);
+	aflm[i](l,m).imag(gaus1[k][i][0]);
+#endif
+      }   
+      
     } // End of LOOP over l's and m's.
     Announce();
     free_GSLMatrixArray(CovByl, Nls);
@@ -524,8 +538,15 @@ int main (int argc, char *argv[]) {
     lmax    = config.readi("SHEAR_LMAX");                            // ATTENTION! Redefining lmax here!
     Alm<xcomplex <ALM_PRECISION> > Eflm(lmax,lmax), Bflm(lmax,lmax); // Temp memory
     arr<double> weight(2*mapf[0].Nside());                           // Temp memory
-    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Bflm(l,m).Set(0,0);  // B-modes are zero for weak lensing.
-  
+    for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) {                    // B-modes are zero for weak lensing.
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=v3.30.          
+	Bflm(l,m).Set(0,0);
+#else
+	Bflm(l,m).real(0);  
+	Bflm(l,m).imag(0);
+#endif
+      }
+
     // LOOP over convergence fields:
     for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fshear) {
 	fieldlist.Index2Name(i, &f, &z);
@@ -542,7 +563,14 @@ int main (int argc, char *argv[]) {
 	  PrepRingWeights(1, weight, config);
 	  Announce("   Transforming convergence map to harmonic space... ");
 	  if (lmax>nside) warning("SHEAR_LMAX > NSIDE introduces noise in the transformation.");
-	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=v3.30.          
+	      Eflm(l,m).Set(0,0);
+#else
+	      Eflm(l,m).real(0);
+	      Eflm(l,m).imag(0);
+#endif
+	    }
 	  map2alm_iter(mapf[i], Eflm, 1, weight); // Get klm.
 	  Announce();
 	}
@@ -556,7 +584,14 @@ int main (int argc, char *argv[]) {
 	}
 	else {
 	  Announce("HOMOGENEOUS realizations: setting shear E-mode to zero... ");
-	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) Eflm(l,m).Set(0,0);
+	  for(l=0; l<=lmax; l++) for (m=0; m<=l; m++) {
+#if USEXCOMPLEX // For compatibility with Healpix versions <=3.20 and >=v3.30.          
+	      Eflm(l,m).Set(0,0);
+#else
+	      Eflm(l,m).real(0);
+	      Eflm(l,m).imag(0);
+#endif
+	    }
 	  Announce();
 	}
 	fieldlist.Index2Name(i, &f, &z);

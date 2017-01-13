@@ -156,8 +156,13 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) 
-	    if(af[i].Lmax()>0)      // Some alm's might be empty.
+	    if(af[i].Lmax()>0) {     // Some alm's might be empty.
+#if USEXCOMPLEX
 	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
+#else
+	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).real()<<" "<<std::setprecision(10)<< af[i](l,m).imag();
+#endif
+	    }
 	  outfile<<std::endl;
 	} 
     }
@@ -167,8 +172,14 @@ void GeneralOutput(Alm<xcomplex <ALM_PRECISION> > *af, const ParameterList & con
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
 	  for (i=0; i<Nfields; i++) 
-	    if(af[i].Lmax()>0)      // Some alm's might be empty.
+	    if(af[i].Lmax()>0) {     // Some alm's might be empty.
+#if USEXCOMPLEX
 	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).re<<" "<<std::setprecision(10)<< af[i](l,m).im;
+#else
+	      outfile <<" "<<std::setprecision(10)<< af[i](l,m).real()<<" "<<std::setprecision(10)<< af[i](l,m).imag();
+#endif
+
+	    }
 	  outfile<<std::endl;
 	}  
     }
@@ -213,7 +224,11 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
       for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
+#if USEXCOMPLEX
 	  outfile <<" "<<std::setprecision(10)<< a(l,m).re<<" "<<std::setprecision(10)<< a(l,m).im;
+#else
+	  outfile <<" "<<std::setprecision(10)<< a(l,m).real()<<" "<<std::setprecision(10)<< a(l,m).imag();
+#endif
 	  outfile<<std::endl;
 	} 
     }
@@ -222,7 +237,11 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
      for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
+#if USEXCOMPLEX
 	  outfile <<" "<<std::setprecision(10)<< a(l,m).re<<" "<<std::setprecision(10)<< a(l,m).im;
+#else
+	  outfile <<" "<<std::setprecision(10)<< a(l,m).real()<<" "<<std::setprecision(10)<< a(l,m).imag();
+#endif
 	  outfile<<std::endl;
 	}  
     }
@@ -265,7 +284,11 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
       for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=l; m++) {
 	  outfile << l <<" "<< m;
+#if USEXCOMPLEX
 	  outfile <<" "<<std::setprecision(10)<< a(l,m).re<<" "<<std::setprecision(10)<< a(l,m).im;
+#else
+	  outfile <<" "<<std::setprecision(10)<< a(l,m).real()<<" "<<std::setprecision(10)<< a(l,m).imag();
+#endif
 	  outfile<<std::endl;
 	} 
     }
@@ -274,7 +297,11 @@ void GeneralOutput(const Alm<xcomplex <ALM_PRECISION> > & a, const ParameterList
      for(l=lminout; l<=lmaxout; l++)
 	for(m=0; m<=mmax; m++) {
 	  outfile << l <<" "<< m;
+#if USEXCOMPLEX
 	  outfile <<" "<<std::setprecision(10)<< a(l,m).re<<" "<<std::setprecision(10)<< a(l,m).im;
+#else
+	  outfile <<" "<<std::setprecision(10)<< a(l,m).real()<<" "<<std::setprecision(10)<< a(l,m).imag();
+#endif
 	  outfile<<std::endl;
 	}  
     }

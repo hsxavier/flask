@@ -8,10 +8,6 @@
 #define CAT_PRECISION float
 #define FIT_PRECISION TFLOAT
 
-// Version control, this will be replaced, when doing 'make', by the git short hash:
-#define FLASKCOMMIT "missing"
-
-
 // Global definitions
 
 namespace definitions {

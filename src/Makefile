@@ -1,4 +1,7 @@
+
+############################
 ### Variable definitions ###
+############################
 
 # Option for debugging with valgrind:
 DEBUG = -g -O0
@@ -39,19 +42,23 @@ CXXFITS  = -I/sto/home/hsxavier/cfitsio
 LDFITS   = -L/sto/home/hsxavier/cfitsio
 endif
 
+# Get Healpix version and check if it includes their own complex number class:
+HEALVERSION := $(shell grep -o '[0-9]*\.[0-9]*' $(HEALDIR)/Version)
+USEXCOMPLEX := $(shell echo "$(HEALVERSION) < 3.30" | bc) # Set to 1 if Healpix version < 3.30, 0 otherwise. 
 # Get code version:
 FLASKCOMMIT := $(shell git rev-parse --short HEAD)
 ifeq ($(FLASKCOMMIT), )
 FLASKCOMMIT = missing
 endif
 
-# Get Healpix version and check if it includes their own complex number class:
-HEALVERSION := $(shell grep -o '[0-9]*\.[0-9]*' $(HEALDIR)/Version)
-USEXCOMPLEX := $(shell echo "$(HEALVERSION) < 3.30" | bc)
+# Dynamic defines (#define that are set during compilation time, by passing instruction to compiler):
+VCONTROL   = -D FLASKCOMMIT=\"$(FLASKCOMMIT)\"
+DEFCOMPLEX = -D USEXCOMPLEX=$(USEXCOMPLEX)  
 
 
-
+#############################
 ### Compiling intructions ###
+#############################
 
 # General instructions:
 
@@ -60,11 +67,9 @@ all: $(BIN)/flask $(BIN)/GenStarMask $(BIN)/XiCalculator $(BIN)/Dens2KappaCls
 clean:
 	rm -f $(BIN)/*
 	rm -f $(OBJ)/*
-	rm -f $(SRC)/definitions-made.hpp
 
 test:
-	echo $(HEALVERSION)
-	echo $(USEXCOMPLEX)
+
 
 # Executables:
 
@@ -110,9 +115,7 @@ $(OBJ)/flask.o: $(SRC)/flask.cpp $(SRC)/flask_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
 			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp \
 			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp
-	sed 's|#define FLASKCOMMIT \"missing\"|#define FLASKCOMMIT \"$(FLASKCOMMIT)\"|g' \
-	$(SRC)/definitions.hpp > $(SRC)/definitions-made.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/flask.cpp -o $@ $(CXXOMP)
+	$(COMP) $(VCONTROL) $(DEFCOMPLEX) $(CXXHEAL) -c $(SRC)/flask.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/Spline.o:	$(SRC)/Spline.cpp $(SRC)/Spline.hpp $(SRC)/Utilities.hpp $(SRC)/FieldsDatabase.hpp
 	$(COMP) -c $(SRC)/Spline.cpp -o $@
@@ -130,7 +133,7 @@ $(OBJ)/flask_aux.o: $(SRC)/flask_aux.cpp $(SRC)/flask_aux.hpp \
 			$(SRC)/gsl_aux.hpp $(SRC)/Cosmology.hpp $(SRC)/definitions.hpp \
 			$(SRC)/fitsfunctions.hpp $(SRC)/GeneralOutput.hpp $(SRC)/Utilities.hpp \
 			$(SRC)/lognormal.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/flask_aux.cpp -o $@ $(CXXOMP)
+	$(COMP) $(DEFCOMPLEX) $(CXXHEAL) -c $(SRC)/flask_aux.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/fitsfunctions.o: $(SRC)/fitsfunctions.cpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp
 	sed 's|#define HEALPIX_DATA .*|#define HEALPIX_DATA \"$(HEALDATA)\"|g' $(SRC)/fitsfunctions.cpp > $(OBJ)/fitsfunctions-made.cpp
@@ -149,7 +152,7 @@ $(OBJ)/SelectionFunc.o: $(SRC)/SelectionFunc.cpp $(SRC)/SelectionFunc.hpp $(SRC)
 
 $(OBJ)/GeneralOutput.o: $(SRC)/GeneralOutput.cpp $(SRC)/GeneralOutput.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/flask_aux.hpp $(SRC)/definitions.hpp $(SRC)/FieldsDatabase.hpp
-	$(COMP) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
+	$(COMP) $(DEFCOMPLEX) $(CXXHEAL) -c $(SRC)/GeneralOutput.cpp -o $@
 
 $(OBJ)/Cosmology.o: $(SRC)/Cosmology.cpp $(SRC)/Cosmology.hpp $(SRC)/Utilities.hpp $(SRC)/Integral.hpp \
 	$(SRC)/ParameterList.hpp $(SRC)/interpol.h
