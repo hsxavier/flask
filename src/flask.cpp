@@ -48,7 +48,7 @@ int main (int argc, char *argv[]) {
   gsl_matrix **CovByl; 
   int status, i, j, k, l, m, Nf, Nz, f, z, Nfields, Nls, MaxThreads;
   long long1, long2;
-  double *expmu, gvar, gvarl;
+  double *expmu, gvar, gvarl, esig;
   gsl_set_error_handler_off();          // !!! All GSL return messages MUST be checked !!!
 
   
@@ -102,7 +102,8 @@ int main (int argc, char *argv[]) {
   Nz      = fieldlist.Nzs();
   cout << "Infered from FIELDS_INFO file:  Nf = " << Nf << "   Nz = " << Nz << endl;
 
-
+ 
+  
   /**************************************************************/
   /*** PART 2: Loads mixing matrices or compute them from Cls ***/
   /**************************************************************/  
@@ -484,7 +485,7 @@ int main (int argc, char *argv[]) {
 	k++;
 	fName[Nfields-1+k]    = Nf + fName[i];
 	zName[Nfields-1+k]    =      zName[i];
-	ftemp[Nfields-1+k]    = fshear;              // NOTE: means and shifts are not being set for integrated densities.     
+	ftemp[Nfields-1+k]    = flensing;            // NOTE: means and shifts are not being set for integrated densities.     
 	ztemp[Nfields-1+k][0] = fieldlist.zmax(i);   // The convergence from integration applies to sources
 	ztemp[Nfields-1+k][1] = fieldlist.zmax(i);   // located sharply at the end of the bin.
 	tempmapf[Nfields-1+k].SetNside(nside, RING);
@@ -548,7 +549,7 @@ int main (int argc, char *argv[]) {
       }
 
     // LOOP over convergence fields:
-    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fshear) {
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==flensing) {
 	fieldlist.Index2Name(i, &f, &z);
 	cout << "** Will compute shear for f"<<f<<"z"<<z<<":\n";
       
@@ -633,16 +634,9 @@ int main (int argc, char *argv[]) {
   /*** Part 6: Maps to Observables  ***/
   /************************************/
   
-
-  /*** Galaxy fields ***/
-  
-  //double PixelSolidAngle = 1.4851066049791e8/npixels; // in arcmin^2.
-  //double dwdz;
-  double dw = 1.4851066049791e8/npixels; // Pixel solid angle in arcmin^2.
-
   SelectionFunction selection;
-  int *counter;
-  
+  MAP_PRECISION maskval;
+
   // Read in selection functions from FITS files and possibly text files (for radial part):
   Announce("Reading selection functions from files... ");
   selection.load(config, fieldlist); 
@@ -651,6 +645,16 @@ int main (int argc, char *argv[]) {
   if (selection.Scheme()!=-2 && selection.Scheme()!=mapf[0].Scheme()) 
     error("flask: Selection function and maps have different pixel ordering schemes.");
   Announce();
+  // Set value used for masked region:
+  if (config.readi("USE_UNSEEN")==1) maskval = UNSEEN;
+  else if (config.readi("USE_UNSEEN")==0) maskval = 0;
+  else {maskval=0;  warning("Unknown option for USE_UNSEEN. Setting it to 0.");}
+
+
+  /*** Galaxy fields ***/
+ 
+  double dw = 1.4851066049791e8/npixels; // Pixel solid angle in arcmin^2.
+  int *counter;
 
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
@@ -661,14 +665,13 @@ int main (int argc, char *argv[]) {
 	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
 	Announce(filename);
 	for(k=1; k<=MaxThreads; k++) counter[k]=0;
-	//dwdz    = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 	// LOOP over pixels of field 'i':
 #pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
-	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.	  
-	  //mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dwdz);
-	  mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dw);
+	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.
+	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;  
+	  else mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dw);
 	}
 	Announce();
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
@@ -683,25 +686,142 @@ int main (int argc, char *argv[]) {
 	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
 	Announce(message);
-	//dwdz = PixelSolidAngle*(fieldlist.zmax(i)-fieldlist.zmin(i));
 #pragma omp parallel for
-	//for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dwdz;
-	for(j=0; j<npixels; j++) mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
+	for(j=0; j<npixels; j++) {
+	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
+	  else mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
+	}
 	Announce();
       }
   }
   else error ("flask: unknown POISSON option.");
+
+
+  /*** Convergence fields ***/
+
+  // LOOP over fields:
+  if (config.reads("MAPWERFITS_PREFIX")!="0" || config.reads("MAPWER_OUT")!="0" || config.reads("ELLIPFITS_PREFIX")!="0") {
+    if (CountGalaxyFields(fieldlist)==0 || config.readi("SELEC_SEPARABLE")==1) {
+      for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==flensing) {
+	  fieldlist.Index2Name(i, &f, &z);
+	  sprintf(message, "Masking f%dz%d... ", f, z); filename.assign(message); 
+	  Announce(filename);
+#pragma omp parallel for
+	  for(j=0; j<npixels; j++)
+	    // No noise is added, we only apply the mask:
+	    if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
+	  Announce();
+	}
+    }
+  }
+  
+  /*** Output of observable convergence and galaxy count maps ***/
   
   // Write final map to file as a table if requested:
   GeneralOutput(mapf, config, "MAPWER_OUT", fieldlist);
   // Map output to fits and/or tga files:
-  GeneralOutput(mapf, config, "MAPWERFITS_PREFIX", fieldlist, 1);  
+  GeneralOutput(mapf, config, "MAPWERFITS_PREFIX", fieldlist, 1);
+  
   // Exit if this is the last output requested:
   if (ExitAt=="MAPWER_OUT" ||
       ExitAt=="MAPWERFITS_PREFIX") {
     PrepareEnd(StartAll); return 0;
   }
 
+  
+  /*** Ellipticity fields ***/
+  
+  if (config.reads("ELLIP_MAP_OUT")!="0" || config.reads("ELLIPFITS_PREFIX")!="0") {
+    Healpix_Map <MAP_PRECISION> *e1Mapf, *e2Mapf;
+    e1Mapf = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    e2Mapf = vector<Healpix_Map <MAP_PRECISION> >(0,Nfields-1);
+    esig   = config.readd("ELLIP_SIGMA");
+    i = CountGalaxyFields(fieldlist);
+    
+    // If there are galaxy fields, use them to create noise for the ellipticity maps:
+    if (i>0) {
+      cout << "Will compute ellip. for z slices w/ gals. and lens. fields:\n";
+      // Find out which is the lensing field to use:
+      k = CountLensingFields(fieldlist);
+      if (k>1) warning("flask: found multiple lensing fields, will use the last one found.");
+      for(f=0, m=0; f<fieldlist.Nfs() && m<k; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==flensing) m++;
+      fieldlist.fFixedName(f-1,0, &k, &l);
+      // LOOP over galaxy fields:
+      for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
+	  fieldlist.Index2Name(i, &f, &z);
+	  fieldlist.Name2Index(k, z, &j, 0);  // << Get index of the corresponding lensing field.
+	  if (j>-1) {                         // << If the lensing field exists, get the corresponding ellipticities:
+	    e1Mapf[i].SetNside(nside,RING);  e2Mapf[i].SetNside(nside,RING);
+	    sprintf(message, "Generating ellipticity for f%dz%d...", f, z); filename.assign(message); 
+	    Announce(filename);
+#pragma omp parallel for schedule(static) private(k)
+	    for(m=0; m<npixels; m++) {
+	      k = omp_get_thread_num()+1;
+	      // Mask ellipticity map at galaxy-free pixels:
+	      if (mapf[i][m]<=0) { e1Mapf[i][m]=maskval;  e2Mapf[i][m]=maskval; }
+	      // If galaxies are present, average ellipticity in pixel is the reduced shear plus the average of the error:
+	      else {
+		if (esig>0.0) {
+		  e1Mapf[i][m] = gamma1f[j][m]/(1.0-mapf[j][m]) + gsl_ran_gaussian(rnd[k], esig/sqrt(mapf[i][m]));
+		  e2Mapf[i][m] = gamma2f[j][m]/(1.0-mapf[j][m]) + gsl_ran_gaussian(rnd[k], esig/sqrt(mapf[i][m]));
+		}
+		else {
+		  e1Mapf[i][m] = gamma1f[j][m]/(1.0-mapf[j][m]);
+		  e2Mapf[i][m] = gamma2f[j][m]/(1.0-mapf[j][m]);
+		}
+	      }
+	    }
+	    Announce();
+	    // Write counts, ellip1 and ellip2 to FITS file:
+	    GeneralOutput(mapf[j], e1Mapf[i], e2Mapf[i], config, "ELLIPFITS_PREFIX", f, z);
+	  }
+	} // End of LOOP over galaxy fields.
+    }
+    
+    // If not, use the shear sources selection function that should have been provided:
+    else {
+      cout << "Will compute ellip. from lens. fields' selection functions:\n";
+      // LOOP over lensing fields:
+      for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==flensing) {
+	  fieldlist.Index2Name(i, &f, &z);
+	  e1Mapf[i].SetNside(nside,RING);  e2Mapf[i].SetNside(nside,RING);
+	  sprintf(message, "Generating ellipticity for f%dz%d...", f, z); filename.assign(message); 
+	  Announce(filename);
+#pragma omp parallel for schedule(static) private(k)
+	  for(m=0; m<npixels; m++) {
+	    k = omp_get_thread_num()+1;
+	    // Mask ellipticity map at masked regions:
+	    if (selection(i,m)<=0) { e1Mapf[i][m]=maskval;  e2Mapf[i][m]=maskval; }
+	    // In unmasked regions, average ellipticity in pixel is the reduced shear plus the average of the error:
+	    else {
+	      if (esig>0.0) {
+		e1Mapf[i][m] = gamma1f[i][m]/(1.0-mapf[i][m]) + gsl_ran_gaussian(rnd[k], esig/sqrt(selection(i,m)*dw));
+		e2Mapf[i][m] = gamma2f[i][m]/(1.0-mapf[i][m]) + gsl_ran_gaussian(rnd[k], esig/sqrt(selection(i,m)*dw));
+	      }
+	      else {
+		e1Mapf[i][m] = gamma1f[i][m]/(1.0-mapf[i][m]);
+		e2Mapf[i][m] = gamma2f[i][m]/(1.0-mapf[i][m]);
+	      }
+	    }
+	  }
+	  Announce();
+	  // Write counts, ellip1 and ellip2 to FITS file:
+	  GeneralOutput(mapf[i], e1Mapf[i], e2Mapf[i], config, "ELLIPFITS_PREFIX", f, z);
+	} // End of LOOP over lensing fields.
+    }
+
+    // Output ellipticity maps to TEXT tables:
+    GeneralOutput(e1Mapf, e2Mapf, config, "ELLIP_MAP_OUT", fieldlist);
+
+    free_vector(e1Mapf, 0, Nfields-1);
+    free_vector(e2Mapf, 0, Nfields-1);
+  } // End of compute ellipticity maps.
+  
+  // Exit if this is the last output requested:
+  if (ExitAt=="ELLIP_MAP_OUT" ||
+      ExitAt=="ELLIPFITS_PREFIX") {
+    PrepareEnd(StartAll); return 0;
+  }
 
 
   /**********************************/
@@ -710,7 +830,7 @@ int main (int argc, char *argv[]) {
 
   CAT_PRECISION **catalog;
   char **catSet;
-  double esig, ellip1, ellip2, randz;
+  double ellip1, ellip2, randz;
   int gali, cellNgal, ncols, AngularCoord;
   long *ThreadNgals, Ngalaxies, kl, Ncells, PartialNgal, longNz;  
   pointing ang;
@@ -735,7 +855,7 @@ int main (int argc, char *argv[]) {
     ziter = kl%longNz;     // z slice.
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (fieldlist.ftype(i)==fgalaxies) ThreadNgals[l+1] += mapf[i][j];
+      if (fieldlist.ftype(i)==fgalaxies && mapf[i][j]>0) ThreadNgals[l+1] += mapf[i][j];
     }
   }
   for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
@@ -770,7 +890,7 @@ int main (int argc, char *argv[]) {
   // For the catalog, ra, dec, theta, phi in CATALOG_COLS overrides ANGULAR_COORD. 
   AngularCoord = config.readi("ANGULAR_COORD");
   // Only RA DEC were asked for:
-  if (phi_pos==-1 && theta_pos==-1 && ra_pos==-1 && dec_pos!=-1) {AngularCoord=2; theta_pos = dec_pos;                   }
+  if (phi_pos==-1 && theta_pos==-1 && ra_pos==-1 && dec_pos!=-1)      {AngularCoord=2; theta_pos = dec_pos;                   }
   else if (phi_pos==-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos==-1) {AngularCoord=2;                      phi_pos = ra_pos; }
   else if (phi_pos==-1 && theta_pos==-1 && ra_pos!=-1 && dec_pos!=-1) {AngularCoord=2; theta_pos = dec_pos; phi_pos = ra_pos; }
   // Only theta phi were asked for:
@@ -876,8 +996,9 @@ int main (int argc, char *argv[]) {
   }
   
   // Warning against multiple or none lensing fields at the same redshift:
-  k=0;
-  for(f=0; f<Nf; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==fshear) k++;
+  //k=0;
+  //for(f=0; f<Nf; f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==flensing) k++;
+  k = CountLensingFields(fieldlist);
   if (k>1) warning("flask: found multiple lensing fields, will leave last one in catalogue.");
   if (k<1 && (kappa_pos!=-1 || gamma1_pos!=-1 || gamma2_pos!=-1 || ellip1_pos!=-1 || ellip1_pos!=-1)) 
     warning("flask: missing lensing information required to build catalogue.");
@@ -897,7 +1018,7 @@ int main (int argc, char *argv[]) {
     // Count total number of galaxies of all types inside cell:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (fieldlist.ftype(i)==fgalaxies) cellNgal += (int)mapf[i][j];
+      if (fieldlist.ftype(i)==fgalaxies && mapf[i][j]>0) cellNgal += (int)mapf[i][j];
     }
     
     // LOOP over field IDs:
@@ -909,7 +1030,7 @@ int main (int argc, char *argv[]) {
       if (fieldlist.ftype(i)==fgalaxies) for(m=0; m<(int)mapf[i][j]; m++) {
 	  if (theta_pos!=-1 || phi_pos!=-1) ang   = RandAngInPix(rnd[l+1], mapf[i], j);
 	  if (z_pos!=-1)                    randz = selection.RandRedshift(rnd[l+1],i,j);
-	  if (maskbit_pos!=-1)              k     = selection.MaskBit(j);
+	  if (maskbit_pos!=-1)              k     = selection.MaskBit(i,j);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, theta_pos  , ang.theta, catSet);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, phi_pos    , ang.phi  , catSet);
 	  CatalogFill(catalog, ThreadNgals[l]+PartialNgal+gali, z_pos      , randz    , catSet);
@@ -920,7 +1041,7 @@ int main (int argc, char *argv[]) {
 	}
       
       // Add entry of type SHEAR:
-      else if (fieldlist.ftype(i)==fshear) for (m=0; m<cellNgal; m++) {
+      else if (fieldlist.ftype(i)==flensing) for (m=0; m<cellNgal; m++) {
 	  CatalogFill  (catalog, ThreadNgals[l]+PartialNgal+m, kappa_pos , mapf[i][j]   , catSet);
 	  if (yesShear==1) {
 	    if (ellip1_pos!=-1 || ellip2_pos!=-1) GenEllip(rnd[l+1], esig, mapf[i][j], gamma1f[i][j], gamma2f[i][j], &ellip1, &ellip2);

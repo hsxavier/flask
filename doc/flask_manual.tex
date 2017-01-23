@@ -151,7 +151,7 @@ So far {\sc Flask} has been tested only on Linux distributions -- Scientific Lin
 and compiled with {\tt g++} (GCC) versions 4.4.7, 4.8.1 and 4.8.4.   
 Besides the main code and other routines in {\sc C++}, {\sc flask} also includes auxiliary {\sc python} 
 and {\sc shell} scripts. These were tested in {\sc bash} shell and {\sc python} versions 2.7.3 and 2.7.6. 
-The {\sc python} scripts require the a few packages like {\sc numpy}, {\sc scipy} and {\sc healpy} 
+The {\sc python} scripts require a few packages like {\sc numpy}, {\sc scipy} and {\sc healpy} 
 (which can be installed by following {\sc healpix} instructions). Check the scripts for further dependencies.  
 
 \section{Compiling}
@@ -206,7 +206,8 @@ This should result in a clean run (no errors or warnings) and should make {\sc f
 use typical data stored in the {\tt data} sub-directory to create 
 the most relevant outputs into the {\tt example} sub-directory (which should be empty), 
 including maps and catalogs simulations. Since writing files to the hard-disk is a slow process, 
-this run will take much longer than an usual {\sc flask} run that only outputs one or two files. 
+this run will take much longer than an usual {\sc flask} run that only outputs one or two files 
+(text files, in particular, take a long time to write). 
 To figure out what the output files are, check the file {\tt example.config} and Sec. 
 \ref{sec:keywords}.
  
@@ -243,7 +244,28 @@ store this information for later, you might want to redirect the output to a fil
 \vspace{0.5cm}
 \noindent
 {\tt flask example.config RNDSEED: 334 MAP\_OUT: ./map-002.dat > r334.log}
+
+\noindent
+or
+
+\noindent
+{\tt flask example.config RNDSEED: 334 MAP\_OUT: ./map-002.dat | tee r334.log}
 \vspace{0.5cm}
+
+
+\subsection{Screen output}
+\label{sec:screen}
+
+{\sc Flask}'s screen output contains a lot of information that may help 
+to reproduce previous runs and output files, understand the simulation process, 
+and identify mistakes and bugs. For instance, it contains the {\sc flask}'s version 
+(git commit) and all parameters used. All file outputs are announced with a {\tt >>} sign 
+and all warnings and errors are announced with {\tt !!} signs. At the end of the 
+screen output one can see the total number of warnings generated during the run. 
+{\sc Flask} was designed to produce warnings for all possible mistakes we could think of, so 
+to correctly use {\sc flask}, make sure that the total number of warnings is always zero 
+or (if it is really necessary) that you understand and can afford specific warnings.
+   
 
 \subsection{Inner workings}
 \label{sec:workings}
@@ -255,7 +277,9 @@ fields (Gaussian simulations may skip a few of them). Other processes like
 creating triangular matrices used for generating correlated random variables and 
 performing a density line-of-sight (LoS) integration to get the convergence are 
 optional (they are executed according to the specifications in the configuration file).
-Here we describe a few processes not discussed in \citet{Xavier16mn}.
+Here we describe a few processes not discussed in \citet{Xavier16mn}. The noise 
+creation processes are presented in the description of the keywords for generating 
+outputs (maps, catalogues, etc.) that include these noises (check Sec. \ref{sec:keywords}).  
 
 \begin{figure}
   \includegraphics[width=1\textwidth]{flask_flow_chart.eps}
@@ -276,6 +300,9 @@ We do not sum over negative $m$s because the fields are real and therefore
 $(-1)^m a_{\ell -m}^{i} = a_{\ell m}^{i*}$.
 
 \subsection{Selection function}
+\label{sec:selection}
+
+\subsubsection{Galaxy fields}
 
 When sampling a density field with discrete tracers (e.g. galaxies), the expected number 
 of tracers $\langle N_t(i,j) \rangle$ of type $t$ in each pixel $j$ of the redshift shell $i$ 
@@ -336,7 +363,37 @@ currently not implemented. The user can add 2 to both {\tt SELEC\_TYPE} options
 to set $S(j)$ and $A(j)$ to 1 and use their information only as bookkeeping numbers 
 in the catalogue output ({\tt CATALOG\_OUT}). 
 
+Finally, note that the user may describe completely masked out pixels in $S(j)$ and $A(j)$  
+-- and in $W_t(i,j)$ if {\tt SELEC\_SEPARABLE: 0}, i.e. in any {\sc healpix} map describing the 
+selection function -- by zero or by any negative number.
 
+\subsubsection{Lensing fields}
+
+In most cases, {\sc flask} does not use selection functions assigned to lensing fields 
+(the user does not have to supply and {\sc flask} will not read them) since it 
+is only used to go from galaxy density contrast to galaxy counts. The exception would be 
+if the simulation only includes lensing fields and at least one of the outputs controlled by the 
+following keywords is requested: {\tt MAPWER\_OUT}, {\tt MAPWERFITS\_PREFIX}, 
+{\tt ELLIP\_MAP\_OUT} and {\tt ELLIPFITS\_PREFIX}. Since these outputs refer to partial 
+sky, noisy data and the selection function affects them by masking regions and modulating 
+shape noise inside pixels through source density, {\sc flask} assumes that a selection 
+function was provided for the lensing fields and attempts to read it and use it. 
+For ellipticity maps, the selection function is used both to mask out regions where no 
+galaxies were observed and to specify the shape noise at each redshift slice and pixel
+(check the {\tt ELLIP\_SIGMA} keyword in Sec. \ref{sec:keywords} for more details).
+For the convergence fields, the only effect of the selection function in the current 
+implementation is to mask out specific regions (i.e. no noise is added to the output maps). 
+
+If there are galaxy fields in the simulation, {\sc flask} will apply their selection 
+functions to the lensing fields. In this case and in the current implementation, 
+the {\tt MAPWER\_OUT} and {\tt MAPWERFITS\_PREFIX} 
+outputs will produce masked convergence maps only if {\tt SELEC\_SEPARABLE: 1} 
+(otherwise, {\sc flask} will return unmasked convergence maps). If requested through 
+{\tt ELLIP\_MAP\_OUT} or {\tt ELLIPFITS\_PREFIX}, {\sc flask} will create ellipticity 
+maps for each galaxy field provided, using their selection functions to calculate the 
+appropriate shape noise levels. 
+ 
+  
 \subsection{Configuration file keywords}
 \label{sec:keywords}
 
@@ -380,7 +437,7 @@ each one is also provided in {\tt example.config}):
   number generator. In fact, the seed is transformed into $N_{\nv{proc}}$ seeds, where 
   $N_{\nv{proc}}$ is the number of processors available for parallel computing with 
   {\sc OpenMP}. This transformation is such that every seed provided to {\tt RNDSEED} 
-  will result in different and exclusive set of $N_{\nv{proc}}$ so that different seeds truly 
+  will result in different and exclusive set of $N_{\nv{proc}}$ ``sub-seeds'' so that different seeds truly 
   result in independent realisations. Note that a given seed passed to {\tt RNDSEED} will 
   only result in the same realisation as long as $N_{\nv{proc}}$ remains the same.
 
@@ -403,8 +460,13 @@ each one is also provided in {\tt example.config}):
   or {\tt SELEC\_TYPE: 3}. Currently this is the only kind of dark energy model implemented in the code. 
 
 \item {\tt ELLIP\_SIGMA:} This takes a real number that represents the standard deviation of the zero mean 
-  Gaussian distribution from which each component of the galaxy intrinsic ellipticity $\epsilon_{\nv{s}}$ 
-  is randomly drawn. The final ellipticity in the catalogue is $\epsilon=\epsilon_1+i\epsilon_2$:
+  Gaussian distribution from which each component of a galaxy's intrinsic ellipticity 
+  $\epsilon_{\nv{s}}=\epsilon_{\nv{s},1}+i\epsilon_{\nv{s},2}$ is randomly drawn. If {\tt ELLIP\_SIGMA} is 
+  set to zero or less, all galaxies are considered circular ($\epsilon_{\nv{s}}=0$).
+
+  The final ellipticity $\epsilon=\epsilon_1+i\epsilon_2$ of a galaxy in the catalogue (produced by the 
+  {\tt CATALOG\_OUT} keyword) is:
+  
   \begin{equation}
     \epsilon = 
     \begin{dcases}
@@ -413,9 +475,33 @@ each one is also provided in {\tt example.config}):
     \end{dcases}
     \label{eq:ellipticity}
   \end{equation}
-  where $g\equiv \gamma/(1+\kappa)$ is the reduced shear, $\gamma=\gamma_1+i\gamma_2$ is the shear, $\kappa$ is the 
-  convergence, and $\epsilon_{\nv{s}}=\epsilon_{\nv{s},1}+i\epsilon_{\nv{s},2}$ is the galaxy intrinsic 
-  ellipticity \citep[we follow ][eq. 4.12]{Bartelmann01mn}.
+  where $g\equiv \gamma/(1-\kappa)$ is the reduced shear, $\gamma=\gamma_1+i\gamma_2$ is the shear, $\kappa$ is the 
+  convergence \citep[we follow ][eq. 4.12]{Bartelmann01mn}. 
+  For the ellipticity maps of redshift slices -- produced by the keywords {\tt ELLIP\_MAP\_OUT} and 
+  {\tt ELLIPFITS\_PREFIX} --, {\sc flask} adopts the weak lensing approximation, 
+  $\epsilon(i) \simeq g(i) + \epsilon_{\nv{s}}(i)$ for the galaxy $i$. Since the ellipticity value 
+  in each pixel would be the average over the ellipticities of the galaxies in that pixel 
+  and the noise is assumed Gaussian, the final ellipticity in pixel $j$ is:
+
+  \begin{equation}
+    \epsilon(j) = \frac{1}{N_{\nv{gal}}(j)}\sum_i^{N_{\nv{gal}}(j)} \left[ g(i)+\epsilon_{\nv{s}}(i) \right] 
+    = g(j) + \frac{\epsilon_{\nv{s}}}{\sqrt{N_{\nv{gal}}(j)}},
+    \label{eq:ellip-map-noise}
+  \end{equation}
+  where $\epsilon_{\nv{s}}$ is drawn using the {\tt ELLIP\_SIGMA} dispersion, $N_{\nv{gal}}(j)$ is 
+  the number of galaxies in pixel $j$ of that redshift slice and $g(j)$ is the value for the 
+  reduced shear in pixel $j$ of that redshift slice. $N_{\nv{gal}}(j)$ is either given by the galaxy 
+  count maps (after Poisson sampling) -- if produced in the same simulation run -- or by the expected 
+  number of galaxies, according to the supplied selection function (see more about this in the 
+  description of the {\tt ELLIP\_MAP\_OUT} and {\tt ELLIPFITS\_PREFIX} keywords). 
+  
+  Finally, note that the intrinsic ellipticities generated for the catalogue output and for the 
+  {\sc healpix} maps output are, in the current implementation, different and independent processes 
+  (the first one follows Eq. \ref{eq:ellipticity} for each galaxy while the second one follows Eq. 
+  \ref{eq:ellip-map-noise} for each pixel). 
+  This means that if you create ellipticity maps from the catalogue you will not get the exact output 
+  given by {\tt ELLIP\_MAP\_OUT} or {\tt ELLIPFITS\_PREFIX}, unless you set {\tt ELLIP\_SIGMA}$\leq 0$ 
+  (although they will be statistically equivalent in the weak lensing regime).
   
 \item {\tt GALDENSITY:} This takes a real number representing the 3D comoving galaxy number 
   density in $(h^{-1}\nv{Mpc})^{-3}$. It is only used if {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}. 
@@ -503,7 +589,7 @@ each one is also provided in {\tt example.config}):
   This is ignored if {\tt SELEC\_SEPARABLE: 0}. The files can have headers if they start with {\tt \#}, 
   and they have to be named according to the prefix, followed by {\tt f}$[f_i]${\tt .dat}, where 
   $[f_i]$ is the field number ``naming'' the field in the fields information file (see Sec. 
-  \ref{sec:fields-info}).
+  \ref{sec:fields-info}). For proper units, see Sec. \ref{sec:selection}.
 
  \item {\tt SELEC\_SCALE:} This takes a real number that will serve as a re-scaling of the selection 
    function (the selection function will be multiplied by this value). To use the exact values in the 
@@ -556,7 +642,8 @@ each one is also provided in {\tt example.config}):
   
 \item {\tt NSIDE:} This takes an integer representing the {\sc healpix} $N_{\nv{side}}$ parameter. 
   The number of pixels $N_{\nv{pix}}$ used in each redshift slice is $N_{\nv{pix}}=12N_{\nv{side}}^2$. 
-  Any number can be provided here, although some applications depend on powers of 2.
+  Any number can be provided here, although some external applications (e.g. anything based 
+  in {\sc healpy}) only accepts powers of 2.
 
 \item {\tt USE\_HEALPIX\_WGTS:} This keyword states if the code should use ({\tt 1}) or not ({\tt 0}) 
   the {\sc healpix} weights to perform the {\tt map2alm} (harmonic transform) operation. The 
@@ -593,7 +680,7 @@ each one is also provided in {\tt example.config}):
 
 \item {\tt ADD\_FRAC:} If the covariance matrix regularisation fails or if it succeeds but the 
   Cholesky decomposition still fails, {\sc flask} will take the real value passed to this keyword, 
-  multiply by the smallest element of the covariance matrix diagonal and add the result to all 
+  multiply by the smallest element of the covariance matrix's diagonal and add the result to all 
   diagonal elements of that matrix. 
 
 \item {\tt ZSEARCH\_TOL:} When building the galaxy catalogue, {\sc flask} will randomly select 
@@ -611,9 +698,14 @@ each one is also provided in {\tt example.config}):
   in {\sc healpix} map FITS format; {\tt 1}, all {\sc healpix} map outputs also result in a TGA
   image format version; {\tt 2}, all {\sc healpix} map outputs are transformed into TGA images.
 
+\item {\tt USE\_UNSEEN:} This keyword takes either {\tt 0} or {\tt1}. In the first case, all masked 
+  pixels in {\sc healpix} map or text file outputs (e.g. {\tt MAPWER\_OUT} and 
+  {\tt MAPWERFITS\_PREFIX}) are set to zero; in the second case, all such pixels are 
+  set to {\sc healpy}'s UNSEEN value ($-1.6375\times10^{30}$).
+
 \item {\tt LRANGE\_OUT:} This takes to integers separated by space, representing the minimum and 
   maximum $\ell$s that will be output in any $C(\ell)$ or $a_{\ell m}$ outputs; this range does 
-  not affect calculations, only outputs, and is has to be included in the range set by {\tt LRANGE}.
+  not affect calculations, only outputs, and it has to be included in the range set by {\tt LRANGE}.
   
 \item {\tt MMAX\_OUT:} This takes an integer. In $a_{\ell m}$ outputs, the multipoles will all 
   be written out if this is set to a negative number. If this is set to $m_{\nv{max}}$, only $a_{\ell m}$s 
@@ -735,11 +827,37 @@ each one is also provided in {\tt example.config}):
   centre angular coordinates and the values at that point of the fields after applying 
   the selection function and Poisson sampling the galaxy density fields; that is, the 
   values are the number of galaxies in each pixel in each redshift slice (i.e. in each 
-  cell). Convergence fields remain the same, without any noise apart from 
-  cosmic variance. Set to {\tt 0} for no output. 
+  cell). In the current implementation, convergence fields do not get any noise contribution 
+  apart from cosmic variance and are masked out according to the angular selection 
+  function (see Sec. \ref{sec:selection} for possible exceptions). Set to {\tt 0} for no output. 
 
 \item {\tt MAPWERFITS\_PREFIX:} Prefix (including path) for the {\sc healpix} maps version 
   of the {\tt MAPWER\_OUT} output, one file per field per redshift slice. Set to {\tt 0} for no output. 
+
+\item {\tt ELLIP\_MAP\_OUT:} This keyword takes a path plus a filename for a text table 
+  describing the ellipticity inside pixels centered at the angular coordinates specified 
+  in the file. The file will contain two columns (the two components of the complex 
+  ellipticity) for each galaxy field in each redshift slice where lensing fields 
+  are also specified. The ellipticity in each pixel is given by Eq. \ref{eq:ellip-map-noise}, 
+  where $N_{\nv{gal}}(j)$ is given by the Poisson sampled number (or the expected number, if 
+  {\tt POISSON: 0}) of galaxies (of that type, if simulating 
+  more than one tracer) in the pixel; if $N_{\nv{gal}}(j)=0$, the pixel is masked out (i.e. it gets 
+  the value specified by the {\tt USE\_UNSEEN} keyword). 
+
+  If there are no galaxy fields being simulated, {\sc flask} will require that 
+  a selection function is assigned to the lensing field and this will be assumed 
+  to be the sources' selection function. Since in this case the sources are not Poisson 
+  sampled, $N_{\nv{gal}}(j)=\langle N_t(i,j) \rangle = \bar{n}_t(i,j)\Delta\Omega$ 
+  (see Sec. \ref{sec:selection}). Pixels were the selection function is equal to or 
+  less than zero are masked out. You can set this keyword to {\tt 0} for no output.
+  
+\item {\tt ELLIPFITS\_PREFIX:} This keyword takes a path plus a prefix for a set of 
+  {\sc healpix} maps that are written out, each one describing an ellipticity field for a certain tracer and 
+  at a certain redshift, just like the columns described in the {\tt ELLIP\_MAP\_OUT} 
+  keyword. Each {\tt .fits} file contains three maps: the last two are the two components 
+  of the ellipticity for that tracer at that redsfhit and the first one is the same convergence map 
+  as the one generated by the {\tt MAPWER\_OUT} keyword, at the same redshift. 
+  You can set this keyword to {\tt 0} for no output.
 
 \item {\tt CATALOG\_OUT:} Path plus filename for a galaxy catalogue in text, FITS or compressed
   FITS formats, chosen accordingly to the filename extension: {\tt .dat}, {\tt .fits} or {\tt .fits.gz}, 
@@ -771,11 +889,12 @@ each one is also provided in {\tt example.config}):
   \item {\tt pixel}, the {\sc healpix} map pixel number of the corresponding cell; 
   \item {\tt maskbit}, returns a sum of the following integers: 1 if the galaxy would 
     be removed by the angular selection function, i.e., if the angular selection function value 
-    at the corresponding pixel is zero (currently this only happens if the selection function 
-    is separable); 2 if the galaxy would be removed by the star mask given by {\tt STARMASK}, 
-    i.e., if the star mask value at the corresponding pixel is zero; 4 if the angular selection function 
-    value $s$ obeys $0<s<1$ (only if the selection function is separable); and 8 if the star mask 
-    value $m$ obeys $0<m<1$. For instance, a {\tt maskbit} of 0 means that the galaxy would be observed 
+    at the corresponding pixel is zero or less; 2 if the galaxy would be removed by the star mask 
+    given by {\tt STARMASK}, i.e., if the star mask value at the corresponding pixel is zero or less; 
+    4 if the angular selection function value $s$ obeys $0<s<1$ (only if the selection function is 
+    separable); 8 if the star mask value $m$ obeys $0<m<1$; 16 if the angular selection 
+    function value $s$ is $s>1$ (only if the selection function is separable); and 32 
+    if the star mask value $m$ is $m>1$. For instance, a {\tt maskbit} of 0 means that the galaxy would be observed 
     while a {\tt maskbit} of 3 means that the galaxy would be blocked both by the angular selection
     function and the star mask.
   \end{itemize}
@@ -825,13 +944,14 @@ The fields information file columns must be, in this order:
 \item The field type, which determines how the field is treated inside the code. In the current 
   implementation, this can be either 1 (CMB or gas temperature, matter density or matter density tracers like 
   galaxies, quasars, etc.) or 2 (weak lensing convergence). These types affect how {\sc flask} deals with 
-  selection functions, noise and field transformations. For details, one can look for {\tt fshear} and 
+  selection functions, noise and field transformations. For details, one can look for {\tt flensing} and 
   {\tt fgalaxies} in the code using the command {\tt grep}.
 \item The lower boundary of the redshift slice;
 \item and the upper boundary of the redshift slice. The redshift slices may overlap, have any size and ordering 
   (unless you are integrating the density, see the {\tt DENS2KAPPA} keyword in Sec. \ref{sec:keywords}). 
-  In the current implementation, these are only used either in the density LoS integration controlled by the {\tt DENS2KAPPA} 
-  or to Poisson sample the density fields; in both cases, the redshift slice is assumed to be a top-hat 
+  In the current implementation, these are only used in the density LoS integration controlled by the {\tt DENS2KAPPA}, 
+  to Poisson sample the density fields or to compute shape noise for galaxy ellipticity maps according to 
+  Eq. \ref{eq:ellip-map-noise}; in all cases, the redshift slice is assumed to be a top-hat 
   redshift window function. If you are not performing these operations, these redshift boundaries are 
   irrelevant and the slices can present arbitrary redshift window functions (e.g. Gaussians), according to 
   the power spectra provided as input.
@@ -926,7 +1046,7 @@ can be found on their docstrings.
 This is a C++ code compiled to the {\tt bin} sub-directory that takes the input power spectra and 
 configuration file that would be used by {\sc flask} and compute the expected power spectra that 
 would be recovered from convergence computed by integrating simulated lognormal densities along 
-the line of sight (i.e., this code computes the red solid lines in Fig. 11 of \citet{Xavier16mn}. 
+the line of sight (i.e., this code computes the red solid lines in Fig. 15 of \citet{Xavier16mn}. 
 
 The {\tt Dens2KappaCls} usage is similar to that of {\sc flask}: you run it by invoking the 
 executable followed by the path to the configuration file, followed by keywords you want to 
@@ -952,7 +1072,7 @@ output files to be used as input here.
 \subsection{{\tt GenStarMask}}
 \label{sec:genstarmask}
 
-This routine, written in C++, creates a fulls-sky random star mask with parameters given by the user and 
+This routine, written in C++, creates a full-sky random star mask with parameters given by the user and 
 then outputs it to a {\sc healpix} map in FITS format. The parts without stars have value 1 and 
 the parts with stars (which are modelled as disks) have value 0. If necessary, these values 
 can be changed in the source code by redefining the {\tt StarValue} and {\tt EmptyValue} 

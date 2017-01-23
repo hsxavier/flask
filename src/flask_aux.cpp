@@ -7,8 +7,22 @@
 #include "fitsfunctions.hpp"
 #include "GeneralOutput.hpp"
 #include <alm_healpix_tools.h>
-#include "lognormal.hpp" // For gmu, gsigma, etc. in PrintMapsStats function.
+#include "lognormal.hpp"       // For gmu, gsigma, etc. in PrintMapsStats function.
+#include "definitions.hpp"     // For field types in CountLensingFields.
 
+// Count number of lensing fields with different field ('f') names:
+int CountLensingFields(const FZdatabase & fieldlist) {
+  int k=0, f;
+  for(f=0; f<fieldlist.Nfs(); f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==flensing) k++;
+  return k;
+}
+
+// Count number of galaxy fields with different field ('f') names:
+int CountGalaxyFields(const FZdatabase & fieldlist) {
+  int k=0, f;
+  for(f=0; f<fieldlist.Nfs(); f++) if (fieldlist.ftype(fieldlist.fFixedIndex(f, 0))==fgalaxies) k++;
+  return k;
+}
 
 
 void TabulateKappaWeight(double **KappaWeightTable, const Cosmology & cosmo, const FZdatabase & fieldlist) {
@@ -59,13 +73,16 @@ bool ComputeShearQ(const ParameterList & config) {
   if (ExitAt!="FLIST_OUT"       && ExitAt!="XIOUT_PREFIX"    && ExitAt!="GXIOUT_PREFIX"   && 
       ExitAt!="GCLOUT_PREFIX"   && ExitAt!="COVL_PREFIX"     && ExitAt!="REG_COVL_PREFIX" && 
       ExitAt!="REG_CL_PREFIX"   && ExitAt!="CHOLESKY_PREFIX" && ExitAt!="AUXALM_OUT"      && 
-      ExitAt!="AUXMAP_OUT"      && ExitAt!="MAP_OUT"         && ExitAt!="MAPFITS_PREFIX"  && 
-      ExitAt!="DENS2KAPPA_STAT" && ExitAt!="RECOVALM_OUT"    && ExitAt!="RECOVCLS_OUT"    ) {
+      ExitAt!="AUXMAP_OUT"      && ExitAt!="RECOVAUXCLS_OUT" && ExitAt!="MAP_OUT"         && 
+      ExitAt!="MAPFITS_PREFIX"  && ExitAt!="DENS2KAPPA_STAT" && ExitAt!="RECOVALM_OUT"    && 
+      ExitAt!="RECOVCLS_OUT") {
 
     // Compute shear if any shear output is required:
     if (config.reads("SHEAR_ALM_PREFIX")  !="0") return 1;
     if (config.reads("SHEAR_FITS_PREFIX") !="0") return 1;
     if (config.reads("SHEAR_MAP_OUT")     !="0") return 1;
+    if (config.reads("ELLIP_MAP_OUT")     !="0") return 1;
+    if (config.reads("ELLIPFITS_PREFIX")  !="0") return 1;
     // Compute shear if it goes into catalog:
     if (ExitAt=="CATALOG_OUT" || ExitAt=="0") {
       CatalogHeader = config.reads("CATALOG_COLS");

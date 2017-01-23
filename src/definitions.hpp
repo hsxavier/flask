@@ -9,9 +9,9 @@
 #define FIT_PRECISION TFLOAT
 
 // Global definitions
-
 namespace definitions {
-  const int fgalaxies=1, fshear=2;                           // Field type identification.
+  const MAP_PRECISION UNSEEN = -1.6375e+30;                  // Healpix value for masked regions.
+  const int fgalaxies=1, flensing=2;                         // Field type identification.
   enum simtype {gaussian, lognormal, homogeneous};           // Type of simulation.
   const int unknown_format=0, ascii_format=1, fits_format=2; // File format for output catalogue.      
 }

@@ -103,7 +103,7 @@ FZdatabase::FZdatabase(const std::string & filename) {
 void FZdatabase::Load(const std::string & filename) {
   using namespace definitions;
   char message[200];
-  int i, *fName, *zName;
+  int i, zi, *fName, *zName;
   long long1, long2;
   double **aux;
   
@@ -145,12 +145,17 @@ void FZdatabase::Load(const std::string & filename) {
   // A few checks on the input:
   for (i=0; i<Nfield; i++) {
     if (zrange[i][0]>zrange[i][1])    warning("FZdatabase.Load: zmin > zmax for a field.");
-    if (ftypes[i]!=fgalaxies && ftypes[i]!=fshear) warning("FZdatabase.Load: unknown field type in FIELDS_INFO file.");
+    if (ftypes[i]!=fgalaxies && ftypes[i]!=flensing) warning("FZdatabase.Load: unknown field type in FIELDS_INFO file.");
     if(means[i]+shifts[i]<=0) {
       sprintf(message, "FZdatabase.Load: mean+shift at position %d must be greater than zero (LOGNORMAL realizations only).", i); 
       warning(message);
     }
   }
+  // Check if all redshift bins with the same name have the same redshift range:
+  for (zi=0; zi<Nz; zi++) 
+    for (i=1; i<z[zi].Ncopies; i++) 
+      if (zrange[z[zi].index[i]][0] != zrange[z[zi].index[0]][0] || zrange[z[zi].index[i]][1] != zrange[z[zi].index[0]][1])
+	warning("FZdatabase.Load: redshift bins with same index should have same zmin and zmax, but they do not.");
 }
 
 // Build fields and redshifts database erasing previous one:
@@ -257,7 +262,7 @@ void FZdatabase::Index2Name(int n, int *fName, int *zName) const {
 
 
 // Return index of a Field given a name: 
-int FZdatabase::Name2Index(int fName, int zName, int *n) const {
+int FZdatabase::Name2Index(int fName, int zName, int *n, bool warn) const {
   const int failed=-1;
   int i;
 
@@ -267,7 +272,7 @@ int FZdatabase::Name2Index(int fName, int zName, int *n) const {
       return i;
     }
   
-  warning("FZdatabase.Name2Index: could not find requested field.");  
+  if (warn) warning("FZdatabase.Name2Index: could not find requested field.");  
   *n = failed;
   return failed;
 }

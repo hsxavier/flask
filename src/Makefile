@@ -114,7 +114,7 @@ $(OBJ)/GenStarMask.o: $(SRC)/GenStarMask.cpp
 $(OBJ)/flask.o: $(SRC)/flask.cpp $(SRC)/flask_aux.hpp $(SRC)/ParameterList.hpp \
 			$(SRC)/Utilities.hpp $(SRC)/gsl_aux.hpp $(SRC)/s2kit10_naive.hpp $(SRC)/Cosmology.hpp \
 			$(SRC)/GeneralOutput.hpp $(SRC)/fitsfunctions.hpp $(SRC)/definitions.hpp \
-			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp
+			$(SRC)/lognormal.hpp $(SRC)/FieldsDatabase.hpp $(SRC)/SelectionFunc.hpp
 	$(COMP) $(VCONTROL) $(DEFCOMPLEX) $(CXXHEAL) -c $(SRC)/flask.cpp -o $@ $(CXXOMP)
 
 $(OBJ)/Spline.o:	$(SRC)/Spline.cpp $(SRC)/Spline.hpp $(SRC)/Utilities.hpp $(SRC)/FieldsDatabase.hpp

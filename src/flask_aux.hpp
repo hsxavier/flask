@@ -16,6 +16,8 @@
 #include <ctime>         // For PrepareEnd.
 
 // Auxiliary functions for corrlnfields program:
+int CountLensingFields(const FZdatabase & fieldlist);
+int CountGalaxyFields(const FZdatabase & fieldlist);
 void TabulateKappaWeight(double **KappaWeightTable, const Cosmology & cosmo, const FZdatabase & fieldlist);
 void ChangeCoord(CAT_PRECISION **catalog, int theta_pos, int phi_pos, long Ngalaxies, int coordtype);
 bool ComputeShearQ(const ParameterList & config);

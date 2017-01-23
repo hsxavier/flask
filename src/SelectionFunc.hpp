@@ -17,15 +17,16 @@ private:
   long *NzEntries;
   int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes, SelectionType, UseStarMask, UseAngularMask;
   int IndexGalTypes(const FZdatabase & fieldlist);
+  bool yesShearSel;
 public:
   SelectionFunction();
   void load(const ParameterList & config, const FZdatabase & fieldlist);
-  int Nside();
-  int Scheme();
+  int Nside() const;
+  int Scheme() const;
   double operator()(int fz, int pix);
   double operator()(int fz);
   double RandRedshift(gsl_rng *r, int fz, int pix);
-  int MaskBit(int pix);
+  int MaskBit(int fz, int pix) const;
   ~SelectionFunction();
 };
 

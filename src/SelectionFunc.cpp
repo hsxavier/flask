@@ -11,6 +11,7 @@
 SelectionFunction::SelectionFunction () {
   Separable=-1; // Kind of selection function not set yet.
   NoMap=-2;     // Interval constant.
+
 }
 
 // Load selection functions:
@@ -18,7 +19,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
   using namespace definitions;
   std::string tempstr, filename, starfile;
   char message[100];
-  int i, Nside=-1, scheme=-1, f, z, prevf;
+  int i, j, Nside=-1, scheme=-1, f, z, prevf;
   double *wrapper[2];
   long Ncolumns;
 
@@ -48,44 +49,56 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
   if (Separable     >1 || Separable     <0) error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
   if (SelectionType==2 && Separable    ==0) error("SelectionFunction.load: bookkeeping for non-separable sel. func. not implemented yet.");
 
+  // Check if a lensing source selection function is required
+  // (i.e. if ellipticity maps were demanded and no galaxy fields were specified)
+  // (or if noise maps were demanded and no galaxy fields are specified)
+  i=CountGalaxyFields(fieldlist);
+  if (i==0 && (config.reads("ELLIP_MAP_OUT")!="0" || config.reads("ELLIPFITS_PREFIX")!="0")) yesShearSel=1;
+  if (i==0 && (config.reads("MAPWER_OUT")!="0" || config.reads("MAPWERFITS_PREFIX")!="0")) yesShearSel=1;
+  else yesShearSel=0;
   
-  // Selection function f_i(z,theta,phi) not separable: need one map per redshift z per galaxy type i:  
+  // Selection function f_i(z,theta,phi) not separable: need one map per redshift z per galaxy type i:
   if(Separable==0) {
     if (UseAngularMask==1) {
       // Read selection functions from FITS files:
       AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,Nfields-1);
-      for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+      for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies || yesShearSel) {
 	  // Load FITS file:
 	  fieldlist.Index2Name(i, &f, &z);
 	  sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
 	  filename.assign(message);
 	  read_Healpix_map_from_fits(filename, AngularSel[i]);
 	  // Check if all selection functions have same Nside and Scheme:
-	  if (Nside==-1) Nside=AngularSel[i].Nside();
+	  if (Nside==-1) { Nside=AngularSel[i].Nside(); Npixels=12*Nside*Nside; }
 	  else if (AngularSel[i].Nside() != Nside) 
 	    error("SelectionFunction.load: selection FITS files have different number of pixels.");
 	  if (scheme==-1) scheme=AngularSel[i].Scheme();
 	  else if (AngularSel[i].Scheme() != scheme) 
 	    error("SelectionFunction.load: selection FITS files have different pixel orderings.");
+	  // Set all negative values to zero (this allows for UNSEEN to be used as input):
+	  for (j=0; j<Npixels; j++) if (AngularSel[i][j]<0) AngularSel[i][j]=0;
 	}
     }
   }
   
   
-  // Selection function f_i(z,theta,phi) = f_i(z) * m(theta,phi):
+  // Selection function is separable in radial and angular parts, f_i(z,theta,phi) = f_i(z) * m(theta,phi):
   else if(Separable==1) {
     
     if(UseAngularMask==1) {
       // Load a fixed angular selection function:
       AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,0);
       read_Healpix_map_from_fits(tempstr, AngularSel[0]);
-      Nside  = AngularSel[0].Nside();
-      scheme = AngularSel[0].Scheme(); 
+      Nside   = AngularSel[0].Nside();
+      scheme  = AngularSel[0].Scheme();
+      Npixels = 12*Nside*Nside; 
+      // Set all negative values to zero (this allows for UNSEEN to be used as input):
+      for (j=0; j<Npixels; j++) if (AngularSel[0][j]<0) AngularSel[0][j]=0;
     }
 
     // Prepare for radial selection functions:
     zSelIndex = vector<int>    (0, Nfields-1);
-    NgalTypes = IndexGalTypes(fieldlist);        // << This initializes zSelIndex. 
+    NgalTypes = IndexGalTypes(fieldlist);         // << This initializes zSelIndex. 
     zSel      = vector<double*>(0, NgalTypes-1); 
     zEntries  = vector<double*>(0, NgalTypes-1);
     NzEntries = vector<long>   (0, NgalTypes-1);
@@ -97,7 +110,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
     for (i=0; i<NgalTypes; i++) { zSel[i]=NULL; zEntries[i]=NULL; NzEntries[i]=0; }
 
     // LOOP over fields, look for type of tracer (galaxy):
-    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies) {
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies || yesShearSel) {
 	fieldlist.Index2Name(i, &f, &z);
 	if (NzEntries[zSelIndex[i]] == 0) {
 	  // Found new type of galaxy: load radial selection function:
@@ -130,10 +143,14 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
       if (StarMask.Scheme() != scheme) 
 	error("SelectionFunction.load: STARMASK and selection function have different pixel orderings.");
     }
+    else {
+      Nside   = StarMask.Nside();
+      Npixels = 12*Nside*Nside;
+    }
+    // Set all negative values to zero (this allows for UNSEEN to be used as input):
+    for (j=0; j<Npixels; j++) if (StarMask[j]<0) StarMask[j]=0;
   }   
 
-  // Final settings:
-  Npixels = 12*Nside*Nside;
 }
 
 
@@ -150,7 +167,7 @@ int SelectionFunction::IndexGalTypes(const FZdatabase & fieldlist) {
   // Loop over all fields (small f)
   for (f=0; f<fieldlist.Nfs(); f++) {
     // If is a galaxy, count it and set an index for its selection function:
-    if (ftype[fieldlist.fFixedIndex(f,0)]==fgalaxies) {
+    if (ftype[fieldlist.fFixedIndex(f,0)]==fgalaxies || yesShearSel) {
       NgalTypes++;
       for (z=0; z<fieldlist.Nz4f(f); z++) {
 	i = fieldlist.fFixedIndex(f, z);
@@ -176,7 +193,7 @@ int SelectionFunction::IndexGalTypes(const FZdatabase & fieldlist) {
 
 
 // Returns Nside (Healpix) of the angular part of the selection function.
-int SelectionFunction::Nside() {
+int SelectionFunction::Nside() const {
   if  (UseAngularMask==1) return AngularSel[0].Nside();
   else if(UseStarMask==1) return StarMask.Nside();
   else return NoMap;
@@ -184,7 +201,7 @@ int SelectionFunction::Nside() {
 
 
 // Returns Scheme (Healpix) of the angular part of the selection function.
-int SelectionFunction::Scheme() {
+int SelectionFunction::Scheme() const {
   if  (UseAngularMask==1) return (int)(AngularSel[0].Scheme());
   else if(UseStarMask==1) return (int)(StarMask.Scheme());
   else return NoMap;
@@ -256,25 +273,35 @@ SelectionFunction::~SelectionFunction() {
 }
 
 
-int SelectionFunction::MaskBit(int pix) {
+int SelectionFunction::MaskBit(int fz, int pix) const {
   int bit=0;
   //         ISSUE            BITS
   // Removed by selection:     1
   // Removed by star mask:     2
   // 0 < Selection < 1:        4
   // 0 < Star mask < 1:        8
+  // Selection > 1:           16
+  // Star mask > 1:           32
   
+  // Star mask bits:
   if (UseStarMask==1) {
     if        (StarMask[pix]==0.0)      bit+=2;
     else if   (StarMask[pix]< 1.0)      bit+=8;
+    else if   (StarMask[pix]> 1.0)      bit+=32;
   }
   
+  // Selection function bits:
   if (UseAngularMask) {
+    // Separable:
     if (Separable==1) {
       if      (AngularSel[0][pix]==0.0) bit+=1;
       else if (AngularSel[0][pix]< 1.0) bit+=4;
-    } 
-    else warning("SelectionFunction.MaskBit: not implemented for non-separable selection functions.");
+      else if (AngularSel[0][pix]> 1.0) bit+=16;
+    }
+    // Non-separable:
+    else {
+      if      (AngularSel[fz][pix]==0.0) bit+=1;
+    }
   }
 
   return bit;
@@ -287,7 +314,8 @@ double SelectionFunction::operator()(int fz, int pix) {
   double z0, zSelInterp, StarValue, AngularValue;
 
   // Error checks:
-  if (ftype[fz]!=fgalaxies) error("SelectionFunction.operator(): this is only set for fields of type galaxies.");
+  if (ftype[fz]!=fgalaxies && !yesShearSel) 
+    error("SelectionFunction.operator(): this is only set for fields of type galaxies or if ellipticity maps are required.");
   else if (this->Nside()!=NoMap && (pix >= Npixels || pix < 0)) error("SelectionFunction.operator(): requested pixel is out of range.");
   else if (fz  >= Nfields || fz  < 0) error("SelectionFunction.operator(): unknown requested field.");
   else if (Separable!=0 && Separable!=1) error("SelectionFunction.operator(): this object was not initialized (use load first).");

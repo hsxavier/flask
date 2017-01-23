@@ -41,12 +41,12 @@ public:
   int Nz4f(int fi) const;                         // Return number of redshift bins for a particular field index fi.
   int Nf4z(int zi) const;                         // Return number of fields found at a particular redshift bin index zi.
   // Looping functions:
-  int  zFixedIndex(int fi, int zi, int *n = NULL) const; // To loop inside a fixed redshift.
-  int  fFixedIndex(int fi, int zi, int *n = NULL) const; // To loop inside a fixed field.
+  int  zFixedIndex(int fi, int zi, int *n=NULL) const; // To loop inside a fixed redshift.
+  int  fFixedIndex(int fi, int zi, int *n=NULL) const; // To loop inside a fixed field.
   // Field name functions:
   void Index2fFixed(int n, int *fi, int *zi) const;
   void Index2zFixed(int n, int *fi, int *zi) const;
-  int  Name2Index(int fName, int zName, int *n = NULL) const;
+  int  Name2Index(int fName, int zName, int *n=NULL, bool warn=1) const;
   void Index2Name(int n,          int *fName, int *zName) const;
   void zFixedName(int fi, int zi, int *fName, int *zName) const;
   void fFixedName(int fi, int zi, int *fName, int *zName) const;

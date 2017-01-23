@@ -601,11 +601,10 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
   char *arg[4];
   char message1[100], message2[100];
   char opt1[]="-bar";
+
   if (config.reads(keyword)!="0") {
     // Write to FITS:
     filename=config.reads(keyword); 
-    //sprintf(message1, "rm -f %s", filename.c_str());
-    //system(message1); // Have to delete previous fits files first.
     write_Healpix_map_to_fits("!"+filename, map, planckType<MAP_PRECISION>()); // Filename prefixed by ! to overwrite.
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:

@@ -10,7 +10,6 @@
 #include <gsl/gsl_matrix.h> // For GSL matrix output.
 #include "FieldsDatabase.hpp"
 
-
 /*** Matrix output ***/
 
 // Prints a GSL matrix to a file:
@@ -56,4 +55,5 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
 		   const Healpix_Map<MAP_PRECISION> & g2map, const ParameterList & config, std::string keyword, bool inform = 1);
 // One single map to one FITS file, named with a keyword:
 void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList & config, std::string keyword, bool inform = 1);
+
 #endif
