@@ -1183,6 +1183,16 @@ redshift range $[z_{\rm{min}}, z_{\rm{max}}]$ and the number of redshift bins $N
 and splits the range in contigous $N$ bins that span the range. Currently it only outputs 
 counts entries with unit bias and $\frac{\rm{d}}{\rm{d}m}\log_{10}N=0$.   
 
+\subsection{{\tt config-changes.sh}}
+\label{sec:config-changes}
+
+This {\sc bash} script prints to {\tt stdout} what changes you must make in your 
+configuration file to make it compatible with a certain version of {\sc flask}. 
+The idea is that as {\sc flask} is updated, keywords might be added or removed, 
+and this scripts helps the user to make previous configuration files compatible 
+with new versions of the code by comparing them to the new {\tt example.config} 
+file. Check the script comments for more information.   
+
 %%%% Bibliografia %%%%
 \bibliographystyle{apalike}
 \bibliography{main}
