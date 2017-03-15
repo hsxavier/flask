@@ -13,9 +13,9 @@
 #include <alm.h>         // For Kappa2ShearEmode function.
 #include <xcomplex.h>    // For Kappa2ShearEmode function.
 #include "FieldsDatabase.hpp"
-#include <ctime>         // For PrepareEnd.
 
-// Auxiliary functions for corrlnfields program:
+// Auxiliary functions for flask program:
+void OrganizeAngularCoord(int *AngularCoord, int *phi_pos, int *theta_pos, int *ra_pos, int *dec_pos, std::string & Header);
 int CountLensingFields(const FZdatabase & fieldlist);
 int CountGalaxyFields(const FZdatabase & fieldlist);
 void TabulateKappaWeight(double **KappaWeightTable, const Cosmology & cosmo, const FZdatabase & fieldlist);

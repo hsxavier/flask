@@ -10,6 +10,120 @@
 #include "lognormal.hpp"       // For gmu, gsigma, etc. in PrintMapsStats function.
 #include "definitions.hpp"     // For field types in CountLensingFields.
 
+
+// Organize catalogue angular coordinates and header:
+void OrganizeAngularCoord(int *AngularCoord, int *phi_pos, int *theta_pos, int *ra_pos, int *dec_pos, std::string & Header) {
+  // Allow Change of Coordinates if RA and DEC were set as catalog columns:
+  // For the catalog, ra, dec, theta, phi in CATALOG_COLS overrides ANGULAR_COORD. 
+
+  // Only RA DEC were asked for:
+  if (*phi_pos==-1 && *theta_pos==-1 && *ra_pos==-1 && *dec_pos!=-1)      {*AngularCoord=2; *theta_pos = *dec_pos;                   }
+  else if (*phi_pos==-1 && *theta_pos==-1 && *ra_pos!=-1 && *dec_pos==-1) {*AngularCoord=2;                      *phi_pos = *ra_pos; }
+  else if (*phi_pos==-1 && *theta_pos==-1 && *ra_pos!=-1 && *dec_pos!=-1) {*AngularCoord=2; *theta_pos = *dec_pos; *phi_pos = *ra_pos; }
+  // Only theta phi were asked for:
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos==-1 && *dec_pos==-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: CATALOG_COLS 'theta' will be given in degrees"); *AngularCoord=1; 
+  }
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos==-1 && *dec_pos==-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: CATALOG_COLS 'phi' will be given in degrees"); *AngularCoord=1; 
+  }
+  else if (*phi_pos!=-1 && *theta_pos!=-1 && *ra_pos==-1 && *dec_pos==-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: CATALOG_COLS 'theta phi' will be given in degrees"); *AngularCoord=1; 
+  }
+  // Asked for mixed coordinates:
+  //                   v                               v
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos==-1 && *dec_pos!=-1 && *AngularCoord!=2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'dec' will be ignored and 'theta' catalog column will obey ANGULAR_COORD.");
+    StrReplace(Header, "dec", "");
+  }
+  //                   v                               v 
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos==-1 && *dec_pos!=-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'theta' will be ignored and 'dec' catalog column will be used.");
+    *theta_pos = *dec_pos;
+    StrReplace(Header, "theta", "");
+  }
+  //                   v                v
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos!=-1 && *dec_pos==-1 && *AngularCoord!=2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'ra' catalog column will be treated as 'phi'.");
+    *phi_pos = *ra_pos;
+    StrReplace(Header, "ra", "phi");
+  }
+  //                   v                v
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos!=-1 && *dec_pos==-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'theta' catalog column will be treated as 'dec'.");
+    *phi_pos = *ra_pos;
+    StrReplace(Header, "theta", "dec");
+  }
+  //                   v                v              v
+  else if (*phi_pos==-1 && *theta_pos!=-1 && *ra_pos!=-1 && *dec_pos!=-1) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'theta' will be ignored.");
+    *theta_pos    = *dec_pos;
+    *phi_pos      = *ra_pos;
+    *AngularCoord = 2;
+    StrReplace(Header, "theta", "");
+  }
+  //     v                                             v
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos==-1 && *dec_pos!=-1 && *AngularCoord!=2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'dec' will be treated as 'theta'.");
+    *theta_pos = *dec_pos;
+    StrReplace(Header, "dec", "theta");
+  }
+  //     v                                             v
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos==-1 && *dec_pos!=-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'phi' will be treated as 'ra'.");
+    *theta_pos = *dec_pos;
+    StrReplace(Header, "phi", "ra");
+  }
+  //     v                              v              
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos!=-1 && *dec_pos==-1 && *AngularCoord==2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'phi' will be ignored.");
+    *phi_pos = *ra_pos;
+    StrReplace(Header, "phi", "");
+  }
+  //     v                              v              
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos!=-1 && *dec_pos==-1 && *AngularCoord!=2) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'ra' will be ignored.");
+    StrReplace(Header, "ra", "");
+  }
+  //     v                              v              v
+  else if (*phi_pos!=-1 && *theta_pos==-1 && *ra_pos!=-1 && *dec_pos!=-1) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'phi' will be ignored.");
+    *theta_pos    = *dec_pos;
+    *phi_pos      = *ra_pos;
+    *AngularCoord = 2;
+    StrReplace(Header, "phi", "");
+  }
+  //     v             v                               v
+  else if (*phi_pos!=-1 && *theta_pos!=-1 && *ra_pos==-1 && *dec_pos!=-1) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'dec' will be ignored.");
+    StrReplace(Header, "dec", "");
+    if (*AngularCoord==2) { warning("OrganizeAngularCoord: 'theta' 'phi' will be given in degrees."); *AngularCoord=1; }
+    
+  }
+  //     v             v                v               
+  else if (*phi_pos!=-1 && *theta_pos!=-1 && *ra_pos!=-1 && *dec_pos==-1) {
+    warning("OrganizeAngularCoord: found mixed coordinates, 'ra' will be ignored.");
+    StrReplace(Header, "ra", "");
+    if (*AngularCoord==2) { warning("OrganizeAngularCoord: 'theta' 'phi' will be given in degrees."); *AngularCoord=1; }  
+  }
+  //     v             v                v              v 
+  else if (*phi_pos!=-1 && *theta_pos!=-1 && *ra_pos!=-1 && *dec_pos!=-1) {
+    if (*AngularCoord==2) { 
+      warning("OrganizeAngularCoord: found mixed coordinates, will use 'ra' 'dec'.");
+      *phi_pos   = *ra_pos;
+      *theta_pos = *dec_pos;
+      StrReplace(Header, "phi", "");
+      StrReplace(Header, "theta", "");
+    }
+    else {
+      warning("OrganizeAngularCoord: found mixed coordinates, will use 'theta' 'phi'.");
+      StrReplace(Header, "ra", "");
+      StrReplace(Header, "dec", "");
+    }
+  }  
+}
+
+
 // Count number of lensing fields with different field ('f') names:
 int CountLensingFields(const FZdatabase & fieldlist) {
   int k=0, f;

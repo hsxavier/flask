@@ -23,6 +23,18 @@ LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 CXXOMP   = -fopenmp
 LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
+# Options for GridUNESP computer:
+ 
+ifeq ($(HOSTNAME), access.grid.unesp.br)
+HEALDIR  = /home/rosenfel/FLASK/Healpix_3.31
+HEALDATA = $(HEALDIR)/data
+CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
+LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
+CXXFITS  = -I/home/rosenfel/FLASK/cfitsio/include
+LDFITS   = -L/home/rosenfel/FLASK/cfitsio/lib
+endif
+
+
 # Options for Splinter computer:
 ifeq ($(HOSTNAME), splinter-login.local)
 HEALDIR  = /home/hsxavier/Healpix_3.11
