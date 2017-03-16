@@ -450,15 +450,20 @@ each one is also provided in {\tt example.config}):
   {\tt POISSON: 0}) would not make much sense and is likely to cause the code to crash.
 
 \item {\tt OMEGA\_m:} This takes a real number that represents the total matter (dark matter 
-  plus baryons) density parameter. It is only used if the user sets: (1) {\tt DENS2KAPPA: 1}; or 
-  (2) {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}.
+  plus baryons) density parameter. It is only used if the user sets: (1) {\tt DENS2KAPPA: 1}; 
+  (2) {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}; or includes {\tt r} in the 
+  list of catalogue columns {\tt CATALOG\_COLS} and generates a catalogue.
 
 \item {\tt OMEGA\_L:} This takes a real number that represents the dark energy density parameter. 
-  It is only used if the user sets: (1) {\tt DENS2KAPPA: 1}; or (2) {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}. 
+  It is only used if the user sets:  (1) {\tt DENS2KAPPA: 1}; 
+  (2) {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}; or includes {\tt r} in the 
+  list of catalogue columns {\tt CATALOG\_COLS} and generates a catalogue.
 
 \item {\tt W\_de:} This takes a real number that represents the $w_0$ parameter of a constant dark energy 
-  equation of state. It is only used if the user sets: (1) {\tt DENS2KAPPA: 1}; or (2) {\tt SELEC\_TYPE: 1} 
-  or {\tt SELEC\_TYPE: 3}. Currently this is the only kind of dark energy model implemented in the code. 
+  equation of state. It is only used if the user sets:  (1) {\tt DENS2KAPPA: 1}; 
+  (2) {\tt SELEC\_TYPE: 1} or {\tt SELEC\_TYPE: 3}; or includes {\tt r} in the 
+  list of catalogue columns {\tt CATALOG\_COLS} and generates a catalogue.
+  Currently this is the only kind of dark energy model implemented in the code. 
 
 \item {\tt ELLIP\_SIGMA:} This takes a real number that represents the standard deviation of the zero mean 
   Gaussian distribution from which each component of a galaxy's intrinsic ellipticity 
@@ -878,7 +883,19 @@ each one is also provided in {\tt example.config}):
     one cannot mix different coordinate systems in the catalogue, e.g. {\tt dec} and {\tt phi} or 
     {\tt dec} and {\tt theta});
   \item {\tt z}, the galaxy's redshift, which is randomly sampled inside the corresponding cell 
-    according to the selection function; 
+    according to the selection function;
+  \item {\tt r}, the comoving distance, given in $h^{-1}\mathrm{Mpc}$, associated to 
+    the galaxy's redshift {\tt z} above, according to the formula:
+    \begin{equation}
+      r = \frac{c}{H_{100}}
+      \int_0^z\frac{\mathrm{d}z'}{\sqrt{\Omega_{\mathrm{m}}(1+z')^3+\Omega_{\mathrm{k}}(1+z')^2+\Omega_{\mathrm{L}}(1+z')^{3(1+w_{\mathrm{de}})}}}, 
+      \label{eq:comdist}
+    \end{equation}
+    where: $H_{100}=100\mathrm{\:m\:s^{-1}\:Mpc^{-1}}$, $\Omega_{\mathrm{k}}=1-\Omega_{\mathrm{m}}-\Omega_{\mathrm{L}}$; and 
+    $\Omega_{\mathrm{m}}$, $\Omega_{\mathrm{L}}$ and $w_{\mathrm{de}}$ are given by the keywords 
+    {\tt OMEGA\_m}, {\tt OMEGA\_L} and {\tt W\_de}. Therefore, the interpretation of {\tt r} depends on what 
+    is being simulated, e.g. if the input power spectra includes redshift space distortions, {\tt r} 
+    will be the distance in redshift space. 
   \item {\tt galtype}, i.e. the field's name as in the fields information file, see Sec. \ref{sec:fields-info}; 
   \item {\tt kappa}, the convergence $\kappa$ at the corresponding cell (pixel and redshift slice);
   \item {\tt gamma1}, the first component of the shear, $\gamma_1$, at the corresponding cell;
