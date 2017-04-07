@@ -578,7 +578,10 @@ each one is also provided in {\tt example.config}):
   keyword {\tt SELEC\_Z\_PREFIX} will take a prefix leading to one radial selection function for each 
   galaxy field. If not separable, the keyword {\tt SELEC\_PREFIX} will take a path with a prefix that 
   should lead to one {\sc healpix} map in FITS format for each galaxy field and redshift slice, 
-  representing the entire selection function. In this case, {\tt SELEC\_Z\_PREFIX} is ignored.
+  representing the entire selection function (these files must be named by the prefix followed by 
+  {\tt f}$[f_i]${\tt z}$[z_j]${\tt .fits}, where $[f_i]$ and $[z_j]$ are the numbers ``naming'' 
+  the entries in the fields information file -- see Sec. \ref{sec:fields-info}). 
+  In this case, {\tt SELEC\_Z\_PREFIX} is ignored.
 
 \item {\tt SELEC\_PREFIX:} This takes a string that represents either a path plus a prefix for 
   a bunch of {\sc healpix} maps in FITS format representing the galaxies selection functions 
@@ -1188,8 +1191,9 @@ and the files to be averaged over (which can be specified using wildcards).
 \subsection{{\tt ViewMap.py}}
 \label{sec:viewmap}
 
-This {\sc python} script plots in Mollweide projection a {\sc healpix} map saved as a FITS file. 
-It just takes one input: that file. The plot can be saved in different formats.  
+This {\sc python} script takes as arguments filenames of {\sc healpix} maps saved as FITS files 
+and plots them in Mollweide projection. Each map is opened in a different window and can be 
+saved under different formats.
 
 \subsection{{\tt z-range2camb-ini.py}}
 \label{sec:zrange2camb}
