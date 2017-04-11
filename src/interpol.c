@@ -50,11 +50,18 @@ double DiscreteIntegral(double *x, double *f, int n, double xmin, double xmax) {
   bisect_interpol(x, n, xmin, &imin); imin=imin+1;
   bisect_interpol(x, n, xmax, &imax);
   
-  // Integrate over wrapped points:
-  for (i=imin; i<imax; i++) integral += (f[i]+f[i+1]) * (x[i+1]-x[i]) / 2.0;
-  // Add contribution of borders (interpolated points):
-  integral += (Interpol(x,n,f,xmin)+f[imin]) * (x[imin]-xmin) / 2.0;
-  integral += (Interpol(x,n,f,xmax)+f[imax]) * (xmax-x[imax]) / 2.0;
+  // In case there is at least one point wrapped by xmin and xmax:
+  if (imin <= imax) {
+    // Integrate over wrapped points:
+    for (i=imin; i<imax; i++) integral += (f[i]+f[i+1]) * (x[i+1]-x[i]) / 2.0;
+    // Add contribution of borders (interpolated points):
+    integral += (Interpol(x,n,f,xmin)+f[imin]) * (x[imin]-xmin) / 2.0;
+    integral += (Interpol(x,n,f,xmax)+f[imax]) * (xmax-x[imax]) / 2.0;
+  }
+  // In case there are no points wrapped by xmin and xmax (function f(x) is udersampled):
+  else {
+    integral = (Interpol(x,n,f,xmin)+Interpol(x,n,f,xmax)) * (xmax-xmin) / 2.0;
+  }
 
   return integral;
 }
