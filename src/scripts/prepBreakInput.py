@@ -111,4 +111,4 @@ for classfile in classlist:
         # Export files that do not exist:
         if os.path.isfile(outfiles[i]) is False:
             print "Writing file "+outfiles[i]
-            np.savetxt(outfiles[i], np.transpose([l,classout[i]]))
+            np.savetxt(outfiles[i], np.transpose([l,classout[i]]), fmt=['%d','%e'])

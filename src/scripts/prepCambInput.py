@@ -49,6 +49,6 @@ for f1 in range(1,Nfields+1):
         # Export:
         outfile = outprefix +'f'+str(int(info[f1-1][0]))+'z'+str(int(info[f1-1][1]))+'f'+str(int(info[f2-1][0]))+'z'+str(int(info[f2-1][1]))+'.dat'
         print "Writing file "+outfile
-        np.savetxt(outfile, Cl)
+        np.savetxt(outfile, Cl, fmt=['%d','%e'])
 
 print "Done."

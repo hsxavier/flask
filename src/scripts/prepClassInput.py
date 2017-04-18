@@ -106,6 +106,6 @@ for i in range(1, ncols):
     
     # Export
     print "Writing file "+outfiles[i]
-    np.savetxt(outfiles[i], np.transpose([l,classout[i]]))
+    np.savetxt(outfiles[i], np.transpose([l,classout[i]]), fmt=['%d','%e'])
 
 print "Done."
