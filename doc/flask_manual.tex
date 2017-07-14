@@ -253,8 +253,8 @@ or
 \vspace{0.5cm}
 
 
-\subsection{Screen output}
-\label{sec:screen}
+\subsection{Tips and things to keep an eye on}
+\label{sec:tips}
 
 {\sc Flask}'s screen output contains a lot of information that may help 
 to reproduce previous runs and output files, understand the simulation process, 
@@ -265,8 +265,17 @@ screen output one can see the total number of warnings generated during the run.
 {\sc Flask} was designed to produce warnings for all possible mistakes we could think of, so 
 to correctly use {\sc flask}, make sure that the total number of warnings is always zero 
 or (if it is really necessary) that you understand and can afford specific warnings.
-Also, if a regularization of the covariance matrix was requested, keep an eye at this output 
-since it informs you the maximum fractional change applied to them.   
+
+If a regularization of the covariance matrix was requested, check the screen output 
+since it informs you the maximum fractional change applied to them. Also, in Gaussian 
+realisations and in some other situations you may end up with negative galaxy counts, 
+something that is also informed by the screen output. These things can distort your 
+results (and they do not produce warnings), so pay attention to them. 
+
+{\sc Flask} can output practically all intermediary data it produces. If you get some 
+weird result, you can check the data used in the previous calculation steps to 
+find out where the problem is. 
+   
 
 \subsection{Inner workings}
 \label{sec:workings}
@@ -319,7 +328,10 @@ in pixel $j$ and redshift shell $i$ in a completely homogeneous universe,
 $\delta_t(i,j)$ is the tracer $t$ density contrast field generated according 
 to the input power spectra. The actual number of tracers generated in each cell can be sampled 
 from a Poisson distribution with average number given by $\langle N_t(i,j) \rangle$ if the keyword 
-{\tt POISSON} is set to {\tt 1}.
+{\tt POISSON} is set to {\tt 1}, or from a Gaussian distribution with mean given by 
+$\langle N_t(i,j) \rangle$ and standard deviation $\sigma_{\mathrm{G}} = \sqrt{\bar{n}_t(i,j)\Delta\Omega}$ 
+if {\tt POISSON} is set to {\tt 2} (note that in this case the number of tracers can be non-integer and 
+negative).
 
 The way $\bar{n}_t(i,j)$ behaves depends on the {\tt SELEC\_TYPE} keyword (see Section \ref{sec:keywords}). 
 If {\tt SELEC\_TYPE: 0}, then $\bar{n}_t(i,j)$ is given by:
@@ -426,13 +438,16 @@ each one is also provided in {\tt example.config}):
   {\tt LOGNORMAL} or {\tt HOMOGENEOUS}, specifying what kind of distribution all 
   the simulated random fields will follow. The {\tt HOMOGENEOUS} in fact ignores 
   all input power spectra $C(\ell)$s as if they were all zero and creates homogeneous 
-  field maps. Density fields can be later Poisson sampled according to the selection 
+  field maps. Density fields can be later Poisson (or Gaussian) sampled according to the selection 
   function, so the {\tt HOMOGENEOUS} choice is useful to create the random catalogues 
   used in \citet{LandySzalay93x}, for instance. Weak lensing shear produced under this 
   choice is currently zero, and ellipticities are completely random according to 
   {\tt ELLIP\_SIGMA}. For simulating Gaussian and lognormal correlated fields 
   simultaneously, one should use the {\tt LOGNORMAL} choice and adjust the input 
-  information so to approximate the desired fields to a Gaussian distribution.
+  information so to approximate the desired fields to a Gaussian distribution. Note that 
+  the {\tt GAUSSIAN} option might lead to unphysical field values in some cases (e.g. 
+  negative densities), which might cause problems in some simulations steps (like sampling 
+  galaxies).
 
 \item {\tt RNDSEED:} This is a single integer number, the seed for the pseudo-random 
   number generator. In fact, the seed is transformed into $N_{\nv{proc}}$ seeds, where 
@@ -442,12 +457,15 @@ each one is also provided in {\tt example.config}):
   result in independent realisations. Note that a given seed passed to {\tt RNDSEED} will 
   only result in the same realisation as long as $N_{\nv{proc}}$ remains the same.
 
-\item {\tt POISSON:} This can be {\tt 1} or {\tt 0}, and specifies if the galaxy density 
-  fields should be Poisson sampled or not, respectively. If not sampled (useful for debugging 
-  reasons), the value attributed to the {\sc healpix} map is the expected number of galaxies 
-  (a non-integer number). This map can then be output through the {\tt MAPWER\_OUT} and 
-  {\tt MAPWERFITS\_PREFIX} keywords. Generating a galaxy catalogue from this map (with 
-  {\tt POISSON: 0}) would not make much sense and is likely to cause the code to crash.
+\item {\tt POISSON:} This can be {\tt 1}, {\tt 2} or {\tt 0}, and specifies if the galaxy density 
+  fields should be Poisson sampled, Gaussian sampled or not sampled at all, respectively. 
+  If not sampled (useful for debugging reasons), the values attributed to the {\sc healpix} count maps 
+  are the expected number of galaxies (a non-integer number); if Gaussian sampled, these values 
+  will be non-integer and they can be negative as well. These maps can then be output 
+  through the {\tt MAPWER\_OUT} and {\tt MAPWERFITS\_PREFIX} keywords. Generating a galaxy catalogue 
+  from maps with {\tt POISSON: 0} or {\tt 2} would not make much sense and is likely to cause the 
+  code to crash. For more information on the parameters used for the sampling, check Sec. 
+  \ref{sec:selection}.
 
 \item {\tt OMEGA\_m:} This takes a real number that represents the total matter (dark matter 
   plus baryons) density parameter. It is only used if the user sets: (1) {\tt DENS2KAPPA: 1}; 
@@ -594,15 +612,17 @@ each one is also provided in {\tt example.config}):
   passed to the {\tt NSIDE} keyword.
 
 \item {\tt SELEC\_Z\_PREFIX:} This takes a string representing the path plus a prefix for 
-  two column (redshift and selection function) text files, one for each galaxy field. 
+  two-column (redshift and radial selection function) text files, one for each galaxy field. 
   This is ignored if {\tt SELEC\_SEPARABLE: 0}. The files can have headers if they start with {\tt \#}, 
   and they have to be named according to the prefix, followed by {\tt f}$[f_i]${\tt .dat}, where 
   $[f_i]$ is the field number ``naming'' the field in the fields information file (see Sec. 
-  \ref{sec:fields-info}). For proper units, see Sec. \ref{sec:selection}.
+  \ref{sec:fields-info}). For proper units, see Sec. \ref{sec:selection}. Radial selection functions 
+  with negative values in the redshift range being simulated might cause unexpected behaviour in the code.
 
  \item {\tt SELEC\_SCALE:} This takes a real number that will serve as a re-scaling of the selection 
    function (the selection function will be multiplied by this value). To use the exact values in the 
-   files specified by {\tt SELEC\_PREFIX} and {\tt SELEC\_Z\_PREFIX}, set {\tt SELEC\_SCALE: 1.0}.
+   files specified by {\tt SELEC\_PREFIX} and {\tt SELEC\_Z\_PREFIX}, set {\tt SELEC\_SCALE: 1.0}. 
+   Using negative values here might cause unexpected behaviour in the code.  
 
 \item {\tt SELEC\_TYPE:} There are two types of selection functions: one ({\tt SELEC\_TYPE: 0}) 
   specifies either the expected number of observed galaxies per unit redshift, per square arcmin 
@@ -834,7 +854,7 @@ each one is also provided in {\tt example.config}):
 
 \item {\tt MAPWER\_OUT:} Path plus filename for a text table containing the pixel's 
   centre angular coordinates and the values at that point of the fields after applying 
-  the selection function and Poisson sampling the galaxy density fields; that is, the 
+  the selection function and sampling (see {\tt POISSON} keyword) the galaxy density fields; that is, the 
   values are the number of galaxies in each pixel in each redshift slice (i.e. in each 
   cell). In the current implementation, convergence fields do not get any noise contribution 
   apart from cosmic variance and are masked out according to the angular selection 
@@ -848,9 +868,9 @@ each one is also provided in {\tt example.config}):
   in the file. The file will contain two columns (the two components of the complex 
   ellipticity) for each galaxy field in each redshift slice where lensing fields 
   are also specified. The ellipticity in each pixel is given by Eq. \ref{eq:ellip-map-noise}, 
-  where $N_{\nv{gal}}(j)$ is given by the Poisson sampled number (or the expected number, if 
-  {\tt POISSON: 0}) of galaxies (of that type, if simulating 
-  more than one tracer) in the pixel; if $N_{\nv{gal}}(j)=0$, the pixel is masked out (i.e. it gets 
+  where $N_{\nv{gal}}(j)$ is given by the Poisson sampled number (or the expected number if 
+  {\tt POISSON: 0}, or Gaussian sampled number if {\tt POISSON: 2}) of galaxies (of that type, if simulating 
+  more than one tracer) in the pixel; if $N_{\nv{gal}}(j)\leq 0$, the pixel is masked out (i.e. it gets 
   the value specified by the {\tt USE\_UNSEEN} keyword). 
 
   If there are no galaxy fields being simulated, {\sc flask} will require that 

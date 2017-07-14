@@ -655,11 +655,11 @@ int main (int argc, char *argv[]) {
  
   double dw = 1.4851066049791e8/npixels; // Pixel solid angle in arcmin^2.
   int *counter;
+  counter = vector<int>(1, MaxThreads);
 
   // Poisson Sampling the galaxy fields:
   if (config.readi("POISSON")==1) {
-    counter = vector<int>(1, MaxThreads);
-    // LOOP over fields:
+    // LOOP over galaxy fields:
     for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
 	fieldlist.Index2Name(i, &f, &z);
 	sprintf(message, "Poisson sampling f%dz%d... ", f, z); filename.assign(message); 
@@ -677,25 +677,55 @@ int main (int argc, char *argv[]) {
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
 	cout << "Negative density fraction (that was set to 0): "<<std::setprecision(2)<< ((double)j)/npixels*100 <<"%\n";
       }
-    free_vector(counter, 1, MaxThreads);
+  }
+
+  // OR Gaussian Sampling the galaxy fields:
+  else if (config.readi("POISSON")==2) {
+    // LOOP over galaxy fields:
+    for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
+	fieldlist.Index2Name(i, &f, &z);
+	sprintf(message, "Gaussian sampling f%dz%d... ", f, z); filename.assign(message); 
+	Announce(filename);
+	for(k=1; k<=MaxThreads; k++) counter[k]=0;
+	// LOOP over pixels of field 'i':
+#pragma omp parallel for schedule(static) private(k)
+	for(j=0; j<npixels; j++) {
+	  k = omp_get_thread_num()+1;
+	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;  
+	  else mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw + gsl_ran_gaussian(rnd[k], sqrt(selection(i,j)*dw)); 
+	  if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies after sampling.
+	}
+	Announce();
+	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
+	cout << "Negative counts fraction (after sampling): "<<std::setprecision(2)<< ((double)j)/npixels*100 <<"%\n";
+      }
   }
   
   // Just generate the expected number density, if requested:
   else if (config.readi("POISSON")==0) {
+    // LOOP over galaxy fields:
     for (i=0; i<Nfields; i++) if (fieldlist.ftype(i)==fgalaxies) {
 	fieldlist.Index2Name(i, &f, &z);
-	sprintf(message,"Using expected number density for f%dz%d...", f, z); filename.assign(message);
-	Announce(message);
-#pragma omp parallel for
+	sprintf(message,"Using expected (no sampling) number counts for f%dz%d...", f, z); filename.assign(message);
+	Announce(message);	
+	for(k=1; k<=MaxThreads; k++) counter[k]=0;
+	// LOOP over pixels of field 'i':
+#pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
+	  k = omp_get_thread_num()+1;
 	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
 	  else mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
+	  if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies.
 	}
 	Announce();
+	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
+	cout << "Negative counts fraction: "<<std::setprecision(2)<< ((double)j)/npixels*100 <<"%\n";
       }
   }
+  
   else error ("flask: unknown POISSON option.");
-
+  free_vector(counter, 1, MaxThreads);
+  
 
   /*** Convergence fields ***/
 

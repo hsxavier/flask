@@ -44,6 +44,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
   if (starfile=="0") UseStarMask   =0; else UseStarMask   =1;
 
   // Barriers against unimplemented selection function kinds:
+  if (Scale < 0) warning ("SelectionFunction.load: SELEC_SCALE < 0 will cause problems when Poisson/Gaussian sampling galaxy fields.");
   if (SelectionType==1 || SelectionType==3) error("SelectionFunction.load: SELEC_TYPE fraction of gals not implemented yet.");
   if (SelectionType >3 || SelectionType <0) error("SelectionFunction.load: unknown selection function type.");
   if (Separable     >1 || Separable     <0) error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");

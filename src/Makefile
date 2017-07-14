@@ -37,7 +37,8 @@ endif
 
 # Options for Splinter computer:
 ifeq ($(HOSTNAME), splinter-login.local)
-HEALDIR  = /home/hsxavier/Healpix_3.11
+#HEALDIR  = /home/hsxavier/Healpix_3.11
+HEALDIR  = /share/splinter/cosmos/modules/may_2017/install_dir/Healpix_3.31
 HEALDATA = $(HEALDIR)/data
 CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
 LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
