@@ -34,6 +34,10 @@ infofile  = sys.argv[2]
 outprefix = sys.argv[3]
 camb    = np.loadtxt(cambfile, unpack=True)
 info    = np.loadtxt(infofile)
+
+# Find out number of Fields:
+if len(info.shape)==1:
+   info = np.array([info])
 Nfields = info.shape[0]
 print 'Nfields =', Nfields
 
