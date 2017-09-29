@@ -691,9 +691,11 @@ int main (int argc, char *argv[]) {
 #pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
-	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;  
-	  else mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw + gsl_ran_gaussian(rnd[k], sqrt(selection(i,j)*dw)); 
-	  if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies after sampling.
+	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
+	  else {
+	    mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw + gsl_ran_gaussian(rnd[k], sqrt(selection(i,j)*dw)); 
+	    if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies after sampling.
+	  }
 	}
 	Announce();
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
@@ -714,8 +716,10 @@ int main (int argc, char *argv[]) {
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
 	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;
-	  else mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
-	  if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies.
+	  else {
+	    mapf[i][j] = selection(i,j)*(1.0+mapf[i][j])*dw;
+	    if (mapf[i][j] < 0) counter[k]++; // Count pixels that have negative number of galaxies.
+	  }
 	}
 	Announce();
 	j=0; for (k=1; k<=MaxThreads; k++) j+=counter[k];
