@@ -889,9 +889,10 @@ int main (int argc, char *argv[]) {
     ziter = kl%longNz;     // z slice.
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
-      if (fieldlist.ftype(i)==fgalaxies && mapf[i][j]>0) ThreadNgals[l+1] += mapf[i][j];
+      if (fieldlist.ftype(i)==fgalaxies && mapf[i][j]>0) ThreadNgals[l+1] += (long)mapf[i][j];
     }
   }
+  // Compute the cummulative sum by thread, which is the catalogue initial position for thar thread:
   for (l=2; l<=MaxThreads; l++) ThreadNgals[l] += ThreadNgals[l-1];
   Ngalaxies = ThreadNgals[MaxThreads];
   Announce();     
@@ -952,7 +953,7 @@ int main (int argc, char *argv[]) {
       i = fieldlist.zFixedIndex(fiter, ziter);
       if (fieldlist.ftype(i)==fgalaxies && mapf[i][j]>0) cellNgal += (int)mapf[i][j];
     }
-    
+ 
     // LOOP over field IDs:
     for (fiter=0; fiter<fieldlist.Nf4z(ziter); fiter++) {
       i = fieldlist.zFixedIndex(fiter, ziter);
@@ -992,8 +993,12 @@ int main (int argc, char *argv[]) {
 
   // Check if every entry was set once and only once:
   for (kl=0; kl<Ngalaxies; kl++) for (j=0; j<ncols; j++) {
-      if (catSet[j][kl]<1)     {cout<<"j: "<<j<<endl; error("flask: Catalog has missing information.");}
-      if (catSet[j][kl]>1)     {cout<<"j: "<<j<<endl; error("flask: Catalog entry being set more than once.");}
+      if (catSet[j][kl]<1) {
+	printf("j=%d kl=%ld N=%d\n", j, kl, catSet[j][kl]);
+	warning("flask: Catalog has missing information.");}
+      if (catSet[j][kl]>1) {
+	printf("j=%d kl=%ld N=%d\n", j, kl, catSet[j][kl]);
+	warning("flask: Catalog entry being set more than once.");}
     }
   free_matrix(catSet, 0,ncols-1, 0,Ngalaxies-1);
   Announce();
