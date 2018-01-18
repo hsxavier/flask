@@ -17,7 +17,7 @@ SelectionFunction::SelectionFunction () {
 // Load selection functions:
 void SelectionFunction::load(const ParameterList & config, const FZdatabase & fieldlist) {
   using namespace definitions;
-  std::string tempstr, filename, starfile;
+  std::string angprefix, zprefix, filename, starfile;
   char message[100];
   int i, j, Nside=-1, scheme=-1, f, z, prevf;
   double *wrapper[2];
@@ -29,7 +29,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
   zSearchTol    = config.readd("ZSEARCH_TOL");
   SelectionType = config.readi("SELEC_TYPE");
   Separable     = config.readi("SELEC_SEPARABLE");
-  tempstr       = config.reads("SELEC_PREFIX");
+  angprefix     = config.reads("SELEC_PREFIX");
   starfile      = config.reads("STARMASK");
   Scale         = config.readd("SELEC_SCALE");
   fieldZrange   = matrix<double>(0, Nfields-1, 0, 1);
@@ -40,14 +40,14 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
     ftype[i] = fieldlist.ftype(i);
   }
   // No selection options:
-  if (tempstr =="0") UseAngularMask=0; else UseAngularMask=1;
+  if (angprefix =="0") UseAngularMask=0; else UseAngularMask=1;
   if (starfile=="0") UseStarMask   =0; else UseStarMask   =1;
 
   // Barriers against unimplemented selection function kinds:
   if (Scale < 0) warning ("SelectionFunction.load: SELEC_SCALE < 0 will cause problems when Poisson/Gaussian sampling galaxy fields.");
   if (SelectionType==1 || SelectionType==3) error("SelectionFunction.load: SELEC_TYPE fraction of gals not implemented yet.");
   if (SelectionType >3 || SelectionType <0) error("SelectionFunction.load: unknown selection function type.");
-  if (Separable     >1 || Separable     <0) error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
+  if (Separable     >2 || Separable     <0) error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
   if (SelectionType==2 && Separable    ==0) error("SelectionFunction.load: bookkeeping for non-separable sel. func. not implemented yet.");
 
   // Check if a lensing source selection function is required
@@ -66,7 +66,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
       for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies || yesShearSel) {
 	  // Load FITS file:
 	  fieldlist.Index2Name(i, &f, &z);
-	  sprintf(message, "%sf%dz%d.fits", tempstr.c_str(), f, z);
+	  sprintf(message, "%sf%dz%d.fits", angprefix.c_str(), f, z);
 	  filename.assign(message);
 	  read_Healpix_map_from_fits(filename, AngularSel[i]);
 	  // Check if all selection functions have same Nside and Scheme:
@@ -89,7 +89,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
     if(UseAngularMask==1) {
       // Load a fixed angular selection function:
       AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,0);
-      read_Healpix_map_from_fits(tempstr, AngularSel[0]);
+      read_Healpix_map_from_fits(angprefix, AngularSel[0]);
       Nside   = AngularSel[0].Nside();
       scheme  = AngularSel[0].Scheme();
       Npixels = 12*Nside*Nside; 
@@ -98,14 +98,14 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
     }
 
     // Prepare for radial selection functions:
-    zSelIndex = vector<int>    (0, Nfields-1);
-    NgalTypes = IndexGalTypes(fieldlist);         // << This initializes zSelIndex. 
-    zSel      = vector<double*>(0, NgalTypes-1); 
-    zEntries  = vector<double*>(0, NgalTypes-1);
-    NzEntries = vector<long>   (0, NgalTypes-1);
-    intZsel   = vector<double> (0, Nfields-1);
-    tempstr   = config.reads("SELEC_Z_PREFIX");
-    if (tempstr=="0") error("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
+    tracerIndex = vector<int>    (0, Nfields-1);
+    NgalTypes   = IndexGalTypes(fieldlist);         // << This initializes tracerIndex. 
+    zSel        = vector<double*>(0, NgalTypes-1); 
+    zEntries    = vector<double*>(0, NgalTypes-1);
+    NzEntries   = vector<long>   (0, NgalTypes-1);
+    intZsel     = vector<double> (0, Nfields-1);
+    zprefix     = config.reads("SELEC_Z_PREFIX");
+    if (zprefix=="0") error("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
     // Mark so far unused vectors to ease bug detection:
     for (i=0; i<Nfields; i++) intZsel[i]=0.0;
     for (i=0; i<NgalTypes; i++) { zSel[i]=NULL; zEntries[i]=NULL; NzEntries[i]=0; }
@@ -113,19 +113,73 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
     // LOOP over fields, look for type of tracer (galaxy):
     for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies || yesShearSel) {
 	fieldlist.Index2Name(i, &f, &z);
-	if (NzEntries[zSelIndex[i]] == 0) {
+	if (NzEntries[tracerIndex[i]] == 0) {
 	  // Found new type of galaxy: load radial selection function:
-	  sprintf(message, "%sf%d.dat", tempstr.c_str(), f);
+	  sprintf(message, "%sf%d.dat", zprefix.c_str(), f);
 	  filename.assign(message);
-	  LoadVecs(wrapper, filename, &(NzEntries[zSelIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
-	  zEntries[zSelIndex[i]] = wrapper[0]; zSel[zSelIndex[i]] = wrapper[1];
+	  LoadVecs(wrapper, filename, &(NzEntries[tracerIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
+	  zEntries[tracerIndex[i]] = wrapper[0]; zSel[tracerIndex[i]] = wrapper[1];
 	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
 	}
 	// Integrate radial selection function inside the bins:
-	intZsel[i] = DiscreteIntegral(zEntries[zSelIndex[i]], zSel[zSelIndex[i]], NzEntries[zSelIndex[i]], 
+	intZsel[i] = DiscreteIntegral(zEntries[tracerIndex[i]], zSel[tracerIndex[i]], NzEntries[tracerIndex[i]], 
 				      fieldZrange[i][0], fieldZrange[i][1]);
       }
   }  
+  
+  // Selection function is separable in radial and angular parts, but f_i(z,theta,phi) = f_i(z) * m_i(theta,phi):
+  // (that is, we have a different angular part for each tracer)
+  else if(Separable==2) {
+
+    // Prepare for radial selection functions:
+    tracerIndex = vector<int>    (0, Nfields-1);
+    NgalTypes   = IndexGalTypes(fieldlist);         // << This initializes tracerIndex. 
+    zSel        = vector<double*>(0, NgalTypes-1); 
+    zEntries    = vector<double*>(0, NgalTypes-1);
+    NzEntries   = vector<long>   (0, NgalTypes-1);
+    intZsel     = vector<double> (0, Nfields-1);
+    zprefix     = config.reads("SELEC_Z_PREFIX");
+    if (zprefix=="0") error("SelectionFunction.load: SELEC_Z_PREFIX set to 0.");
+    // Mark so far unused vectors to ease bug detection:
+    for (i=0; i<Nfields; i++) intZsel[i]=0.0;
+    for (i=0; i<NgalTypes; i++) { zSel[i]=NULL; zEntries[i]=NULL; NzEntries[i]=0; }
+    // Prepare for angular selection functions:
+    AngularSel = vector<Healpix_Map<SEL_PRECISION> >(0,NgalTypes-1);
+
+    // LOOP over fields, look for type of tracer (galaxy):
+    for (i=0; i<Nfields; i++) if (ftype[i]==fgalaxies || yesShearSel) {
+	fieldlist.Index2Name(i, &f, &z);
+	if (NzEntries[tracerIndex[i]] == 0) {
+	  // Found new type of galaxy: 
+	  // load radial selection function:
+	  sprintf(message, "%sf%d.dat", zprefix.c_str(), f);
+	  filename.assign(message);
+	  LoadVecs(wrapper, filename, &(NzEntries[tracerIndex[i]]), &Ncolumns,0); // This allocates memory for zEntries[i] and zSel[i].
+	  zEntries[tracerIndex[i]] = wrapper[0]; zSel[tracerIndex[i]] = wrapper[1];
+	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
+	  // load angular selection function:
+	  if(UseAngularMask==1) {
+	    sprintf(message, "%sf%d.dat", angprefix.c_str(), f);
+	    filename.assign(message);
+	    read_Healpix_map_from_fits(filename, AngularSel[tracerIndex[i]]);
+	    // Check if all angular selection functions have same Nside and Scheme:
+	    if (Nside==-1) { Nside=AngularSel[i].Nside(); Npixels=12*Nside*Nside; }
+	    else if (AngularSel[tracerIndex[i]].Nside() != Nside) 
+	      error("SelectionFunction.load: selection FITS files have different number of pixels.");
+	    if (scheme==-1) scheme=AngularSel[tracerIndex[i]].Scheme();
+	    else if (AngularSel[tracerIndex[i]].Scheme() != scheme) 
+	      error("SelectionFunction.load: selection FITS files have different pixel orderings.");
+	    // Set all negative values to zero (this allows for UNSEEN to be used as input):
+	    for (j=0; j<Npixels; j++) if (AngularSel[tracerIndex[i]][j]<0) AngularSel[tracerIndex[i]][j]=0;
+	  }
+	}
+	// Integrate radial selection function inside the bins:
+	intZsel[i] = DiscreteIntegral(zEntries[tracerIndex[i]], zSel[tracerIndex[i]], NzEntries[tracerIndex[i]], 
+				      fieldZrange[i][0], fieldZrange[i][1]);
+      }
+  }  
+  // END of new selection function.
+
   // Unknown type of selection function:
   else error("SelectionFunction.load: unkown SELEC_SEPARABLE option.");
   
@@ -156,7 +210,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
 
 
 // Count types of galaxies and index their radial selection functions:
-// This function assumes zSelIndex is already allocated.
+// This function assumes tracerIndex is already allocated.
 int SelectionFunction::IndexGalTypes(const FZdatabase & fieldlist) {
   using namespace definitions;
   int i, f, z, NgalTypes=0, *IsSet;
@@ -172,14 +226,14 @@ int SelectionFunction::IndexGalTypes(const FZdatabase & fieldlist) {
       NgalTypes++;
       for (z=0; z<fieldlist.Nz4f(f); z++) {
 	i = fieldlist.fFixedIndex(f, z);
-	zSelIndex[i] = NgalTypes-1;
+	tracerIndex[i] = NgalTypes-1;
 	IsSet[i]++;
       }
     }
     // If not a galaxy, the index is -1:
     else for (z=0; z<fieldlist.Nz4f(f); z++) {
 	i = fieldlist.fFixedIndex(f, z);
-	zSelIndex[i] = -1;
+	tracerIndex[i] = -1;
 	IsSet[i]++;
       }
   }
@@ -223,11 +277,11 @@ double SelectionFunction::RandRedshift(gsl_rng *r, int fz, int pix) {
   else if (Separable==1) {
     
     ymax = MaxInterp(fieldZrange[fz][0], fieldZrange[fz][1], zSearchTol, 
-		     zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]]);
+		     zEntries[tracerIndex[fz]], NzEntries[tracerIndex[fz]], zSel[tracerIndex[fz]]);
     do {
     zguess = fieldZrange[fz][0] + gsl_rng_uniform(r)*zBinSize;
     yguess = gsl_rng_uniform(r)*ymax;
-    } while (yguess > Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], zguess));
+    } while (yguess > Interpol(zEntries[tracerIndex[fz]], NzEntries[tracerIndex[fz]], zSel[tracerIndex[fz]], zguess));
 
   }
 
@@ -247,9 +301,10 @@ SelectionFunction::~SelectionFunction() {
     }
   }
   // Deallocate separable selection functions:
-  else if(Separable==1) {
+  else if(Separable==1 || Separable==2) {
     // Free angular part:
-    if (UseAngularMask==1) free_vector(AngularSel, 0, 0);
+    if (UseAngularMask==1 && Separable==1) free_vector(AngularSel, 0, 0);
+    if (UseAngularMask==1 && Separable==2) free_vector(AngularSel, 0, NgalTypes-1);
     // Free radial selection functions:
     for (i=0; i<NgalTypes; i++) {
       free_vector(zEntries[i], 0, NzEntries[i]-1);
@@ -258,11 +313,12 @@ SelectionFunction::~SelectionFunction() {
     // Free integral of the radial selection function in the z bin:
     free_vector(intZsel,   0, Nfields-1);
     // Free pointers to functions and counters:
-    free_vector(zSelIndex, 0, Nfields-1);
-    free_vector(zSel,      0, NgalTypes-1);
-    free_vector(zEntries,  0, NgalTypes-1);
-    free_vector(NzEntries, 0, NgalTypes-1);
+    free_vector(tracerIndex, 0, Nfields-1);
+    free_vector(zSel,        0, NgalTypes-1);
+    free_vector(zEntries,    0, NgalTypes-1);
+    free_vector(NzEntries,   0, NgalTypes-1);
   }
+  
   
   // General deallocation:
   if (Separable==0 || Separable==1) {
@@ -293,11 +349,17 @@ int SelectionFunction::MaskBit(int fz, int pix) const {
   
   // Selection function bits:
   if (UseAngularMask) {
-    // Separable:
+    // Separable (but a single angular part):
     if (Separable==1) {
       if      (AngularSel[0][pix]==0.0) bit+=1;
       else if (AngularSel[0][pix]< 1.0) bit+=4;
       else if (AngularSel[0][pix]> 1.0) bit+=16;
+    }
+    // Separable (and one angular part for each tracer):
+    else if (Separable==2) {
+      if      (AngularSel[tracerIndex[fz]][pix]==0.0) bit+=1;
+      else if (AngularSel[tracerIndex[fz]][pix]< 1.0) bit+=4;
+      else if (AngularSel[tracerIndex[fz]][pix]> 1.0) bit+=16;      
     }
     // Non-separable:
     else {
@@ -319,7 +381,8 @@ double SelectionFunction::operator()(int fz, int pix) {
     error("SelectionFunction.operator(): this is only set for fields of type galaxies or if ellipticity maps are required.");
   else if (this->Nside()!=NoMap && (pix >= Npixels || pix < 0)) error("SelectionFunction.operator(): requested pixel is out of range.");
   else if (fz  >= Nfields || fz  < 0) error("SelectionFunction.operator(): unknown requested field.");
-  else if (Separable!=0 && Separable!=1) error("SelectionFunction.operator(): this object was not initialized (use load first).");
+  else if (Separable!=0 && Separable!=1 && Separable!=2) 
+    error("SelectionFunction.operator(): this object was not initialized (use load first).");
   
   // If Selection if only used for bookkeeping, do not enforce it here:
   if (SelectionType==2 || SelectionType==3) {
@@ -341,14 +404,11 @@ double SelectionFunction::operator()(int fz, int pix) {
     else                   return Scale * StarValue;
   }
   
-  // For separable selection functions, multiply integral of radial to angular part:
-  else if (Separable==1) {
-    //z0         = (fieldZrange[fz][0] + fieldZrange[fz][1])/2.0; // Get mean redshift of the field.
-    //zSelInterp = Interpol(zEntries[zSelIndex[fz]], NzEntries[zSelIndex[fz]], zSel[zSelIndex[fz]], z0);
-    //if (zSelInterp < 0) error("SelectionFunction.operator(): negative radial selection.");
-    //return Scale * zSelInterp * StarValue * AngularValue;
-    return Scale * intZsel[fz] * StarValue * AngularValue;
-  }
+  // For separable selection functions (and just one angular part), multiply integral of radial to angular part:
+  else if (Separable==1) return Scale * intZsel[fz] * StarValue * AngularValue;
+  // For separable selection functions (and a different angular part for each tracer), 
+  // multiply integral of radial to the specific angular part:
+  else if (Separable==2) return Scale * intZsel[fz] * StarValue * AngularSel[tracerIndex[fz]][pix];
 }
 
 

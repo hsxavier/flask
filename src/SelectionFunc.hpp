@@ -15,7 +15,7 @@ private:
   Healpix_Map<SEL_PRECISION>  StarMask;
   double **zSel, **zEntries, **fieldZrange, zSearchTol, Scale, *intZsel;
   long *NzEntries;
-  int Separable, Nfields, *ftype, Npixels, N1, N2, *zSelIndex, NgalTypes, SelectionType, UseStarMask, UseAngularMask;
+  int Separable, Nfields, *ftype, Npixels, N1, N2, *tracerIndex, NgalTypes, SelectionType, UseStarMask, UseAngularMask;
   int IndexGalTypes(const FZdatabase & fieldlist);
   bool yesShearSel;
 public:
