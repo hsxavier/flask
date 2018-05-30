@@ -125,7 +125,7 @@ int main (int argc, char *argv[]) {
       if (status==1) { // Exit if fast output was inside ClProcess.
 	PrepareEnd(StartAll); return 0; 
       }
-      cout << "Maximum l in input C(l)s: "<<Nls-1<<endl;
+      // Check if processed Cls go to requested lmax:
       if (lmax>Nls-1) {
 	lmax=Nls-1;
 	warning("flask: requested LRANGE upper bound is beyond input data, will use existing data instead.");

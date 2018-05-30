@@ -12,6 +12,7 @@
 #include "Spline.hpp"           // For applying Healpix window function to arbitrarily spaced C(l)s.
 
 
+
 /*** Multiplies a C(l) by a constant factor ***/
 void ScaleCls(double *ClOut, double factor, double *ClIn, int Nls) {
   int i;
@@ -84,6 +85,7 @@ std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldl
 int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlist, const ParameterList & config) {
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
+  const double LARGESTVARIANCE=1e12;                    // Initial value for searching for the minimum variance.
   simtype dist;                                         // For specifying simulation type.
   char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
@@ -92,7 +94,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   std::string filename, ExitAt, prefix;
   bool *fnzSet;
   gsl_matrix **CovByl;
-  double temp, badcorrfrac;
+  double temp, badcorrfrac, mindiagfrac, mindiag;
 
   // Getting general information:
   Nfields = fieldlist.Nfields();
@@ -102,6 +104,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   lmax    = config.readi("LRANGE", 1);
   lmin    = config.readi("LRANGE", 0);
   if (lmax<lmin) error("ClProcess: LRANGE set in the wrong order.");
+
 
   /********************************************/
   /*** PART 1: Load C(l)s and organize them ***/
@@ -150,23 +153,25 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   for(i=0; i<Nfields; i++) fnzSet[i]=0;
   
   // Read C(l)s and store in data-cube:
-  for (k=0; k<NinputCls; k++) if (filelist[k].size()>0) {
-      i = k/Nfields;      j = k%Nfields;
-      fieldlist.Index2Name(i, &af, &az);
-      fieldlist.Index2Name(j, &bf, &bz);      
-      cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
-      // Record the order of the fields in CovMatrix:  
-      if (fnzSet[i]==0) { fnz[i][0] = af; fnz[i][1] = az; fnzSet[i] = 1; }
-      else if (fnz[i][0] != af || fnz[i][1] != az) error("ClProcess: field order in CovMatrix is messed up!"); 
-      if (fnzSet[j]==0) { fnz[j][0] = bf; fnz[j][1] = bz; fnzSet[j] = 1; }
-      else if (fnz[j][0] != bf || fnz[j][1] != bz) error("ClProcess: field order in CovMatrix is messed up!");
+  for (k=0; k<NinputCls; k++) {
+    i = k/Nfields;      j = k%Nfields;
+    fieldlist.Index2Name(i, &af, &az);
+    fieldlist.Index2Name(j, &bf, &bz);      
+    // Record the order of the fields in CovMatrix:  
+    if (fnzSet[i]==0) { fnz[i][0] = af; fnz[i][1] = az; fnzSet[i] = 1; }
+    else if (fnz[i][0] != af || fnz[i][1] != az) error("ClProcess: field order in CovMatrix is messed up!"); 
+    if (fnzSet[j]==0) { fnz[j][0] = bf; fnz[j][1] = bz; fnzSet[j] = 1; }
+    else if (fnz[j][0] != bf || fnz[j][1] != bz) error("ClProcess: field order in CovMatrix is messed up!");
+    if (filelist[k].size()>0) {
       // Import data:
+      cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
       wrapper[0] = &(ll[i][j][0]);
       wrapper[1] = &(Cov[i][j][0]);
       ImportVecs(wrapper, Nentries[k], 2, filelist[k].c_str());
       NentMat[i][j] = Nentries[k];
-      IsSet[i][j]=1; 
-    };
+      IsSet[i][j]=1;
+    }
+  };
   if (config.readi("ALLOW_MISS_CL")==1) cout << "ALLOW_MISS_CL=1: will set totally missing Cl's to zero.\n";
   free_vector(Nentries, 0, NinputCls-1);
   free_vector(filelist, 0, NinputCls-1);
@@ -184,9 +189,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   }
   free_matrix(fnz, 0, Nfields-1, 0,1);
   // Exit if this is the last output requested:
-  if (ExitAt=="FLIST_OUT") return 1;
- 
+  if (ExitAt=="FLIST_OUT") return 1;  
   
+
   /*************************************************************/
   /*** PART 1.5: Apply various window functions if requested ***/
   /*************************************************************/
@@ -294,12 +299,15 @@ if (filename!="0") {
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("ClProcess: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
+  cout << "Maximum l in input C(l)s: "<<lastl<<endl;
+  // lmax cannot be larger than the last ell provided as input:
+  if (lmax>lastl) error("ClProcess: C(l)s provided are not specified up to requested LRANGE maximum");\
+
+  // Truncate C(l)s to lmax given in LRANGE (will only use up to this multipole):
+  lastl=lmax;
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
   (*NlsOut)=Nls;
-  
-  // lmax cannot be larger than the last ell provided as input:
-  if (lmax>lastl) error("ClProcess: C(l)s provided are not specified up to requested LRANGE maximum");
-  
+    
   // Allocate gsl_matrices that will receive covariance matrices for each l.
   Announce("Allocating data-cube needed for Cholesky decomposition... ");
   CovByl = GSLMatrixArray(Nls, Nfields, Nfields);
@@ -310,7 +318,7 @@ if (filename!="0") {
   /*****************************************************************/
   /*** PART 2: Compute auxiliary gaussian C(l)s if LOGNORMAL     ***/
   /*****************************************************************/
-  double *tempCl, *LegendreP, *workspace, *xi, lsup0, supindex0, *theta, *DLTweights, *lls;
+  double *tempCl, *LegendreP, *workspace, *xi, *theta, *DLTweights, *lls;
 
   if (dist==lognormal) {
     cout << "LOGNORMAL realizations: will compute auxiliary gaussian C(l)s:\n";
@@ -321,9 +329,6 @@ if (filename!="0") {
     DLTweights = vector<double>(0, 4*Nls-1);
     Announce();
     
-    // 2016-01-08: Exponential suppresion was passed to stage 1.5 (smoothing Cls):
-    lsup0     = -1;
-    supindex0 = -1; 
     // Load s2kit 1.0 Legendre Polynomials:
     Announce("Generating table of Legendre polynomials... ");
     PmlTableGen(Nls, 0, LegendreP, workspace);
@@ -370,7 +375,7 @@ if (filename!="0") {
       if (dist==lognormal) {              /** LOGNORMAL ONLY **/
 	
 	// Compute correlation function Xi(theta):
-	ModCl4DLT(tempCl, lastl, lsup0, supindex0);
+	ModCl4DLT(tempCl, lastl, -1, -1);
 	Naive_SynthesizeX(tempCl, Nls, 0, xi, LegendreP);
 	if (config.reads("XIOUT_PREFIX")!="0") { // Write it out if requested:
 	  filename=PrintOut(config.reads("XIOUT_PREFIX"), i, j, fieldlist, theta, xi, 2*Nls);
@@ -456,12 +461,31 @@ if (filename!="0") {
   // Verify basic properties of auxiliary cov. matrices:
   Announce("Verifying aux. Cov. matrices properties... ");
   badcorrfrac = config.readd("BADCORR_FRAC");
+  mindiagfrac = config.readd("MINDIAG_FRAC");
+ 
+  // If minimum value for Field variances is set, find the current minimum value:
+  if (mindiagfrac > 0.0) {
+    mindiag = LARGESTVARIANCE;
+    for (l=lmin; l<=lmax; l++) 
+      for (i=0; i<Nfields; i++) {
+	temp = CovByl[l]->data[i*Nfields+i];
+	if (temp > 0.0 && temp < mindiag) mindiag = temp;
+      }
+  }
   for (l=lmin; l<=lmax; l++) // Skipping l=0 since matrix should be zero.
     for (i=0; i<Nfields; i++) {
-      // Verify that diagonal elements are positive:
-      if (CovByl[l]->data[i*Nfields+i]<=0.0) {
-	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d, %d] is negative or zero", l, i, i);
+      // Verify that diagonal elements are non-negative:
+      if (CovByl[l]->data[i*Nfields+i]<0.0) {	
+	sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d, %d] is negative.", l, i, i);
 	warning(message);
+      }
+      // Verify that (or set to) diagonal values are non-zero: 
+      if (CovByl[l]->data[i*Nfields+i]==0.0) {
+	if (mindiagfrac > 0.0) CovByl[l]->data[i*Nfields+i] = mindiagfrac * mindiag;
+	else {
+	  sprintf(message, "ClProcess: Cov. matrix (l=%d) element [%d, %d] is zero.", l, i, i);
+	  warning(message);
+	}
       }
       for (j=i+1; j<Nfields; j++) {
 	// Correlations c should be limited to -1<c<1.
@@ -561,7 +585,7 @@ if (filename!="0") {
 	GetLNCorr(xi, xi, 2*Nls, fieldlist.mean(i), fieldlist.shift(i), fieldlist.mean(j), fieldlist.shift(j));
 	// Compute the Cls:
 	Naive_AnalysisX(xi, Nls, 0, DLTweights, tempCl, LegendreP, workspace);
-	ApplyClFactors(tempCl, Nls, lsup0, supindex0);
+	ApplyClFactors(tempCl, Nls, -1, -1);
 	// Temporary memory deallocation:
 	free_vector(xi, 0, 2*Nls-1);
 	free_vector(workspace, 0, 2*Nls-1);

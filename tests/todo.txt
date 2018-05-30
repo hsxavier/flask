@@ -1,0 +1,5 @@
+-- Create a test for non-separable selection functions;
+-- Create a test that compares noiseless maps with sampled/noisy maps;
+-- Create a test for shear and ellipticities;
+-- Create a test for catalogues.
+-- Create a test for a simulation with lensing only (and noise).

@@ -159,7 +159,7 @@ void SelectionFunction::load(const ParameterList & config, const FZdatabase & fi
 	  if (Ncolumns!=2) error ("SelectionFunction.load: Expected two columns in file "+filename);
 	  // load angular selection function:
 	  if(UseAngularMask==1) {
-	    sprintf(message, "%sf%d.dat", angprefix.c_str(), f);
+	    sprintf(message, "%sf%d.fits", angprefix.c_str(), f);
 	    filename.assign(message);
 	    read_Healpix_map_from_fits(filename, AngularSel[tracerIndex[i]]);
 	    // Check if all angular selection functions have same Nside and Scheme:
@@ -274,7 +274,7 @@ double SelectionFunction::RandRedshift(gsl_rng *r, int fz, int pix) {
     error("SelectionFunction.RandRedshift: not yet implemented for non-separable selection functions.");
   }
   
-  else if (Separable==1) {
+  else if (Separable==1 || Separable==2) {
     
     ymax = MaxInterp(fieldZrange[fz][0], fieldZrange[fz][1], zSearchTol, 
 		     zEntries[tracerIndex[fz]], NzEntries[tracerIndex[fz]], zSel[tracerIndex[fz]]);
@@ -384,8 +384,8 @@ double SelectionFunction::operator()(int fz, int pix) {
   else if (Separable!=0 && Separable!=1 && Separable!=2) 
     error("SelectionFunction.operator(): this object was not initialized (use load first).");
   
-  // If Selection if only used for bookkeeping, do not enforce it here:
-  if (SelectionType==2 || SelectionType==3) {
+  // If Selection if only used for bookkeeping, do not enforce it here: 
+ if (SelectionType==2 || SelectionType==3) {
     StarValue    = 1;
     AngularValue = 1;                  // << Note below that non-separables are not affected by this.
   }

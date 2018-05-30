@@ -29,14 +29,25 @@ void GeneralOutput(const gsl_matrix *Cov, std::string filename, bool inform) {
 void GeneralOutput(gsl_matrix **CovByl, const ParameterList & config, std::string keyword, bool inform) {
   std::string filename;
   std::ofstream outfile; 
-  int lmin, lmax, l;
+  int lmin, lmax, lminout, lmaxout, l;
 
   if (config.reads(keyword)!="0") {
-    lmin = config.readi("LRANGE", 0);
-    lmax = config.readi("LRANGE", 1);
-    if (lmin>lmax) error("GeneralOutput: LRANGE set in the wrong order.");
-    for (l=lmin; l<=lmax; l++) {
-      filename=config.reads(keyword)+"l"+ZeroPad(l,lmax)+".dat";
+    lmin    = config.readi("LRANGE", 0);
+    lmax    = config.readi("LRANGE", 1);
+    lminout = config.readi("LRANGE_OUT", 0);
+    lmaxout = config.readi("LRANGE_OUT", 1);
+    if (lmaxout > lmax) {
+      warning("GeneralOutput: LRANGE_OUT max is beyond LRANGE max. Will use the latter instead.");
+      lmaxout = lmax;
+    }
+    if (lminout < lmin) {
+      warning("GeneralOutput: LRANGE_OUT min is beyond LRANGE min. Will use the latter instead.");
+      lminout = lmin;
+    }
+    if (lminout>lmaxout) error("GeneralOutput: LRANGE set in the wrong order.");
+
+    for (l=lminout; l<=lmaxout; l++) {
+      filename=config.reads(keyword)+"l"+ZeroPad(l,lmaxout)+".dat";
       outfile.open(filename.c_str());
       if (!outfile.is_open()) warning("GeneralOutput: cannot open file "+filename);
       else { 

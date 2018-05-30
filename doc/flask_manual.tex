@@ -364,6 +364,12 @@ per $\mathrm{arcmin}^2$. In most cases, people choose $f_t(z)$ to carry
 all the units [i.e. $f_t(z)$ is given as number of galaxies per $\mathrm{arcmin}^2$, 
 per unit redshift] and leave the remaining terms as dimensionless quantities.
 
+It is also possible to set {\tt SELEC\_SEPARABLE: 2}, a variant of the separable case {\tt 1} in 
+which different density tracers have different angular selection functions. In mathematical 
+terms, with this option $A(j)$ in Eq. \ref{eq:separable-selection-function} is replaced by 
+$A_t(j)$, and each tracer must have a Healpix map representing $A_t(j)$ with prefix given by 
+{\tt SELEC\_PREFIX}. This allows, for instance, the correlated simulation of multiple surveys.
+
 If {\tt SELEC\_TYPE: 1}, $\bar{n}_t(i,j)$ is given by:
 
 \begin{equation}
@@ -589,12 +595,17 @@ each one is also provided in {\tt example.config}):
   of such suppression by setting this value to a negative number.
 
 \item {\tt SELEC\_SEPARABLE:} This specifies if the galaxy selection function is separable between 
-  radial and angular parts ({\tt 1}) or not ({\tt 0}). If separable: the selection function value is 
-  the multiplication of the two; the keyword {\tt SELEC\_PREFIX} 
-  will actually take a single FITS filename representing the angular selection function 
-  as a {\sc healpix} map that will be used for all galaxy fields and all redshift slices; and the 
+  radial and angular parts ({\tt 1} or {\tt 2}) or not ({\tt 0}). If separable: the selection function value is 
+  the multiplication of the two; if {\tt SELEC\_SEPARABLE:} {\tt 1}, the keyword {\tt SELEC\_PREFIX} 
+  will take a single FITS filename representing the angular selection function 
+  as a {\sc healpix} map that will be used for all galaxy fields and all redshift slices; 
+  if {\tt SELEC\_SEPARABLE:} {\tt 2}, each galaxy field must have its own angular selection function 
+  represented by a {\sc healpix} map, with name given by the prefix specified by {\tt SELEC\_PREFIX} followed 
+  by {\tt f}$[f_i]${\tt.fits}, where $[f_i]$ are numbers ``naming'' the galaxy fields. In either of these two cases, the 
   keyword {\tt SELEC\_Z\_PREFIX} will take a prefix leading to one radial selection function for each 
-  galaxy field. If not separable, the keyword {\tt SELEC\_PREFIX} will take a path with a prefix that 
+  galaxy field. 
+
+  If not separable, the keyword {\tt SELEC\_PREFIX} will take a path with a prefix that 
   should lead to one {\sc healpix} map in FITS format for each galaxy field and redshift slice, 
   representing the entire selection function (these files must be named by the prefix followed by 
   {\tt f}$[f_i]${\tt z}$[z_j]${\tt .fits}, where $[f_i]$ and $[z_j]$ are the numbers ``naming'' 
@@ -606,7 +617,7 @@ each one is also provided in {\tt example.config}):
   or the filename of a single {\sc healpix} map, representing the angular 
   part of the selection function (see {\tt SELEC\_SEPARABLE} keyword). It can also be set to 
   {\tt 0}; in this case, the code works as if the selection function (or the angular selection 
-  if {\tt SELEC\_SEPARABLE: 1}) was equal to one in every pixel. For separable selection functions, 
+  if {\tt SELEC\_SEPARABLE:} {\tt 1} or {\tt 2}) was equal to one in every pixel. For separable selection functions, 
   this corresponds to a full-sky simulation; for non-separable selection function, this is just weird. 
   In the current implementation, the selection functions must have the same $N_{\nv{side}}$ as the one 
   passed to the {\tt NSIDE} keyword.
@@ -626,7 +637,7 @@ each one is also provided in {\tt example.config}):
 
 \item {\tt SELEC\_TYPE:} There are two types of selection functions: one ({\tt SELEC\_TYPE: 0}) 
   specifies either the expected number of observed galaxies per unit redshift, per square arcmin 
-  ({\tt SELEC\_SEPARABLE: 1}) or the expected number of observed galaxies per square arcmin for each 
+  ({\tt SELEC\_SEPARABLE:} {\tt 1} or {\tt 2}) or the expected number of observed galaxies per square arcmin for each 
   redshift slice ({\tt SELEC\_SEPARABLE: 0}). The other ({\tt SELEC\_TYPE: 1}) specifies the 
   fraction of existing galaxies that are actually observed at each angular 
   position and redshift. In the latter case, the total existing galaxies 
@@ -678,6 +689,12 @@ each one is also provided in {\tt example.config}):
   the {\sc healpix} weights to perform the {\tt map2alm} (harmonic transform) operation. The 
   weights are only available for $N_{\nv{side}}=2^n$, where $n\in \mathbb{N}$. If 
   {\tt USE\_HEALPIX\_WGTS: 0}, the weights will all be set to unity.
+
+\item {\tt MINDIAG\_FRAC:} This keyword takes a real number $f$. If $f>0$, any null diagonal term in 
+  the auxiliary (Gaussian) covariance matrices (that can be output by {\tt COVL\_PREFIX}) is set to $f$ times the 
+  smallest diagonal term greater than zero in all auxiliary covariance matrices (any $\ell$). If this 
+  is set to zero or less, nothing happens. This allows for {\tt HOMOGENEOUS} fields to be simulated 
+  along with {\tt LOGNORMAL} or {\tt GAUSSIAN} ones.
 
 \item {\tt BADCORR\_FRAC:} This takes a real number $f$. In case some covariance matrix entries 
   lead to forbidden correlations $\rho_{ij}$ ($\rho_{ij}>1$ or $\rho_{ij}<-1$), {\sc flask} will 
