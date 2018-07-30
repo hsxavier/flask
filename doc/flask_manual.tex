@@ -174,7 +174,8 @@ The following lines must be changed according to the location of the {\sc healpi
 
 \noindent
 In case other libraries such as {\sc cfitsio}, {\sc gsl} are installed in non-standard locations, 
-you might need to specify their locations with similar compiler flags. The default compiler in the 
+you might need to specify their locations with similar compiler flags (i.e. {\tt CXXFITS}, {\tt LDFITS}, 
+{\tt CXXGSL} and {\tt LDGSL}, commented in the {\tt Makefile}). The default compiler in the 
 {\tt Makefile} is {\tt g++}, you might need to change the keyword {\tt COMP} as well if using a 
 different compiler.
 
