@@ -669,7 +669,7 @@ int main (int argc, char *argv[]) {
 #pragma omp parallel for schedule(static) private(k)
 	for(j=0; j<npixels; j++) {
 	  k = omp_get_thread_num()+1;
-	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=0.0; } // If density is negative, set it to zero.
+	  if (mapf[i][j] < -1.0) { counter[k]++; mapf[i][j]=-1.0; } // If density is negative, set it to zero.
 	  if (selection.MaskBit(i,j)==1 || selection.MaskBit(i,j)==3 || selection.MaskBit(i,j)==2) mapf[i][j]=maskval;  
 	  else mapf[i][j] = gsl_ran_poisson(rnd[k], selection(i,j)*(1.0+mapf[i][j])*dw);
 	}

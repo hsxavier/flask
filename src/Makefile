@@ -32,6 +32,10 @@ LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpa
 
 # Options for gina:
 ifeq ($(HOSTNAME), gina.iag.usp.br)
+HEALDIR  =  /sto/home/hsxavier/prog/Healpix_3.31
+HEALDATA = $(HEALDIR)/data
+CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
+LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 CXXFITS  = -I/sto/home/hsxavier/prog/cfitsio
 LDFITS   = -L/sto/home/hsxavier/prog/cfitsio
 CXXGSL   = -I/sto/home/hsxavier/prog/gsl/include
