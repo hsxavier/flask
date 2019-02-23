@@ -8,8 +8,9 @@ This script take an angular power spectrum C(l) and computes the
 angular correlation function Xi(theta).
 
 ATTENTION:
-- It assumes that the input C(l) starts at l=2 and then 
-  sets the monopole to zero and interpolate the dipole.
+- In case the input C(l) starts at l=2, it sets the monopole to zero 
+  and interpolate the dipole. And in any case, the monopole is assumed
+  missing and set to zero.
 - It instroduces a hard-coded Gaussian suppression of power to 
   avoid oscillations in Xi caused by the hard bandlimit. 
   Check the lsup variable.
@@ -37,10 +38,17 @@ l, cl  = np.loadtxt(clin, unpack=True)
 # Set monopole to zero:
 l  = np.insert(l,  0, 0.0)
 cl = np.insert(cl, 0, 0.0)
-# Interpolate dipole:
-c1 = scint.splev(1, scint.splrep(l, cl))
-l  = np.insert(l, 1, 1)
-cl = np.insert(cl, 1, c1)
+# Interpolate dipole if not present:
+if l[1]==2:
+    c1 = scint.splev(1, scint.splrep(l, cl))
+    l  = np.insert(l, 1, 1)
+    cl = np.insert(cl, 1, c1)
+elif l[1]==1:
+    pass
+else:
+    print 'ERROR!! Input Cl starts at unkown multipole!'
+    sys.exit()
+
 
 # Compute Xi (correlation function)
 Ntheta = 2*l.size 
