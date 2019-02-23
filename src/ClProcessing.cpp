@@ -299,12 +299,14 @@ if (filename!="0") {
 	if (ll[i][j][NentMat[i][j]-1]>HWMAXL) error ("ClProcess: too high l in C(l)s: increase HWMAXL.");
 	if (ll[i][j][NentMat[i][j]-1]<lastl) lastl = (int)ll[i][j][NentMat[i][j]-1];
       }
-  cout << "Maximum l in input C(l)s: "<<lastl<<endl;
+  cout << "Maximum l in input C(l)s:    "<<lastl<<endl;
   // lmax cannot be larger than the last ell provided as input:
-  if (lmax>lastl) error("ClProcess: C(l)s provided are not specified up to requested LRANGE maximum");\
+  if (lmax>lastl) error("ClProcess: C(l)s provided are not specified up to requested LRANGE maximum.");\
 
-  // Truncate C(l)s to lmax given in LRANGE (will only use up to this multipole):
-  lastl=lmax;
+  // If requested, truncate C(l)s to lmax given in LRANGE (will only use up to this multipole):
+  if (config.readi("CROP_CL")==1) lastl=lmax;
+  else if (config.readi("CROP_CL")!=0) warning("ClProcess: unknown CROP_CL option, will assume CROP_CL=0.");
+  cout << "Maximum l in transformation: "<<lastl<<endl;
   Nls=lastl+1; // l=0 is needed for DLT. Nls is known as 'bandwidth' (bw) in s2kit 1.0 code.
   (*NlsOut)=Nls;
     

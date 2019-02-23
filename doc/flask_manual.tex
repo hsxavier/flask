@@ -294,7 +294,7 @@ outputs (maps, catalogues, etc.) that include these noises (check Sec. \ref{sec:
 
 \begin{figure}
   \includegraphics[width=1\textwidth]{flask_flow_chart.eps}
-  \caption{{\sc Flask} basic flow chart.}
+  \caption{{\sc Flask} basic flow chart. It starts on the top left corner.}
 \label{fig:flow-chart}  
 \end{figure}
 
@@ -669,6 +669,16 @@ each one is also provided in {\tt example.config}):
   $\ell_{\nv{min}}$ and maximum $\ell_{\nv{max}}$, respectively, that will be used to generate the 
   associated Gaussian multipoles. They should obey $1 \leq \ell_{\nv{min}} \leq \ell_{\nv{max}} \leq \ell_{\nv{in}}$, 
   where $\ell_{\nv{in}}$ is the highest $\ell$ provided in the input power spectra.
+
+\item {\tt CROP\_CL:} The transformation from lognormal to auxiliary Gaussian fields' $C_\ell$s
+  \citep[Eq. 21]{Xavier16mn} needs, in theory, all multipoles $\ell'$ of the input $C_\ell$s, up to 
+  infinity. In practice, {\sc flask} uses truncated $C_\ell$s and this might cause the lognormal realizations  
+  to follow slightly different $C_\ell$s at large $\ell$. At this stage, there are two options. 
+  If {\tt CROP\_CL: 0}, the transformation will be performed using all the multipoles provided in the 
+  input $C_\ell$ files. Otherwise, if {\tt CROP\_CL: 1}, {\sc flask} will only use in the transformartion 
+  the multipoles up to the $\ell_{\nv{max}}$ set in the {\tt LRANGE} keyword. This last option seem to 
+  provide better results, but this could vary from case to case. Note that regardless the choice of 
+  {\tt CROP\_CL}, the realizations are generated from the multipoles specified in {\tt LRANGE}. 
 
 \item {\tt SHEAR\_LMAX:} The shear is derived from the convergence multipoles using the equations 
   from \citet{Hu00x} and the $E$-mode definition from {\sc healpix} manual. In Gaussian simulations 
