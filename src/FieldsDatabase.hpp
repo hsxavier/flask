@@ -58,6 +58,8 @@ public:
   double zmax(int n)  const;
   // Field organization information:
   int CheckZ4Int() const;
+  // Extract two field and redshift NAME pairs from string:
+  void String2NamePair(const std::string & str, int *f1, int *z1, int *f2, int *z2) const;
 };
 
 

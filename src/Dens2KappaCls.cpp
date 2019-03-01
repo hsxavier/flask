@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
       // Import data:
       wrapper[0] =  &(ll[i][j][0]);
       wrapper[1] = &(Cov[i][j][0]);
-      ImportVecs(wrapper, Nentries[k], 2, filelist[k].c_str());
+      ImportVecs(wrapper, Nentries[k], 2, filelist[k]);
       IsSet[i][j]=1; 
     }
   free_vector(Nentries, 0, NinputCls-1);

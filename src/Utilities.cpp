@@ -85,24 +85,42 @@ void Announce(std::string message) {
 
 /****** Import vertical vectors from file ******/
 // No memory allocation is done here. It must be done before.  
-void ImportVecs(double **matriz, long length, long nvecs, const char *filename) {
-   
-   /* Declaração das variáveis */
-   FILE *arq;
-   char message[100];
-   long i, j;
-   
-   if ((arq=fopen(filename, "r"))==NULL) {
-     sprintf(message,"ImportVecs: cannot open '%s' file.", filename);
-     error(message);
-   }
-    
-   /* Leitura da matriz */
-   for (i=0; i<length; i++)
-     for (j=0; j<nvecs; j++)
-       fscanf(arq, "%lf", &matriz[j][i]);
-   
-   fclose(arq);
+void ImportVecs(double **matriz, long length, long nvecs, const std::string & filename) {
+  using std::ifstream;
+  using std::string;
+  using std::istringstream;
+  using std::ostringstream;
+  long nrows=0, ncols=0, i, j, nheaders=0;
+  ifstream file;
+  istringstream inputline; ostringstream outputline;
+  string word, phrase;
+  int datapos=0;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("ImportVecs: cannot open file "+filename);
+  
+  // Detect headers (must start with # or empty lines):
+  getline(file,phrase);
+  while(!file.eof() && (phrase[0]=='#' || phrase.length()==0)) {datapos=file.tellg(); nheaders++; getline(file,phrase);}
+  // Count number of columns (using first data row):
+  outputline << phrase;
+  inputline.str(outputline.str());
+  while (inputline >> word) ncols++;
+  if (ncols!=nvecs) error("ImportVecs: did not find expected number of columns.");
+  
+  // Rewind file start of data:
+  file.clear();
+  file.seekg(datapos);
+  
+  // Read data into vectors:
+  for (i=0; i<length; i++)
+    for (j=0; j<nvecs; j++) 
+      if (!(file >> matriz[j][i])) error("ImportVecs: more data expected in file "+filename); 
+                                   // DO NOT put comments in the end of the file!
+  if(file >> word && word[0]!='#') error("LoadVecs: data was ignored in "+filename);
+
+  file.close();
 }
 
 
@@ -258,6 +276,7 @@ double gasdev(long *idum) {
 }
 /* (C) Copr. 1986-92 Numerical Recipes Software #?w,(1. */
 
+
 /*** Pads a string containing a number with zeroes on the left ***/
 std::string ZeroPad(int num, int max) {
   std::stringstream ss;
@@ -268,4 +287,21 @@ std::string ZeroPad(int num, int max) {
   
   ss << std::setfill('0') << std::setw(ndigits) << num;
   return ss.str();
+}
+
+
+// Check if a string is a natural number:
+bool IsNumber(std::string str) {
+  int i=0;
+  while (i<str.length() && isdigit(str[i])!=0) i++;
+  return (i==str.length()); 
+}
+
+
+// Convert string to integer:
+int str2int(std::string str) {
+  std::stringstream ss(str);
+  int x;
+  ss >> x;
+  return x;
 }

@@ -112,7 +112,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   const int HWMAXL = 10000000; int lastl = HWMAXL;
   int af, az, bf, bz, **fnz, **NentMat;
   long *Nentries, ncols, Nlinput;
-  double ***ll, ***Cov, *wrapper[2];
+  double ***ll, ***Cov, **wrapper;
   bool **IsSet, IsPrefix;
 
   // Get list of the necessary C(l) files:
@@ -120,7 +120,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   if (prefix.substr(prefix.length()-4,4)==".dat") IsPrefix=0;
   else IsPrefix=1;
   
-  // CASE 1: Cl prefixes:
+  // CASE 1 -- Cl prefixes:
   if (IsPrefix==1) {
     NinputCls = Nfields*Nfields;  // In this case, NinputCls is determined by the number of Fields.
     filelist  = vector<std::string>(0,NinputCls-1);
@@ -146,7 +146,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     }
   }
 
-  // CASE 2: one Cl table:
+  // CASE 2 -- one Cl table:
   else {
     CountEntries(prefix, &Nlinput, &ncols);
     NinputCls = GetColumnNames(prefix, filelist, 1) - 1; // In this case, NinputCls is determined by the input Cls available.
@@ -165,7 +165,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) IsSet[i][j]=0;
   for(i=0; i<Nfields; i++) fnzSet[i]=0;
   
-  // Read C(l)s and store in data-cube:
+  // Internal check that Field assignment in cov. matrices is working properly: 
   for (k=0; k<NinputCls; k++) {
     i = k/Nfields;      j = k%Nfields;
     fieldlist.Index2Name(i, &af, &az);
@@ -175,20 +175,65 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     else if (fnz[i][0] != af || fnz[i][1] != az) error("ClProcess: field order in CovMatrix is messed up!"); 
     if (fnzSet[j]==0) { fnz[j][0] = bf; fnz[j][1] = bz; fnzSet[j] = 1; }
     else if (fnz[j][0] != bf || fnz[j][1] != bz) error("ClProcess: field order in CovMatrix is messed up!");
-    if (filelist[k].size()>0) {
-      // Import data:
-      cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
-      wrapper[0] = &(ll[i][j][0]);
-      wrapper[1] = &(Cov[i][j][0]);
-      ImportVecs(wrapper, Nentries[k], 2, filelist[k].c_str());
-      NentMat[i][j] = Nentries[k];
-      IsSet[i][j]=1;
-    }
-  };
-  if (config.readi("ALLOW_MISS_CL")==1) cout << "ALLOW_MISS_CL=1: will set totally missing Cl's to zero.\n";
-  free_vector(Nentries, 0, NinputCls-1);
-  free_vector(filelist, 0, NinputCls-1);
+  }
+  
 
+  // CASE 1 -- Load Cls from individual files and stores in Cov structure:
+  if (IsPrefix==1) {
+    wrapper = vector<double*>(0,1);
+    // LOOP over all possible input Cls:
+    for (k=0; k<NinputCls; k++) {
+      i = k/Nfields;      j = k%Nfields;
+      if (filelist[k].size()>0) {
+	// Import data:
+	cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
+	wrapper[0] = &(ll[i][j][0]);
+	wrapper[1] = &(Cov[i][j][0]);
+	ImportVecs(wrapper, Nentries[k], 2, filelist[k]);
+	NentMat[i][j] = Nentries[k];
+	IsSet[i][j]=1;
+      }
+    }
+    free_vector(Nentries, 0, NinputCls-1);
+    free_vector(wrapper,  0, 1);
+  }
+
+  // CASE 2 -- Loads Cls from a single Cl table and stores in Cov structure:
+  else {
+    // Assign wrapper slots to input table:
+    wrapper    = vector<double*>(0,NinputCls);
+    wrapper[0] = vector<double> (0,Nlinput);  // First column in Cl input table must be L.
+    // LOOP over provided Cls:
+    for (k=1; k<1+NinputCls; k++) {
+      fieldlist.String2NamePair(filelist[k], &af, &az, &bf, &bz);
+      i = fieldlist.Name2Index(af,az); // If Cl is not in FIELDS_INFO file, i=-1.
+      j = fieldlist.Name2Index(bf,bz); // If Cl is not in FIELDS_INFO file, j=-1.
+      if (i!=-1 && j!=-1) {
+	// Assign a Cov entry to a wrapper slot:
+	cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
+	wrapper[k]=&(Cov[i][j][0]);
+	NentMat[i][j] = Nlinput;
+	IsSet[i][j]=1;
+      }
+    }
+    // Loads Cl table into wrapper (that actually points to l vector and Cov entries):
+    ImportVecs(wrapper, Nlinput, 1+NinputCls, prefix);
+    // Copy l column to the Cov entry:
+    for (k=1; k<1+NinputCls; k++) {
+      fieldlist.String2NamePair(filelist[k], &af, &az, &bf, &bz);
+      i = fieldlist.Name2Index(af,az); // If Cl is not in FIELDS_INFO file, i=-1.
+      j = fieldlist.Name2Index(bf,bz); // If Cl is not in FIELDS_INFO file, j=-1.
+      if (i!=-1 && j!=-1) for (l=0; l<Nlinput; l++) ll[i][j][l] = wrapper[0][l];
+    }
+    // Deallocate auxiliary memory:
+    free_vector(wrapper[0], 0, Nlinput);
+    free_vector(wrapper,    0, NinputCls-1);    
+  }
+
+  free_vector(filelist, 0, NinputCls-1);
+  if (config.readi("ALLOW_MISS_CL")==1) cout << "ALLOW_MISS_CL=1: will set totally missing Cl's to zero.\n";
+  
+  
   // Check if every field was assigned a position in the CovMatrix:
   for (i=0; i<Nfields; i++) if (fnzSet[i]==0) error("ClProcess: some position in CovMatrix is unclaimed.");
   free_vector(fnzSet, 0, Nfields-1);

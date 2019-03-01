@@ -1,6 +1,7 @@
 #include "Utilities.hpp"
 #include "FieldsDatabase.hpp"
 #include "definitions.hpp" // For ftype possibilities.
+#include <string>
 
 /************************************/
 /*** Internal auxiliary functions ***/
@@ -316,3 +317,35 @@ int FZdatabase::CheckZ4Int() const {
   }
   return k;
 }
+
+
+// Extract 2 sets of field and redshift NAMES from a string in the format <A>f<F1>z<Z1>f<F2>z<Z2><B>:
+void FZdatabase::String2NamePair(const std::string & str, int *f1, int *z1, int *f2, int *z2) const {
+  int f1pos=-1, z1pos, f2pos, z2pos, end;
+  bool StillLooking=true, IsNum1, IsNum2, IsNum3, IsNum4;
+
+  // Find f<X>z<Y>f<W>z<Z> pattern:
+  do {
+    // Look for field and redshift name markers:
+    f1pos = str.find('f', f1pos+1);
+    z1pos = str.find('z', f1pos+1);
+    f2pos = str.find('f', z1pos+1);
+    z2pos = str.find('z', f2pos+1);
+    if (f1pos==-1 || z1pos==-1 || f2pos==-1 || z2pos==-1) 
+      error("FZdatabase.String2NamePair: could not find all field and redshift name markers \'f\' and \'z\'.");
+    // Check if they follow the correct pattern (they are followed by numbers):
+    IsNum1 = IsNumber(str.substr(f1pos+1,z1pos-f1pos-1));
+    IsNum2 = IsNumber(str.substr(z1pos+1,f2pos-z1pos-1));
+    IsNum3 = IsNumber(str.substr(f2pos+1,z2pos-f2pos-1));
+    IsNum4 = IsNumber(str.substr(z2pos+1,1));
+    if (IsNum1 && IsNum2 && IsNum3 && IsNum4) StillLooking=false; 
+  } while (StillLooking);
+
+  // Get field and redshift names:
+  *f1 = str2int(str.substr(f1pos+1,z1pos-f1pos-1));
+  *z1 = str2int(str.substr(z1pos+1,f2pos-z1pos-1));
+  *f2 = str2int(str.substr(f2pos+1,z2pos-f2pos-1));
+  for (end=z2pos+2; end<str.length() && isdigit(str[end])!=0; end++);
+  *z2 = str2int(str.substr(z2pos+1,end-z2pos-1));
+} 
+

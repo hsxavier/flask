@@ -102,8 +102,7 @@ int main (int argc, char *argv[]) {
   Nz      = fieldlist.Nzs();
   cout << "Infered from FIELDS_INFO file:  Nf = " << Nf << "   Nz = " << Nz << endl;
 
- 
-  
+
   /**************************************************************/
   /*** PART 2: Loads mixing matrices or compute them from Cls ***/
   /**************************************************************/  
