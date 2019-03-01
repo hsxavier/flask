@@ -29,23 +29,27 @@ void CountEntries(std::string filename, long *nr, long *nc) {
   using std::istringstream;
   using std::ostringstream;
   long nrows=0, ncols=0;
+  int nheaders=0;
   ifstream file;
-  istringstream inputline; ostringstream outputline;
+  istringstream inputline;
   string word, phrase;
   
   // Open file
   file.open(filename.c_str());
   if (!file.is_open()) error("CountEntries: cannot open file.");
-  
-  // Count lines and columns:
+   
+  // Detect headers (must start with # or empty lines):
   getline(file,phrase);
-  outputline << phrase;
-  inputline.str(outputline.str());
+  while(!file.eof() && (phrase[0]=='#' || phrase.length()==0)) {nheaders++; getline(file,phrase);}
+  // Count number of columns (using first data row):
+  inputline.str(phrase);
   while (inputline >> word) ncols++;
-  while(!file.eof()) {getline(file,phrase); if (phrase.length()>0) nrows++;}
+  // Count number of rows (ignoring comments and empty spaces):
+  while(!file.eof() && phrase[0]!='#' && phrase.length()!=0) {getline(file,phrase); nrows++;}
+  if (phrase.length()!=0 && phrase[0]!='#') nrows++;
 
   file.close();
-  *nr=nrows+1;
+  *nr=nrows;
   *nc=ncols;
 }
 
@@ -99,6 +103,49 @@ void ImportVecs(double **matriz, long length, long nvecs, const char *filename) 
        fscanf(arq, "%lf", &matriz[j][i]);
    
    fclose(arq);
+}
+
+
+// Read column names in a file. It assumes the header are lines in the beginning of the file
+// that start with #, and that the columns are in the last line of the header, separated 
+// by spaces, e.g.: l Cl-f1z1f1z1 Cl-f1z2f1z2 Cl-f1z1f1z2.
+// This function ALLOCATES MEMORY for array of column names and returns number of them.
+long GetColumnNames(std::string filename, std::string *ColumnNames, int verbose) {
+  using std::ifstream;
+  using std::string;
+  using std::istringstream;
+  long ncols=0, i;
+  ifstream file;
+  istringstream inputline;
+  string word, phrase, header;
+  
+  // Open file
+  file.open(filename.c_str());
+  if (!file.is_open()) error("GetColumnNames: cannot open file "+filename);
+  
+  // Detect headers (must start with # or empty lines) and select last one as column names:
+  getline(file,phrase);
+  while(!file.eof() && (phrase[0]=='#' || phrase.length()==0)) { 
+    if (phrase[0]=='#') header.assign(phrase); 
+    getline(file,phrase); 
+  }
+
+  // Remove all # before column names:
+  i=1;
+  while (header[i]=='#') i++;
+  header.assign(header.substr(i,header.length()));
+
+  // Count number of columns (using first data row):
+  inputline.str(header);
+  while (inputline >> word) ncols++;
+
+  // Allocate memory for column names and parse them:
+  if (verbose==1) std::cout << "GetColumnNames will allocate "<<ncols<<" strings in a vector.\n";
+  ColumnNames = vector<std::string>(0,ncols-1);
+  inputline.clear(); inputline.seekg(0);
+  for (i=0; i<ncols; i++) inputline >> ColumnNames[i];
+
+  return ncols;
 }
 
 

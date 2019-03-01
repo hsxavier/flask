@@ -110,36 +110,49 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   /*** PART 1: Load C(l)s and organize them ***/
   /********************************************/
   const int HWMAXL = 10000000; int lastl = HWMAXL;
-  int af, az, bf, bz, Nlinput, **fnz, **NentMat;
-  long *Nentries, ncols;
+  int af, az, bf, bz, **fnz, **NentMat;
+  long *Nentries, ncols, Nlinput;
   double ***ll, ***Cov, *wrapper[2];
-  bool **IsSet;
+  bool **IsSet, IsPrefix;
 
   // Get list of the necessary C(l) files:
   prefix    = config.reads("CL_PREFIX"); 
-  NinputCls = Nfields*Nfields;
-  filelist  = vector<std::string>(0,NinputCls-1);
-  // LOOP over all C(l)s:
-  for (k=0; k<NinputCls; k++) {
-    i = k/Nfields;      j = k%Nfields;
-    fieldlist.Index2Name(i, &af, &az);
-    fieldlist.Index2Name(j, &bf, &bz);
-    sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(), af, az, bf, bz);
-    if(access(message, R_OK) == 0) filelist[k].assign(message);
-  }
+  if (prefix.substr(prefix.length()-4,4)==".dat") IsPrefix=0;
+  else IsPrefix=1;
   
-  // Find out the number of lines and columns in C(l) files:  
-  Nlinput  = 0;
-  Nentries = vector<long>(0,NinputCls-1);
-  for (k=0; k<NinputCls; k++) {
-    if (filelist[k].size()>0) {
-      CountEntries(filelist[k], &(Nentries[k]), &ncols); // Get number of Nls.
-      if (ncols!=2) error("ClProcess: wrong number of columns in file "+filelist[k]);
-      if (Nentries[k]>Nlinput) Nlinput=Nentries[k];          // Record maximum number of ls.
+  // CASE 1: Cl prefixes:
+  if (IsPrefix==1) {
+    NinputCls = Nfields*Nfields;  // In this case, NinputCls is determined by the number of Fields.
+    filelist  = vector<std::string>(0,NinputCls-1);
+    // LOOP over all C(l)s:
+    for (k=0; k<NinputCls; k++) {
+      i = k/Nfields;      j = k%Nfields;
+      fieldlist.Index2Name(i, &af, &az);
+      fieldlist.Index2Name(j, &bf, &bz);
+      sprintf(message, "%sf%dz%df%dz%d.dat", prefix.c_str(), af, az, bf, bz);
+      if(access(message, R_OK) == 0) filelist[k].assign(message);
     }
-    else Nentries[k]=0;
+    
+    // Find out the number of lines and columns in C(l) files:  
+    Nlinput  = 0;
+    Nentries = vector<long>(0,NinputCls-1);
+    for (k=0; k<NinputCls; k++) {
+      if (filelist[k].size()>0) {
+	CountEntries(filelist[k], &(Nentries[k]), &ncols); // Get number of Nls.
+	if (ncols!=2) error("ClProcess: wrong number of columns in file "+filelist[k]);
+	if (Nentries[k]>Nlinput) Nlinput=Nentries[k];          // Record maximum number of ls.
+      }
+      else Nentries[k]=0;
+    }
   }
-  
+
+  // CASE 2: one Cl table:
+  else {
+    CountEntries(prefix, &Nlinput, &ncols);
+    NinputCls = GetColumnNames(prefix, filelist, 1) - 1; // In this case, NinputCls is determined by the input Cls available.
+    if (NinputCls+1 != ncols) error("ClProcess: input Cl file has different number of columns and column names.");
+  }
+
   // Allocate memory to store C(l)s:
   // First two indexes are CovMatrix indexes and last is for ll.
   // fnz stores the order that the fields are stored in CovMatrix.
