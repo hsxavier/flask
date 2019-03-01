@@ -21,7 +21,7 @@ double gasdev(long *idum);
 // Importing & Exporting data:
 void CountEntries(std::string filename, long *nr, long *nc);
 void ImportVecs(double **matriz, long length, long nvecs, const std::string & filename);
-long GetColumnNames(std::string filename, std::string *ColumnNames, int verbose = 0);
+long GetColumnNames(std::string filename, std::string **ColumnNames, int verbose = 0);
 // Formatting:
 std::string ZeroPad(int num, int max);
 bool StrReplace(std::string& str, const std::string& from, const std::string& to);

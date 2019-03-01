@@ -117,11 +117,11 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
 
   // Get list of the necessary C(l) files:
   prefix    = config.reads("CL_PREFIX"); 
-  if (prefix.substr(prefix.length()-4,4)==".dat") IsPrefix=0;
-  else IsPrefix=1;
+  if (prefix.substr(prefix.length()-4,4)==".dat") IsPrefix=false;
+  else IsPrefix=true;
   
   // CASE 1 -- Cl prefixes:
-  if (IsPrefix==1) {
+  if (IsPrefix==true) {
     NinputCls = Nfields*Nfields;  // In this case, NinputCls is determined by the number of Fields.
     filelist  = vector<std::string>(0,NinputCls-1);
     // LOOP over all C(l)s:
@@ -149,7 +149,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   // CASE 2 -- one Cl table:
   else {
     CountEntries(prefix, &Nlinput, &ncols);
-    NinputCls = GetColumnNames(prefix, filelist, 1) - 1; // In this case, NinputCls is determined by the input Cls available.
+    NinputCls = GetColumnNames(prefix, &filelist) - 1; // In this case, NinputCls is determined by the input Cls available.
+    cout << "Found " << NinputCls << " Cls in file " << prefix << ":" << endl;
     if (NinputCls+1 != ncols) error("ClProcess: input Cl file has different number of columns and column names.");
   }
 
@@ -179,7 +180,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   
 
   // CASE 1 -- Load Cls from individual files and stores in Cov structure:
-  if (IsPrefix==1) {
+  if (IsPrefix==true) {
     wrapper = vector<double*>(0,1);
     // LOOP over all possible input Cls:
     for (k=0; k<NinputCls; k++) {

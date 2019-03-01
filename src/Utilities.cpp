@@ -128,7 +128,7 @@ void ImportVecs(double **matriz, long length, long nvecs, const std::string & fi
 // that start with #, and that the columns are in the last line of the header, separated 
 // by spaces, e.g.: l Cl-f1z1f1z1 Cl-f1z2f1z2 Cl-f1z1f1z2.
 // This function ALLOCATES MEMORY for array of column names and returns number of them.
-long GetColumnNames(std::string filename, std::string *ColumnNames, int verbose) {
+long GetColumnNames(std::string filename, std::string **ColumnNames, int verbose) {
   using std::ifstream;
   using std::string;
   using std::istringstream;
@@ -159,9 +159,9 @@ long GetColumnNames(std::string filename, std::string *ColumnNames, int verbose)
 
   // Allocate memory for column names and parse them:
   if (verbose==1) std::cout << "GetColumnNames will allocate "<<ncols<<" strings in a vector.\n";
-  ColumnNames = vector<std::string>(0,ncols-1);
+  *ColumnNames = vector<std::string>(0,ncols-1);
   inputline.clear(); inputline.seekg(0);
-  for (i=0; i<ncols; i++) inputline >> ColumnNames[i];
+  for (i=0; i<ncols; i++) inputline >> (*ColumnNames)[i];
 
   return ncols;
 }
