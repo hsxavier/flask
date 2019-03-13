@@ -539,19 +539,19 @@ void GenEllip(gsl_rng *rnd, double sigma, double kappa, double gamma1, double ga
   std::complex<double> g, epsSrc, eps, k, one, gamma;
 
   // Set complex numbers:
-  gamma.real(gamma1); gamma.imag(gamma2);
-  k.real(kappa);      k.imag(0.0);
-  one.real(1.0);      one.imag(0.0);
+  gamma.real() = gamma1; gamma.imag() = gamma2;
+  k.real()     = kappa;  k.imag()     = 0.0;
+  one.real()   = 1.0;    one.imag()   = 0.0;
   // Compute reduced shear:
   g = gamma/(one-k);
   // Generate source intrinsic ellipticity:
   if (sigma>0.0) {
-    epsSrc.real(gsl_ran_gaussian(rnd, sigma));
-    epsSrc.imag(gsl_ran_gaussian(rnd, sigma));
+    epsSrc.real() = gsl_ran_gaussian(rnd, sigma);
+    epsSrc.imag() = gsl_ran_gaussian(rnd, sigma);
    }
   else {
-    epsSrc.real(0.0);
-    epsSrc.imag(0.0);
+    epsSrc.real() = 0.0;
+    epsSrc.imag() = 0.0;
   }
   // Compute ellipticity of the image:
   if (norm(g) <= 1.0) {

@@ -305,3 +305,12 @@ int str2int(std::string str) {
   ss >> x;
   return x;
 }
+
+
+// Print header to file:
+void PrintHeader(std::string *labels, int Nentries, std::ostream *output) {
+  int i;
+  *output << "# ";
+  for (i=0; i<Nentries; i++) *output << labels[i] << " ";
+  *output << std::endl;
+}

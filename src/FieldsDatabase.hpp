@@ -22,6 +22,8 @@ private:
   // Fields info:
   double *means, *shifts, **zrange;
   int *ftypes;
+  // Order of input Cls (if in a single table):
+  int **inputClOrder;
   // Auxiliary functions:
   int GetPos(int ent, std::vector<entry> & list);
   void RegisterEntry(int *full, int i, std::vector<entry> & vec, int **ixsuby);
@@ -58,8 +60,10 @@ public:
   double zmax(int n)  const;
   // Field organization information:
   int CheckZ4Int() const;
-  // Extract two field and redshift NAME pairs from string:
+  // For keeping track of Cl order in input Cls (if in a single table):
   void String2NamePair(const std::string & str, int *f1, int *z1, int *f2, int *z2) const;
+  void RecordInputClOrder(std::string *ClLabel, int Nlabels);
+  int GetInputClOrder(int Field1, int Field2) const;
 };
 
 

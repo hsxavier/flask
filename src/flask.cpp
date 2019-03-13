@@ -638,7 +638,7 @@ int main (int argc, char *argv[]) {
 
   // Read in selection functions from FITS files and possibly text files (for radial part):
   Announce("Reading selection functions from files... ");
-  selection.load(config, fieldlist); 
+  selection.load(config, fieldlist);
   if (selection.Nside()!=-2 && selection.Nside()!=mapf[0].Nside())
     error("flask: Selection function and maps have different number of pixels.");
   if (selection.Scheme()!=-2 && selection.Scheme()!=mapf[0].Scheme()) 

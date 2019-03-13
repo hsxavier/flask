@@ -57,7 +57,6 @@ void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double
   means  = vector<double>(0, Nfield-1);
   shifts = vector<double>(0, Nfield-1);
 
-
   // Copy list to internal memory, organizing in database:
   for (i=0; i<Nfield; i++) {
     fullF[i] = fullF0[i]; 
@@ -71,7 +70,10 @@ void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double
     shifts[i]    = shift0[i];
   }
   Nf = f.size();
-  Nz = z.size();  
+  Nz = z.size();
+
+  // Cl order will be set by RecordInputClOrder: 
+  inputClOrder = NULL;  
 }
 
 
@@ -82,9 +84,10 @@ void FZdatabase::Init(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, double
 
 // Empty constructor:
 FZdatabase::FZdatabase() {
-  Nf     = 0;
-  Nz     = 0;
-  Nfield = 0;  
+  Nf        = 0;
+  Nz        = 0;
+  Nfield    = 0;
+  inputClOrder = NULL;
 }
 
 
@@ -94,9 +97,10 @@ FZdatabase::FZdatabase(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, doubl
 }
 // Constructor with input:
 FZdatabase::FZdatabase(const std::string & filename) {
-  Nf     = 0;
-  Nz     = 0;
-  Nfield = 0;   
+  Nf        = 0;
+  Nz        = 0;
+  Nfield    = 0;   
+  inputClOrder = NULL;
   Load(filename);
 }
 
@@ -169,6 +173,7 @@ void FZdatabase::Build(int *fullF0, int *fullZ0, int Nfield0, int *ftype0, doubl
     free_matrix(zrange, 0, Nfield-1, 0, 1);
     free_vector(means,  0, Nfield-1);
     free_vector(shifts, 0, Nfield-1);
+    if (inputClOrder!=NULL) free_matrix(inputClOrder, 0, Nfield-1, 0, Nfield-1);
   }
   // Initialize with new information:
   Init(fullF0, fullZ0, Nfield0, ftype0, zrange0, mean0, shift0);
@@ -185,6 +190,7 @@ FZdatabase::~FZdatabase() {
   if (Nfield>0) free_matrix(zrange, 0, Nfield-1, 0, 1);
   if (Nfield>0) free_matrix(ifsubz, 0, Nfield-1, 0, 1);
   if (Nfield>0) free_matrix(izsubf, 0, Nfield-1, 0, 1);
+  if (inputClOrder!=NULL) free_matrix(inputClOrder, 0, Nfield-1, 0, Nfield-1);
 }
 
 
@@ -274,7 +280,7 @@ int FZdatabase::Name2Index(int fName, int zName, int *n, bool warn) const {
     }
   
   if (warn) warning("FZdatabase.Name2Index: could not find requested field.");  
-  *n = failed;
+  if (n!=NULL) *n = failed;
   return failed;
 }
 
@@ -349,3 +355,32 @@ void FZdatabase::String2NamePair(const std::string & str, int *f1, int *z1, int 
   *z2 = str2int(str.substr(z2pos+1,end-z2pos-1));
 } 
 
+
+// Record the order that each Cl appears in an array of Cl labels:
+void FZdatabase::RecordInputClOrder(std::string *ClLabel, int Nlabels) {
+  int n, k, f1, z1, f2, z2, i, j;
+
+  if (Nfield==0) error("RecordInputClOrder: no fields have been specified so far.");
+  // Allocate memory if needed:
+  if (inputClOrder==NULL) inputClOrder = matrix<int>(0, Nfield-1, 0, Nfield-1);
+  // Record the input Cl position into a matrix organized by the FieldsDatabase:
+  for (k=0, n=0; k<Nlabels; k++) {
+    if (ClLabel[k].size()>0) {
+      String2NamePair(ClLabel[k], &f1, &z1, &f2, &z2);
+      i = Name2Index(f1, z1, NULL,0);
+      j = Name2Index(f2, z2, NULL,0);
+      if (i!=-1 && j!=-1) {
+	inputClOrder[i][j] = n;
+	inputClOrder[j][i] = n;
+      }
+      n++;
+    }
+  }
+}
+
+
+// Returns the position of a pair of Fields in the previously provided array of Cl labels:
+int FZdatabase::GetInputClOrder(int Field1, int Field2) const {
+  if (inputClOrder==NULL) error("GetInputClOrder: you must first run RecordInputClOrder.");
+  return inputClOrder[Field1][Field2];
+}

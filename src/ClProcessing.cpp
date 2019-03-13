@@ -81,8 +81,17 @@ std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldl
 }
 
 
+/*** Copy a vector into a certain column of a matrix ***/
+void VecInColumn(double *vec, double **matrix, int col, int Ncols, int Nrows) {
+  int i;
+  if (col>Ncols) error("VecInColumn: unknown column (> # of columns).");
+  if (col<0)     error("VecInColumn: unknown column (< 0).");
+  for (i=0; i<Nrows; i++) matrix[i][col] = vec[i];
+}
+
+
 /*** Wraps all processing of the input Cls up to the gaussian covariance matrices for each l ***/
-int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlist, const ParameterList & config) {
+int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, FZdatabase & fieldlist, const ParameterList & config) {
   using namespace definitions;                          // Global definitions.
   using std::cout; using std::endl;                     // Basic stuff.
   const double LARGESTVARIANCE=1e12;                    // Initial value for searching for the minimum variance.
@@ -90,12 +99,13 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   char message[200];                                    // Writing outputs with sprintf.
   std::ofstream outfile;                                // File for output.
   FILE* stream; int NinputCls; std::string *filelist;   // To list input Cls.
-  int i, j, k, l, m, status, Nfields, Nf, Nz, Nls, lmin, lmax;
+  int i, j, k, l, m, n, status, Nfields, Nf, Nz, Nls, lmin, lmax;
   std::string filename, ExitAt, prefix;
-  bool *fnzSet;
+  bool *fnzSet, IsPrefix;
   gsl_matrix **CovByl;
   double temp, badcorrfrac, mindiagfrac, mindiag;
-
+  double **auxMatrix;
+  
   // Getting general information:
   Nfields = fieldlist.Nfields();
   if (config.reads("DIST")=="LOGNORMAL") dist=lognormal;
@@ -112,8 +122,8 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   const int HWMAXL = 10000000; int lastl = HWMAXL;
   int af, az, bf, bz, **fnz, **NentMat;
   long *Nentries, ncols, Nlinput;
-  double ***ll, ***Cov, **wrapper;
-  bool **IsSet, IsPrefix;
+  double ***ll, ***Cov, **wrapper, *dump;
+  bool **IsSet;
 
   // Get list of the necessary C(l) files:
   prefix    = config.reads("CL_PREFIX"); 
@@ -166,11 +176,12 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) IsSet[i][j]=0;
   for(i=0; i<Nfields; i++) fnzSet[i]=0;
   
+
   // Internal check that Field assignment in cov. matrices is working properly: 
-  for (k=0; k<NinputCls; k++) {
+  for (k=0; k<Nfields*Nfields; k++) {
     i = k/Nfields;      j = k%Nfields;
     fieldlist.Index2Name(i, &af, &az);
-    fieldlist.Index2Name(j, &bf, &bz);      
+    fieldlist.Index2Name(j, &bf, &bz);
     // Record the order of the fields in CovMatrix:  
     if (fnzSet[i]==0) { fnz[i][0] = af; fnz[i][1] = az; fnzSet[i] = 1; }
     else if (fnz[i][0] != af || fnz[i][1] != az) error("ClProcess: field order in CovMatrix is messed up!"); 
@@ -195,6 +206,9 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
 	IsSet[i][j]=1;
       }
     }
+    // Records Cl order:
+    fieldlist.RecordInputClOrder(filelist, NinputCls);
+    // Free auxiliary memory:
     free_vector(Nentries, 0, NinputCls-1);
     free_vector(wrapper,  0, 1);
   }
@@ -204,11 +218,12 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     // Assign wrapper slots to input table:
     wrapper    = vector<double*>(0,NinputCls);
     wrapper[0] = vector<double> (0,Nlinput);  // First column in Cl input table must be L.
+    dump       = vector<double> (0,Nlinput);  // Memory slots to dump unwanted Cls.
     // LOOP over provided Cls:
     for (k=1; k<1+NinputCls; k++) {
       fieldlist.String2NamePair(filelist[k], &af, &az, &bf, &bz);
-      i = fieldlist.Name2Index(af,az); // If Cl is not in FIELDS_INFO file, i=-1.
-      j = fieldlist.Name2Index(bf,bz); // If Cl is not in FIELDS_INFO file, j=-1.
+      i = fieldlist.Name2Index(af,az,NULL,0); // If Cl is not in FIELDS_INFO file, i=-1.
+      j = fieldlist.Name2Index(bf,bz,NULL,0); // If Cl is not in FIELDS_INFO file, j=-1.
       if (i!=-1 && j!=-1) {
 	// Assign a Cov entry to a wrapper slot:
 	cout << filelist[k] << " goes to ["<<i<<", "<<j<<"]" << endl;
@@ -216,22 +231,24 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
 	NentMat[i][j] = Nlinput;
 	IsSet[i][j]=1;
       }
+      else wrapper[k] = dump;
     }
     // Loads Cl table into wrapper (that actually points to l vector and Cov entries):
     ImportVecs(wrapper, Nlinput, 1+NinputCls, prefix);
+    free_vector(dump, 0,Nlinput);
     // Copy l column to the Cov entry:
     for (k=1; k<1+NinputCls; k++) {
       fieldlist.String2NamePair(filelist[k], &af, &az, &bf, &bz);
-      i = fieldlist.Name2Index(af,az); // If Cl is not in FIELDS_INFO file, i=-1.
-      j = fieldlist.Name2Index(bf,bz); // If Cl is not in FIELDS_INFO file, j=-1.
+      i = fieldlist.Name2Index(af,az,NULL,0); // If Cl is not in FIELDS_INFO file, i=-1.
+      j = fieldlist.Name2Index(bf,bz,NULL,0); // If Cl is not in FIELDS_INFO file, j=-1.
       if (i!=-1 && j!=-1) for (l=0; l<Nlinput; l++) ll[i][j][l] = wrapper[0][l];
     }
+    // Records Cl order (skip first entry which should be L):
+    fieldlist.RecordInputClOrder(&(filelist[1]), NinputCls);
     // Deallocate auxiliary memory:
     free_vector(wrapper[0], 0, Nlinput);
-    free_vector(wrapper,    0, NinputCls-1);    
+    free_vector(wrapper,    0, NinputCls);    
   }
-
-  free_vector(filelist, 0, NinputCls-1);
   if (config.readi("ALLOW_MISS_CL")==1) cout << "ALLOW_MISS_CL=1: will set totally missing Cl's to zero.\n";
   
   
@@ -247,6 +264,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
     cout << ">> Written field list to "+config.reads("FLIST_OUT")<<endl;
   }
   free_matrix(fnz, 0, Nfields-1, 0,1);
+
   // Exit if this is the last output requested:
   if (ExitAt=="FLIST_OUT") return 1;  
   
@@ -256,7 +274,6 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   /*************************************************************/
   double WinFuncVar, *pixwin, *pixell, lsup, supindex, factor;
   Spline pixSpline;
-  
 
   // Re-scale all Cls by a constant factor:
   factor = config.readd("SCALE_CLS"); 
@@ -340,13 +357,34 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, const FZdatabase & fieldlis
   } // End of IF exponential suppression requested.
 
 
-// Print C(l)s to files if requested:
-filename = config.reads("SMOOTH_CL_PREFIX");
-if (filename!="0") {
-    for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
-	  PrintOut(filename, i, j, fieldlist, ll[i][j], Cov[i][j], NentMat[i][j]); 	  
-	}
-    cout << ">> Smoothed C(l)s written to prefix "+config.reads("SMOOTH_CL_PREFIX")<<endl;
+  // Print C(l)s to files if requested:
+  filename = config.reads("SMOOTH_CL_PREFIX");
+  if (filename!="0") {
+    // Output one Cl per file, following the input Cls:
+    if (IsPrefix) {
+      for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
+	    PrintOut(filename, i, j, fieldlist, ll[i][j], Cov[i][j], NentMat[i][j]);
+	  }
+      cout << ">> Smoothed C(l)s written to prefix "+filename<<endl;
+    }
+    // Place all Cls in one table, following the input Cls order:
+    else {
+      auxMatrix = matrix<double>(0,Nlinput, 0,NinputCls);
+      for (i=0; i<=Nlinput; i++) for (j=0; j<=NinputCls; j++) auxMatrix[i][j]=0; 
+      VecInColumn(ll[0][0], auxMatrix, 0, 1+NinputCls, Nlinput);
+      for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
+	    k = fieldlist.GetInputClOrder(i,j);
+	    VecInColumn(Cov[i][j], auxMatrix, 1+k, 1+NinputCls, Nlinput);
+	  }
+      // Output Cls table to file:
+      outfile.open(filename.c_str());
+      if (!outfile.is_open()) error("ClProcess: cannot open SMOOTH_CL_PREFIX file.");
+      PrintHeader(filelist, 1+NinputCls, &outfile);
+      PrintTable(auxMatrix, Nlinput, 1+NinputCls, &outfile);
+      free_matrix(auxMatrix, 0,Nlinput, 0,NinputCls);
+      outfile.close();
+      cout << ">> Smoothed C(l)s written to file "+filename<<endl;
+    }
   }
   if (ExitAt=="SMOOTH_CL_PREFIX") return 1;
 
@@ -620,11 +658,15 @@ if (filename!="0") {
   /***********************************************************/
 
   if (config.reads("REG_CL_PREFIX")!="0") {
-    if(dist==lognormal) Announce("Computing regularized lognormal Cls... ");
-    if(dist==gaussian)  Announce("Computing regularized Gaussian Cls... ");
+    if (dist==lognormal) Announce("Computing regularized lognormal Cls... ");
+    if (dist==gaussian)  Announce("Computing regularized Gaussian Cls... ");
+    if (IsPrefix==false) {
+      auxMatrix = matrix<double>(0,lastl, 0,NinputCls);
+      for (i=0; i<=lastl; i++) for (j=0; j<=NinputCls; j++) auxMatrix[i][j]=0;
+    }
     // LOOP over fields:
     NCls = (Nfields*(Nfields+1))/2;
-#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, m, i, j)
+#pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, m, i, j, n)
     for (k=0; k<NCls; k++) {
       l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
       m = NCls-1-k-(l*(l+1))/2;
@@ -651,13 +693,33 @@ if (filename!="0") {
 	free_vector(xi, 0, 2*Nls-1);
 	free_vector(workspace, 0, 2*Nls-1);
       }
+      
+      // Output regularized Cls or prepare for output:
+      if (IsPrefix==true) {
+	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
+      }
+      else {
+	VecInColumn(lls,    auxMatrix,   0, 1+NinputCls, Nls);
+	n = fieldlist.GetInputClOrder(i,j);
+	VecInColumn(tempCl, auxMatrix, 1+n, 1+NinputCls, Nls);
+      }
 
-      // Output:
-      filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
       free_vector(tempCl, 0, lastl);
     } // End of LOOP over fields. 
     Announce();
-    cout << ">> Regularized lognormal C(l) written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
+
+    if (IsPrefix==true) cout << ">> Regularized C(l)s written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
+    else {
+      // Output Cls table to file:
+      outfile.open(config.reads("REG_CL_PREFIX").c_str());
+      if (!outfile.is_open()) error("ClProcess: cannot open REG_CL_PREFIX file.");
+      PrintHeader(filelist, 1+NinputCls, &outfile);
+      PrintTable(auxMatrix, Nls, 1+NinputCls, &outfile);
+      free_matrix(auxMatrix, 0,lastl, 0,NinputCls);
+      outfile.close();
+      cout << ">> Regularized C(l)s written to file "+config.reads("REG_CL_PREFIX")<<endl;
+    }
+
   } // End of computing regularized lognormal Cls.
   
 
@@ -669,9 +731,11 @@ if (filename!="0") {
     free_vector(DLTweights, 0, 4*Nls-1); 
     Announce();
   }
-  
+
   // Exit if this is the last output requested:
   if (ExitAt=="REG_CL_PREFIX") return 1;
 
+
+  free_vector(filelist, 0, NinputCls-1);
   return 0; // Any return in the middle of this function returns 1.
 }

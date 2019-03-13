@@ -30,6 +30,8 @@ void Announce(std::string message = "done");
 // Checking strings:
 bool IsNumber(std::string str);
 int str2int(std::string str);
+// Output:
+void PrintHeader(std::string *labels, int Nentries, std::ostream *output = &std::cout);
 
 /*** TEMPLATES ***/
 
@@ -238,7 +240,8 @@ type *LoadList(std::string filename, long *nitems, int offset=0) {
   return list;
 }
 
-// Print table:
+
+// Print table to file:
 template <typename type>
 void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {
   long i, j;
@@ -254,7 +257,7 @@ void PrintTable(type **table, long nrows, long ncols, std::ostream *output = &st
 }
 
 
-// Print table:
+// Print transposed table to file:
 template <typename type>
 void PrintVecs(type **table, long nrows, long ncols, std::ostream *output = &std::cout, int offset=0) {
   long i, j;
