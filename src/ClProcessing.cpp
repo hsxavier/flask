@@ -57,6 +57,18 @@ int GetGaussCorr(double *gXi, double *lnXi, int XiLength, double mean1, double s
 }
 
 
+// Function that returns a Cl label according to two Fields i and j:
+std::string Fields2Label(int i, int j, const FZdatabase & fieldlist) {
+  int af, az, bf, bz;
+  char message[100];
+  std::string label;
+  fieldlist.Index2Name(i, &af, &az); fieldlist.Index2Name(j, &bf, &bz); 
+  sprintf(message, "Cl-f%dz%df%dz%d",af,az,bf,bz);
+  label.assign(message);
+  return label;
+}
+
+
 /*** Export function y(x) for the field combination [i,j] to file ***/
 std::string PrintOut(std::string prefix, int i, int j, const FZdatabase & fieldlist, double *x, double *y, int length) {
   int af, az, bf, bz;
@@ -361,7 +373,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, FZdatabase & fieldlist, con
   filename = config.reads("SMOOTH_CL_PREFIX");
   if (filename!="0") {
     // Output one Cl per file, following the input Cls:
-    if (IsPrefix) {
+    if (filename.substr(filename.length()-4,4)!=".dat") {
       for(i=0; i<Nfields; i++) for(j=0; j<Nfields; j++) if (IsSet[i][j]==1) {
 	    PrintOut(filename, i, j, fieldlist, ll[i][j], Cov[i][j], NentMat[i][j]);
 	  }
@@ -369,6 +381,7 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, FZdatabase & fieldlist, con
     }
     // Place all Cls in one table, following the input Cls order:
     else {
+      if (IsPrefix==true) error("ClProcess: prefix CL_PREFIX to single file (.dat) SMOOTH_CL_PREFIX is currently not implemented.");
       auxMatrix = matrix<double>(0,Nlinput, 0,NinputCls);
       for (i=0; i<=Nlinput; i++) for (j=0; j<=NinputCls; j++) auxMatrix[i][j]=0; 
       VecInColumn(ll[0][0], auxMatrix, 0, 1+NinputCls, Nlinput);
@@ -656,23 +669,27 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, FZdatabase & fieldlist, con
   /***********************************************************/
   /*** PART 4: Obtain regularized input Cls if requested   ***/
   /***********************************************************/
+  std::string *header;
 
-  if (config.reads("REG_CL_PREFIX")!="0") {
+  prefix = config.reads("REG_CL_PREFIX");
+  if (prefix!="0") {
     if (dist==lognormal) Announce("Computing regularized lognormal Cls... ");
     if (dist==gaussian)  Announce("Computing regularized Gaussian Cls... ");
-    if (IsPrefix==false) {
-      auxMatrix = matrix<double>(0,lastl, 0,NinputCls);
-      for (i=0; i<=lastl; i++) for (j=0; j<=NinputCls; j++) auxMatrix[i][j]=0;
+    NCls = (Nfields*(Nfields+1))/2;
+    if (prefix.substr(prefix.length()-4,4)==".dat") {
+      header = vector<std::string>(0, NCls);
+      header[0].assign("l");
+      auxMatrix  = matrix<double>(0,lastl, 0,NCls);
+      for (i=0; i<=lastl; i++) for (j=0; j<=NCls; j++) auxMatrix[i][j]=0;
     }
     // LOOP over fields:
-    NCls = (Nfields*(Nfields+1))/2;
 #pragma omp parallel for schedule(dynamic) private(tempCl, xi, workspace, filename, l, m, i, j, n)
     for (k=0; k<NCls; k++) {
       l = (int)((sqrt(8.0*(NCls-1-k)+1.0)-1.0)/2.0);
       m = NCls-1-k-(l*(l+1))/2;
       i = Nfields-1-l;
       j = Nfields-1-m;
-	
+
       // Copy the Cl to a vector:
       tempCl = vector<double>(0, lastl);
       for (l=0; l<Nls; l++) tempCl[l] = CovByl[l]->data[i*Nfields+j];
@@ -695,27 +712,33 @@ int ClProcess(gsl_matrix ***CovBylAddr, int *NlsOut, FZdatabase & fieldlist, con
       }
       
       // Output regularized Cls or prepare for output:
-      if (IsPrefix==true) {
-	filename=PrintOut(config.reads("REG_CL_PREFIX"), i, j, fieldlist, lls, tempCl, Nls);
+      if (prefix.substr(prefix.length()-4,4)!=".dat") {
+	filename=PrintOut(prefix, i, j, fieldlist, lls, tempCl, Nls);
       }
       else {
-	VecInColumn(lls,    auxMatrix,   0, 1+NinputCls, Nls);
-	n = fieldlist.GetInputClOrder(i,j);
-	VecInColumn(tempCl, auxMatrix, 1+n, 1+NinputCls, Nls);
+	header[1+k] = Fields2Label(i, j, fieldlist);
+	//VecInColumn(lls,    auxMatrix,   0, 1+NCls, Nls);
+	//n = fieldlist.GetInputClOrder(i,j);
+	//VecInColumn(tempCl, auxMatrix, 1+n, 1+NCls, Nls);
+	VecInColumn(tempCl, auxMatrix, 1+k, 1+NCls, Nls);
       }
 
       free_vector(tempCl, 0, lastl);
     } // End of LOOP over fields. 
     Announce();
 
-    if (IsPrefix==true) cout << ">> Regularized C(l)s written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
+    if (prefix.substr(prefix.length()-4,4)!=".dat") 
+      cout << ">> Regularized C(l)s written to prefix "+config.reads("REG_CL_PREFIX")<<endl;
     else {
       // Output Cls table to file:
-      outfile.open(config.reads("REG_CL_PREFIX").c_str());
+      //if (IsPrefix==true) error("ClProcess: prefix CL_PREFIX to single file (.dat) REG_CL_PREFIX is currently not implemented.");
+      outfile.open(prefix.c_str());
       if (!outfile.is_open()) error("ClProcess: cannot open REG_CL_PREFIX file.");
-      PrintHeader(filelist, 1+NinputCls, &outfile);
-      PrintTable(auxMatrix, Nls, 1+NinputCls, &outfile);
-      free_matrix(auxMatrix, 0,lastl, 0,NinputCls);
+      PrintHeader(header, 1+NCls, &outfile);
+      VecInColumn(lls, auxMatrix, 0, 1+NCls, Nls);
+      PrintTable(auxMatrix, Nls, 1+NCls, &outfile);
+      free_matrix(auxMatrix, 0,lastl, 0,NCls);
+      free_vector(header, 0, NCls);
       outfile.close();
       cout << ">> Regularized C(l)s written to file "+config.reads("REG_CL_PREFIX")<<endl;
     }

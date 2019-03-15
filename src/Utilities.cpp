@@ -311,6 +311,9 @@ int str2int(std::string str) {
 void PrintHeader(std::string *labels, int Nentries, std::ostream *output) {
   int i;
   *output << "# ";
-  for (i=0; i<Nentries; i++) *output << labels[i] << " ";
+  for (i=0; i<Nentries; i++) {
+    if (labels[i].size()>0) *output << labels[i] << " ";
+    else *output << "EmptyCol" << " ";
+  }
   *output << std::endl;
 }

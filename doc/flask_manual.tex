@@ -554,8 +554,20 @@ each one is also provided in {\tt example.config}):
 \item {\tt CL\_PREFIX:} This takes a string that represents the path (including a prefix) to all 
   power spectra $C^{ij}(\ell)$ required to specify the statistical properties of the set of fields 
   listed in the fields information file specified by {\tt FIELDS\_INFO}. Each $C^{ij}(\ell)$ must 
-  be in a separate file with two columns ($\ell$ and $C^{ij}(\ell)$). This string is only used 
+  be in a separate file with two columns [$\ell$ and $C^{ij}(\ell)$] and must be named with the 
+  pattern $[prefix]${\tt f}$[f_i]${\tt z}$[z_i]${\tt f}$[f_j]${\tt z}$[z_j]${\tt .dat}. This string is only used 
   if {\tt CHOL\_IN\_PREFIX} is set to zero.
+
+  It is also possible to pass a single {\tt .dat} file to {\tt CL\_PREFIX} containing all required 
+  $C^{ij}(\ell)$s. In this case, the file must have the multipole $\ell$ in the first column and 
+  the $C^{ij}(\ell)$s in the following columns, and the header must be: 
+  ``{\tt \# l Cl-f}$[f_i]${\tt z}$[z_i]${\tt f}$[f_j]${\tt z}$[z_j]$ 
+  {\tt Cl-f}$[f_k]${\tt z}$[z_k]${\tt f}$[f_n]${\tt z}$[z_n]$ {\tt  ~Cl-}...''. The ``{\tt Cl-}'' 
+  in this header's example can actually be any string (the important part is the 
+  $[f_i]${\tt z}$[z_i]${\tt f}$[f_j]${\tt z}$[z_j]$ pattern). The power spectra can be 
+  arranjed in any order. If the string passed to {\tt CL\_PREFIX} ends in {\tt .dat}, {\sc Flask} 
+  will assume the file is such a table. Otherwise, it will assume it is a prefix for individual 
+  $C^{ij}(\ell)$ files.
 
 \item {\tt ALLOW\_MISS\_CL:} This can be {\tt 0} or {\tt 1}. If {\tt 0}, {\sc flask} will abort 
   if any required $C^{ij}(\ell)$ is not found. If {\tt 1}, the code will assume that the missing 
@@ -795,18 +807,25 @@ each one is also provided in {\tt example.config}):
   and the exponential suppression according to {\tt SUPPRESS\_L} and {\tt SUP\_INDEX} 
   keywords. Set to {\tt 0} for no output.
 
+  If the string passed to {\tt SMOOTH\_CL\_PREFIX} ends in {\tt .dat}, all $C^{ij}(\ell)$s will 
+  be written to a single file instead of individual files. 
+
 \item {\tt XIOUT\_PREFIX:} Path with prefix for angular correlation functions $\xi^{ij}(\theta)$, 
   written as two column (angle $\theta$ in degrees and $\xi^{ij}(\theta)$) text files. 
-  Currently it can only be calculated if {\tt DIST: LOGNORMAL}. Set to {\tt 0} for no output.
+  Currently it can only be calculated if {\tt DIST: LOGNORMAL} and there is no option of 
+  outputting all $\xi^{ij}(\theta)$ to a single {\tt .dat} file. Set to {\tt 0} for no output. 
+  
 
 \item {\tt GXIOUT\_PREFIX:} Path, including a prefix, for angular correlation functions 
   $\xi^{ij}_{\nv{g}}(\theta)$ of the associated Gaussian fields, written as two column 
   (angle $\theta$ in degrees and $\xi^{ij}_{\nv{g}}(\theta)$) text files. This is only calculated if the 
-  input fields are lognormal. Set to {\tt 0} for no output.
+  input fields are lognormal. Set to {\tt 0} for no output. Currently there is no option of 
+  outputting all $\xi^{ij}(\theta)$ to a single {\tt .dat} file.
 
 \item {\tt GCLOUT\_PREFIX:} Prefix (including path) for angular power spectra $C_{\nv{g}}^{ij}(\ell)$ 
   of the associated Gaussian fields. This is only calculated if {\tt DIST: LOGNORMAL}. 
-  Set to {\tt 0} for no output.
+  Set to {\tt 0} for no output. Currently there is no option of 
+  outputting all $\xi^{ij}(\theta)$ to a single {\tt .dat} file.
 
 \item {\tt COVL\_PREFIX:} Path plus prefix for the Gaussian $a^{i}_{\ell m}$s covariance matrices 
   [for a fixed $\ell$, $C_{\nv{g}}^{ij}(\ell)$ is the element $(i,j)$ of the covariance matrix]. 
@@ -818,7 +837,10 @@ each one is also provided in {\tt example.config}):
 
 \item {\tt REG\_CL\_PREFIX:} Prefix (including path) for the regularised input $C^{ij}(\ell)$s. 
   In case {\tt DIST: LOGNORMAL}, the $C^{ij}(\ell)$s output here are for the lognormal fields, not for 
-  the auxiliary Gaussian fields. For no output, set this keyword to {\tt 0}.
+  the auxiliary Gaussian fields. For no output, set this keyword to {\tt 0}. If the string passed to 
+  this keyword ends in {\tt .dat}, all regularized $C^{ij}(\ell)$s are written to a single file. 
+  Note that the order the $C^{ij}(\ell)$s appear in this file will follow the order in the fields 
+  information file passed to {\tt FIELDS\_INFO}, not the order in the file passed to {\tt CL\_PREFIX}. 
 
 \item {\tt CHOLESKY\_PREFIX:} Path plus prefix for the outcome of the Cholesky decomposition 
   as implemented by the \emph{GNU Scientific Library} 
@@ -1074,6 +1096,11 @@ In case you use {\sc class}\footnote{\tt{\href{http://class-code.net/}{http://cl
 {\tt src/scripts} folder to create the fields information file corresponding to {\sc class} and 
 {\sc camb sources} input ({\tt .ini}) files. See Sec. \ref{sec:aux} and the scripts' docstring for more information.
 
+Since March 2019, it is also possible to pass a single file ending by {\tt .dat} to 
+{\tt CL\_PREFIX} containing all required power spectra. See Sec. \ref{sec:cls} for 
+more details. 
+
+
 \subsection{Angular power spectra files}
 \label{sec:cls}
 
@@ -1093,14 +1120,27 @@ Some public codes available to perform such calculations are:
 {\sc camb sources}\footnote{\tt{\href{http://camb.info/sources}{http://camb.info/sources}}}
 \citep{Challinor11x}.
 
-In the current implementation, the $C_{\nv{in}}^{ij}(\ell)$ files must be named as explained in 
-\ref{sec:fields-info} and must have two columns: $\ell$ and $C_{\nv{in}}^{ij}(\ell)$ (no headers 
-allowed here). The $C_{\nv{in}}^{ij}(\ell)$ is the power spectra itself and not something like 
+In the current implementation, the $C_{\nv{in}}^{ij}(\ell)$s can be passed to {\sc flask} in two ways:
+\begin{itemize}
+\item As individual files: these must be named as explained in \ref{sec:fields-info} and must 
+have two columns: $\ell$ and $C_{\nv{in}}^{ij}(\ell)$ (no headers allowed here). The $C_{\nv{in}}^{ij}(\ell)$ 
+is the power spectra itself and not something like 
 $l(l+1)/(2\pi)\cdot C_{\nv{in}}^{ij}(\ell)$. They are interpolated by the code so it is not necessary 
 to specify them at every $\ell$ or at integer $\ell$s. For the user's convenience, {\sc python} 
 scripts called {\tt prepClassInput.py} and {\tt prepCambInput.py} are available in {\sc flask}'s 
 {\tt src/scripts} folder that can translate {\sc class} and {\sc camb sources} output power spectra 
 into {\sc flask} input power spectra. See Sec. \ref{sec:aux} and the scripts' docstring for more information. 
+
+\item As a table in a single file (ending by {\tt .dat}): the first column must be $\ell$ 
+and the following ones the  $C_{\nv{in}}^{ij}(\ell)$s. In the example given by 
+Fig. \ref{fig:fields-info}, we could have something like {\tt CL\_PREFIX:} 
+{\tt data/testCl.dat} in the configuration file, and this file would contain 
+22 columns [the first one for $\ell$ and the remaining ones for the 21 required 
+$C^{ij}(\ell)$s]. This file must have a header starting with {\tt \#}, followed 
+by column labels separated by spaces. The labels of the power spectra columns must 
+contain the pattern $[f_i]${\tt z}$[z_i]${\tt f}$[f_j]${\tt z}$[z_j]$ indicating 
+to which field and redshift slice pairs they correspond to.
+\end{itemize}
 
 \section{Auxiliary codes}
 \label{sec:aux} 
@@ -1261,6 +1301,30 @@ The idea is that as {\sc flask} is updated, keywords might be added or removed,
 and this scripts helps the user to make previous configuration files compatible 
 with new versions of the code by comparing them to the new {\tt example.config} 
 file. Check the script comments for more information.   
+
+\subsection{{\tt joinClFiles.py}}
+\label{sec:joinClFiles}
+
+This {\sc python} script takes as input an arbitrary number of individual 
+power spectra files following {\sc flask}'s naming convention and put them 
+into a single file, whose columns will be named {\tt l} (for the multipole numbers 
+$\ell$) and the same as the original filenames (for the power spectra columns), 
+without the directories and {\tt .dat} extension. It takes as input the individual 
+$C^{ij}(\ell)$ files and the output file (that must be the last input passed to this script).
+
+\subsection{{\tt MathMap.py}}
+\label{sec:MathMap}
+
+This {\sc python} script allows mathematical operations to be made with {\sc healpix} 
+maps with the same $N_{\mathrm{side}}$ directly from the command line. The operations are 
+made pixel-wise. It allows for addition, subtraction, multiplication, division and 
+exponentiation, as well as parenthesis. For more information, check its docstring by 
+running the script without any arguments. An arbitrary number of maps can be operated on, 
+and they are referred to by their filenames. It is recommended to always separate all 
+terms passed to the script (operators, parenthesis and filenames) by spaces, to avoid 
+confusion. Note that parenthesis, multiplication and exponentiation are referred to 
+by tailored symbols.
+
 
 %%%% Bibliografia %%%%
 \bibliographystyle{apalike}
