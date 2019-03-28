@@ -14,7 +14,7 @@ OBJ  = ../obj
 SRC  = ../src
 
 # Healpix location:
-HEALDIR  =  /home/skems/prog/Healpix_3.31
+HEALDIR  =  /home/skems/prog/Healpix_3.50_2018Dec10/Healpix_3.50
 HEALDATA = $(HEALDIR)/data
 CXXHEAL  = -I$(HEALDIR)/src/cxx/generic_gcc/include
 LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
@@ -25,10 +25,6 @@ LDHEAL   = -L$(HEALDIR)/src/cxx/generic_gcc/lib
 #LDFITS   = -L/path/to/cfitsio/libraries
 #CXXGSL   = -I/path/to/gsl/headers/folder
 #LDGSL    = -L/path/to/gsl/libraries/folder
-
-# Other compiler flags:
-CXXOMP   = -fopenmp
-LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp -lfftpack -lc_utils -lgomp
 
 # Options for gina:
 ifeq ($(HOSTNAME), gina.iag.usp.br)
@@ -75,12 +71,24 @@ endif
 
 # Get Healpix version and check if it includes their own complex number class:
 HEALVERSION := $(shell grep -o '[0-9]*\.[0-9]*' $(HEALDIR)/Version)
-USEXCOMPLEX := $(shell echo "$(HEALVERSION) < 3.30" | bc) # Set to 1 if Healpix version < 3.30, 0 otherwise. 
+USEXCOMPLEX := $(shell echo "$(HEALVERSION) < 3.30" | bc) # Set to 1 if Healpix version < 3.30, 0 otherwise.
+USEFFTPACK  := $(shell echo "$(HEALVERSION) < 3.50" | bc) # Set to 1 if Healpix version < 3.50, 0 otherwise.
+# Set FFTFLAG according to Healpix version:
+ifeq ($(USEFFTPACK), 1)
+FFTFLAG = -lfftpack
+else
+FFTFLAG = -lpocketfft
+endif
 # Get code version:
 FLASKCOMMIT := $(shell git rev-parse --short HEAD)
 ifeq ($(FLASKCOMMIT), )
 FLASKCOMMIT = missing
 endif
+
+# Other compiler flags:
+CXXOMP   = -fopenmp
+LIBS     = -lgsl -lgslcblas -lhealpix_cxx -lcxxsupport -lcfitsio -lsharp $(FFTFLAG) -lc_utils -lgomp
+
 
 # Dynamic defines (#define that are set during compilation time, by passing instruction to compiler):
 VCONTROL   = -D FLASKCOMMIT=\"$(FLASKCOMMIT)\"

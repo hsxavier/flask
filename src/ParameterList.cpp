@@ -30,7 +30,6 @@ ParameterList::ParameterList (const char *filename) {
 // Finds on the ParDef namespace the parameter mentioned in file.
 int ParameterList::findpar (std::string word) const {
   using namespace ParDef;
-  void warning(const std::string message);
   int index=0;
   word=word.substr(0,word.size()-1);
   while (index<npars && par_name[index]!=word) index++;
@@ -41,7 +40,6 @@ int ParameterList::findpar (std::string word) const {
 // Returns int value of parameter (at pos if array).
 int ParameterList::readi(int index, int pos) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50];
   bool flag_noElement=0;
   switch (list[index].type) {
@@ -71,7 +69,6 @@ int ParameterList::readi(int index, int pos) const {
     {sprintf(message,"ParameterList::readi<id>: element %s[%d] inexists.",list[index].name,pos); error (message);}
 }
 int ParameterList::readi(std::string name, int pos) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::readi<name>: cannot find parameter "+name+".");
@@ -80,7 +77,6 @@ int ParameterList::readi(std::string name, int pos) const {
 // Returns double value of parameter (at pos if array).
 double ParameterList::readd(int index, int pos) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50];
   bool flag_noElement=0;
   switch (list[index].type) {
@@ -110,7 +106,6 @@ double ParameterList::readd(int index, int pos) const {
     {sprintf(message,"ParameterList::readd<id>: element %s[%d] inexists.",list[index].name,pos); error (message);}
 }
 double ParameterList::readd(std::string name, int pos) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::readd<name>: cannot find parameter "+name+".");
@@ -119,7 +114,6 @@ double ParameterList::readd(std::string name, int pos) const {
 // Returns char value of parameter.
 char ParameterList::readc(int index, int pos) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50];
   bool flag_noElement=0;
   switch (list[index].type) {
@@ -146,7 +140,6 @@ char ParameterList::readc(int index, int pos) const {
     {sprintf(message,"ParameterList::readc<id>: element %s[%d] inexists.",list[index].name,pos); error (message);}
 }
 char ParameterList::readc(std::string name, int pos) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::readc<name>: cannot find parameter "+name+".");
@@ -155,13 +148,11 @@ char ParameterList::readc(std::string name, int pos) const {
 // Returns string value of parameter.
 std::string ParameterList::reads(int index) const {
   using namespace ParDef;
-  void error (const std::string message);
   if (list[index].type==s) return list[index].value.cvec;
   if (list[index].type==ph) return list[index].value.cvec;
   else error("ParameterList::reads<id>: not suited for type "+typelabel[list[index].type]);
 }
 std::string ParameterList::reads(std::string name) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::reads<name>: cannot find parameter "+name+".");
@@ -172,7 +163,6 @@ std::string ParameterList::reads(std::string name) const {
 // Copy parameter int value to int variable.
 void ParameterList::copy (int index, long *value) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50];
   if (index >=npars) // Error in case index does not exist.
     {sprintf(message,"ParameterList::copy<id,int>: unkown index %d.",index); error (message);}
@@ -194,7 +184,6 @@ void ParameterList::copy (int index, long *value) const {
   }
 }
 void ParameterList::copy (std::string name, long *value) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::copy<name,int>: cannot find parameter "+name+".");
@@ -203,7 +192,6 @@ void ParameterList::copy (std::string name, long *value) const {
 // Copy parameter double value to double variable.
 void ParameterList::copy (int index, double *value) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50]; 
   if (index >=npars) // Error in case index does not exist.
     {sprintf(message,"ParameterList::copy<id,double>: unkown index %d.",index); error (message);}
@@ -225,7 +213,6 @@ void ParameterList::copy (int index, double *value) const {
   }
 }
 void ParameterList::copy (std::string name, double *value) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::copy<name,double>: cannot find parameter "+name+".");
@@ -236,7 +223,6 @@ void ParameterList::copy (std::string name, double *value) const {
 // Copy parameter char value to char variable.
 void ParameterList::copy (int index, char *value) const {
   using namespace ParDef;
-  void error (const std::string message);
   char message[50]; 
   if (index >=npars) // Error in case index does not exist.
     {sprintf(message,"ParameterList::copy<id,char>: unkown index %d.",index); error (message);} 
@@ -254,7 +240,6 @@ void ParameterList::copy (int index, char *value) const {
   }
 }
 void ParameterList::copy (std::string name, char *value) const {
-  void error (const std::string message);
   int index;
   index = findpar(name+":");
   if (index < 0) error ("ParameterList::copy<name,char>: cannot find parameter "+name+".");
@@ -267,8 +252,6 @@ void ParameterList::load (const char *filename) {
   using std::ifstream;
   using std::string;
   using namespace ParDef;
-  void error (const std::string message);
-  void warning (const std::string message);
   ifstream parfile;
   string word;
   int index;
@@ -337,8 +320,6 @@ void ParameterList::load (const char *filename) {
 void ParameterList::lineload (int argc, char *argv[]) {
   using std::string;
   using namespace ParDef;
-  void error (const std::string message);
-  void warning (const std::string message);
   char word[MAXPARNAME+2];
   int index, n=2, parupdated=0;
   
@@ -417,7 +398,6 @@ void ParameterList::lineload (int argc, char *argv[]) {
 void ParameterList::show (std::ostream * output) const {
   using namespace ParDef;
   using std::endl;
-  void warning (const std::string message);
   int i;
   const int numWidth=8, typeWidth=10;
   
