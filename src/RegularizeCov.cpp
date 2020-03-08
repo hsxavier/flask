@@ -145,7 +145,7 @@ void GetDirection(gsl_matrix *direction, double step, gsl_matrix *input) {
 
 // Turns a symmetric matrix A into a positive definite matrix with the least possible change: 
 int RegularizeCov(gsl_matrix * A, const ParameterList & config) {
-  char message[100];
+  char message[120];
   int method, status, i, j, k;
   double minDiag, addFrac;
   const int none=0, frobenius=1, stepper=2, maxit=9;

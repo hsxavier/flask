@@ -40,7 +40,7 @@ int ParameterList::findpar (std::string word) const {
 // Returns int value of parameter (at pos if array).
 int ParameterList::readi(int index, int pos) const {
   using namespace ParDef;
-  char message[50];
+  char message[100];
   bool flag_noElement=0;
   switch (list[index].type) {
   case i1:
@@ -77,7 +77,7 @@ int ParameterList::readi(std::string name, int pos) const {
 // Returns double value of parameter (at pos if array).
 double ParameterList::readd(int index, int pos) const {
   using namespace ParDef;
-  char message[50];
+  char message[100];
   bool flag_noElement=0;
   switch (list[index].type) {
   case d1:
@@ -114,7 +114,7 @@ double ParameterList::readd(std::string name, int pos) const {
 // Returns char value of parameter.
 char ParameterList::readc(int index, int pos) const {
   using namespace ParDef;
-  char message[50];
+  char message[100];
   bool flag_noElement=0;
   switch (list[index].type) {
   case c:
