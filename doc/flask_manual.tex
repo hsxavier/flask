@@ -145,14 +145,16 @@ library to input and output FITS files. Apart from {\sc healpix}, all the remain
 be available on Linux and Mac repositories. {\sc Healpix} however should be easy to install (just 
 follow their instructions); {\sc Flask} requires version 3.11 or later of the C++ {\sc healpix} 
 implementation due to the {\tt T\_Healpix\_Base<I>::boundaries} function, introduced in version 3.11. 
-{\sc Flask} has been fully operational under {\sc healpix} versions 3.11, 3.20 and (since January 2017) 3.31.
+{\sc Flask} has been fully operational under {\sc healpix} versions 3.11, 3.20, 3.31, 3.50 and
+(since March 8th, 2020) 3.60.
 
 So far {\sc Flask} has been tested only on Linux distributions -- Scientific Linux 5.6 and Ubuntu 14.04 -- 
-and compiled with {\tt g++} (GCC) versions 4.4.7, 4.8.1 and 4.8.4.   
+and compiled with {\tt g++} (GCC) versions 4.4.7, 4.8.1, 4.8.4 and 7.4.0.   
 Besides the main code and other routines in {\sc C++}, {\sc flask} also includes auxiliary {\sc python} 
-and {\sc shell} scripts. These were tested in {\sc bash} shell and {\sc python} versions 2.7.3 and 2.7.6. 
+and {\sc shell} scripts. These were tested in {\sc bash} shell and {\sc python} versions 2.7.3 and 2.7.6.
 The {\sc python} scripts require a few packages like {\sc numpy}, {\sc scipy} and {\sc healpy} 
 (which can be installed by following {\sc healpix} instructions). Check the scripts for further dependencies.  
+Transition to {\sc python} 3 is under way.
 
 \section{Compiling}
 \label{sec:compiling}
@@ -183,6 +185,16 @@ After changing the {\tt Makefile}, run the command {\tt make} in the {\tt src} d
 executables will be built in {\sc flask} {\tt bin} sub-directory. You may add this sub-directory to 
 your {\sc path} environment variable in order to be able to run {\sc flask} anywhere; otherwise, 
 you will require to run it from there or to provide the full path as usual. 
+
+\subsubsection{Note on Healpix versions}
+
+{\sc Healpix} is constantly updated, and some updates may remove and substitute functions,
+change location of files or library dependencies, all of which may prevent {\sc flask} from
+compiling. The {\sc flask} code and the {\tt Makefile} in particular are updated from time to time
+to allow {\sc flask} to run with the latest {\sc healpix} version as well as the previous versions
+(the {\sc Makefile} finds out the {\sc healpix} version and tries to set the requirements accordingly).
+If you run into trouble compiling, check if your {\sc healpix} version is currently supported by
+{\sc flask} (these are listed in Sec. \ref{sec:requirements}).
 
 
 \chapter{Usage}
