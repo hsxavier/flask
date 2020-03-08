@@ -1,11 +1,12 @@
 #include <healpix_map_fitsio.h> // For FITS files.
-#include <levels_facilities.h>  // For something related to Healpix I don't remember.
 #include <iomanip>              // For setprecision.
 #include "GeneralOutput.hpp"    // I don't know why, maybe to avoid mismatches.
 #include "Utilities.hpp"        // For warnings, errros and dynamic allocation.
 #include "flask_aux.hpp"        // For n2fz function.
 #include "FieldsDatabase.hpp"
-
+#if USEMAP2TGA
+#include <levels_facilities.h>  // To use Healpix v<3.50 map2tga_module function.
+#endif
 
 /***********************/
 /*** Matrices output ***/
@@ -349,6 +350,7 @@ void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & c
       if(inform==1) std::cout << ">> "<<keyword<< "["<<i<<"] written to "<<filename<<std::endl;
       // Write to TGA if requested:
       if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+#if USEMAP2TGA 
 	sprintf(message2, "%sf%dz%d.tga", tempstr.c_str(), f, z);
 	arg[1]=message; arg[2]=message2; arg[3]=opt1;
 	map2tga_module(4, (const char **)arg);
@@ -358,6 +360,9 @@ void GeneralOutputFITS(Healpix_Map<MAP_PRECISION> *mapf, const ParameterList & c
 	  system(message2);
 	  if(inform==1) std::cout << "-- "<<filename<<" file removed."<<std::endl;
 	}
+#else
+	warning("Using FITS format (TGA format only available for Healpix version < 3.60).");
+#endif
       }
     }
   }
@@ -523,6 +528,7 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+#if USEMAP2TGA
       tgafile = filename;
       tgafile.replace(tgafile.find(".fits"),5,".tga");
       sprintf(message1, "%s", filename.c_str());
@@ -535,6 +541,9 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
 	system(message2);
 	if(inform==1) std::cout << "-- "<<filename<<" file removed."<<std::endl;
       }
+#else
+      warning("Using FITS format (TGA format only available for Healpix version < 3.60).");
+#endif
     }
   } 
 }
@@ -556,6 +565,7 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+#if USEMAP2TGA
       tgafile = filename;
       tgafile.replace(tgafile.find(".fits"),5,".tga");
       sprintf(message1, "%s", filename.c_str());
@@ -568,6 +578,9 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
 	system(message2);
 	if(inform==1) std::cout << "-- "<<filename<<" file removed."<<std::endl;
       }
+#else
+      warning("Using FITS format (TGA format only available for Healpix version < 3.60).");
+#endif
     }
   } 
 }
@@ -589,6 +602,7 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+#if USEMAP2TGA
       tgafile = filename;
       tgafile.replace(tgafile.find(".fits"),5,".tga");
       sprintf(message1, "%s", filename.c_str());
@@ -601,6 +615,9 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & kmap, const Healpix_Map<MA
 	system(message2);
 	if(inform==1) std::cout << "-- "<<keyword<<" FITS file removed."<<std::endl;
       }
+#else
+      warning("Using FITS format (TGA format only available for Healpix version < 3.60).");
+#endif
     }
   } 
 }
@@ -620,6 +637,7 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
     if(inform==1) std::cout << ">> "<<keyword<<" written to "<<filename<<std::endl;
     // Write to TGA if requested:
     if (config.readi("FITS2TGA")==1 || config.readi("FITS2TGA")==2) {
+#if USEMAP2TGA
       tgafile = filename;
       tgafile.replace(tgafile.find(".fits"),5,".tga");
       sprintf(message1, "%s", filename.c_str());
@@ -632,6 +650,9 @@ void GeneralOutput(const Healpix_Map<MAP_PRECISION> & map, const ParameterList &
 	system(message2);
 	if(inform==1) std::cout << "-- "<<keyword<<" FITS file removed."<<std::endl;
       }
+#else
+      warning("Using FITS format (TGA format only available for Healpix version < 3.60).");
+#endif     
     }
   } 
 }
